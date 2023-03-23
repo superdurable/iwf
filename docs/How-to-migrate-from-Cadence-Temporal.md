@@ -114,7 +114,7 @@ So what about something else like:
 * Timeout and backoff retry: State start/decide APIs have default timeout and infinite backoff retry. You can customize in StateOptions.  
 * ChildWorkflow can be replaced with regular workflow + signal. See this [StackOverflow](https://stackoverflow.com/questions/74494134/should-i-use-child-workflow-or-use-activity-to-start-new-workflow) for why.
 * SignalWithStart: Use start + signal API will be the same except for more exception handling work. We have seen a lot of people don't know how to use it correctly in Cadence/Temporal. We will consider provide it in a better way in the future.
-* Long-running activity with stateful recovery(heartbeat details): this is indeed a good one that we want to add. But this is not very commonly used yet. Please let us know if you really need it. For now a workaround is use a workflow instead.
+* Long-running activity with stateful recovery(heartbeat details): this is indeed a good one that we want to add. But this is not very commonly used yet. Please let us know if you really need it. For now a workaround is use a sub workflow instead(the sub workflow can report back the status with a signal).
 
 If you believe there is something else you really need, open a [ticket](https://github.com/indeedeng/iwf/issues) or join us in the [discussion](https://github.com/indeedeng/iwf/discussions).
 
