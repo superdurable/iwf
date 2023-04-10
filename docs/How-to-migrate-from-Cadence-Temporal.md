@@ -80,14 +80,6 @@ Internally the interpreter workflow can continueAsNew without letting iWF user w
 After exceeding the history threshold(defined by numOfStateExecutionCompleted) auto continueAsNew,
 AutoContinueAsNew will carry over the pending states, along with all the internal states like DataObjects, interStateChannels, searchAttributes.
 
-_This feature is WIP._ See [this issue](https://github.com/indeedeng/iwf/issues/107) for progress.
-
-For now, the recommended workaround is to do a manual "continueAsNew" by using "TerminateIfRunning" IdReusePolicy to start a new 
-workflow execution with the same workflowId. This is almost same as Cadence/Temporal's ContinueAsNew API(an atomic operation), except for some minor difference:
-* It won't carry over Search Attributes automatically. You have to carry over them using initial search attributes by WorkflowOptions
-* The old execution will be terminated, rather than in "ContinuedAsNew" status
-
-Same as using Cadence/Temporal's ContinueAsNew API, user must ensure all the signals are drained otherwise signals could be lost.
 
 ## Non-workflow code
 Check [Client APIs](https://github.com/indeedeng/iwf#client-apis) for all the APIs that are equivalent to Cadence/Temporal client APIs.
