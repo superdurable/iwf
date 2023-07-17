@@ -1,2 +1,3 @@
-Welcome to the iwf wiki!
+Welcome to the iWF wiki!
 
+See the sidebar (on the right) for all the topics!
