@@ -1,4 +1,4 @@
-# How to migrate from Cadence/Temporal
+# Compare With Cadence/Temporal
 Migrating from Cadence/Temporal is simple and easy. It's only possible to migrate new workflow executions. Let your applications to only start new workflows in iWF. For the existing running workflows in Cadence/Temporal, keep the Cadence/Temporal workers until they are finished.
 
 ## Activity
