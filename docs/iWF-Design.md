@@ -1,0 +1,83 @@
+# High-level design
+![Screenshot 2023-07-17 at 10 22 10 AM](https://github.com/indeedeng/iwf/assets/4523955/f85011ee-6f2a-4a7c-9215-459c3630d4b4)
+
+Users define their workflow code with a new SDK “iWF SDK” and the code is running in  workers that talk to the iWF interpreter engine. 
+
+The user workflow code defines a list of [WorkflowState](https://github.com/longquanzheng/iwf/blob/main/src/com/iwf/WorkflowState.java) and kicks off a workflow execution.
+
+At any workflow state, the interpreter will call back the user workflow code to invoke some APIs (waitUntil or execute).
+Calling the `waitUntil` API will return some command requests. When the command requests are finished, the interpreter will then call user workflow code to invoke the “execute” API to return a decision. The decision will decide how to complete or transitioning to other workflow states.
+
+At any API, workflow code can mutate the data/search attributes or publish to internal channels. 
+
+![Screenshot 2023-07-17 at 10 26 32 AM](https://github.com/indeedeng/iwf/assets/4523955/f83bfec3-b544-498d-8b2a-63e64700ba66)
+
+# Interpreter workflow pseudo code 
+Below is the signature of the interpreter workflow in Java. 
+Notes 
+Config will store configuration of the execution so that the workflow knows the end point of iwf user worker to callback user workflow code(“waitUntil” and “execute”). 
+Input/output of this workflow are all binaries as the workflow doesn’t need to deserialize them. Similar as the activity input/output
+Here uses Java to demonstrate the signature because Java is more declarative. But we will use Golang to implement the workflow because the Cadence/Temporal Golang SDK is more powerful than Java SDK. Workflow thread in Golang SDK is based on goroutines which are lightweight and efficient(memory/CPU)
+
+```java
+public interface InterpreterWorkflow{
+   @WorkflowMethod
+   void start(Config config, State startState, []byte startInput);
+   @QueryMethod
+   byte[] query(String key)    
+   @SignalMethod
+   void signal(String name, byte[] value)
+}
+```
+
+Below is the implementation of the start method in “Java like” pseudo code by omitting lots of details. 
+
+```java
+public void start( State startState, byte[] startInput){
+	currentStates = new Queue( new StateExecution(startState, startInput))
+	while (currentStates.isNotEmpty()){
+		stateExecution = currentStates.pop()
+		Async.procedure( ()->{
+			decision = executeState( stateExecution )
+			if(decision.hasCompletedState){
+				return decision.completedResult
+			}else{
+		 	currentStates.pushAll(decision.allNextStateExecutions)
+			}
+		})
+     }
+}
+
+private void executeState(StateExecution currentState){
+	commandRequest = executeActivity( currentState.waitUntil, input)
+	commandResults = new Array()
+	foreach activityCommand = commandRequest.longRunActivityCommands {
+		commandResults.add ( scheduleActivity( activityCommand ) ) 
+	}
+	foreach timerCommand = commandRequest.timerCommands {
+		commandResults.add ( scheduleTimer( timerCommand ) ) 
+	}
+	foreach signalCommand = commandRequest.signalCommands {
+		commandResults.add ( waitFor( signalCommand ) ) 
+	}
+	Workflow.await( commandRequest.isReady(commandResults))
+	return executeActivity( currentState.execute, input)      
+}
+
+private boolean timerReady;
+
+private void scheduleTimer( TimerCommand timerCommand){
+    timerReady = false
+    Workflow.sleep( timerCommand.fireTimestamp - workflow.now() )
+    timerReady = true
+} 
+
+private boolean isTimerReady(){
+   return timerReady
+}
+
+
+```
+
+Note, this is the pseudo code to outline the high-level idea. The actual implementation is probably 100x more complicated. 
+
