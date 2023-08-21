@@ -31,7 +31,7 @@ To make it easier with iWF, customize the columns by clicking the button from si
 
 ## Troubleshoot & Debugging
 
-### Use QueryHandlers: GetDataObjects , GetSearchAttributes,  GetCurrentTimerInfos etc
+### Use QueryHandlers
 
 
 * GetDataObjects return all the current data attributes of a workflow.  (TODO, rename GetDataObjects to GetDataAttributes )
@@ -42,7 +42,13 @@ To make it easier with iWF, customize the columns by clicking the button from si
 
 * PrepareRPCQueryType return all the workflow states' status -- what commands are they waiting for, and what have been completed
 
+There are two fields that are most useful for debugging purpose:
+
+  * PendingStateExecutionsRequestCommands shows what are the commands a state execution is requesting
+
 ![image](https://github.com/indeedeng/iwf/assets/4523955/9d8ab362-f008-4cab-9f84-2f484960556b)
+
+
 
 
 ### Read Workflow History
