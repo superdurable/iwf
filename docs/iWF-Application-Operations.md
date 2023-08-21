@@ -42,6 +42,9 @@ To make it easier with iWF, customize the columns by clicking the button from si
 
 * PrepareRPCQueryType return all the workflow states' status -- what commands are they waiting for, and what have been completed
 
+![image](https://github.com/indeedeng/iwf/assets/4523955/9d8ab362-f008-4cab-9f84-2f484960556b)
+
+
 ### Read Workflow History
 Workflow can be used to understand how does a workflow reach to the current status.
 
@@ -68,4 +71,41 @@ Others are user signals Sent by cient.signalWorkflow API, and received by signal
 * WorkflowExecutionCompleted/Failed
 
 It contains the output of the workflow
+
+## Search for Workflows 
+To search for workflows in Temporal UI, check the [documentation](https://docs.temporal.io/visibility#search-attribute) for the search syntax. 
+
+Example search patterns:
+
+* `ExecutionStatus!='Running'` to see closed workflow
+* ExecutionStatus='Failed' to see failed workflows
+* ExecutionStatus="Failed" AND CloseTime > '2023-03-01T00:00:00.236-08:00' AND CloseTime < '2023-03-02T00:00:00.236-08:00'  to see workflows failed between 03/01 and 03/02 of 2023
+* HistoryLength>30 to find workflows that have more than 30 events
+
+On top of the Temporal system search attributes, iWF also provide three system search attributes:
+
+* IwfWorkflowType: Keyword:  
+* IwfExecutingStateIds: Keyword array
+* IwfGlobalWorkflowVersion: Int
+
+For example, you can search for workflow type that is executing a state: IwfWorkflowType='AbcWorkflow' AND IwfExecutingStateIds='StateA'  
+
+Search for executing states will be useful if you want to remove a state from the code base. Use the search query to check there is no workflow running at the state, otherwise the State API will run into error because the state is removed. 
+
+You can also use your [custom search attributes in iWF](https://github.com/indeedeng/iwf#persistence):
+
+## Register Search Attribute
+
+### In Temporal Cloud 
+In Temporal Cloud WebUI, register your new search attribute. E.g. you can add a new "RsvpEventId" as Keyword.
+
+### Not in Temporal Cloud
+For self-hosted Temporal or Cadence, use command line to register search attributes. 
+See [examples](https://github.com/indeedeng/iwf/blob/main/CONTRIBUTING.md)
+
+### Then ...
+Then in your workflow code, use persistence API to set the search attribute value. E.g. persistence.setKeyword("RsvpEventId", "eventId-123");
+In your application code, use search API to search for workflows. 
+
+Searching for workflows in WebUI will be useful for the rest operation.
 
