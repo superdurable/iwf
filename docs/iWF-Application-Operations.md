@@ -84,17 +84,17 @@ To search for workflows in Temporal UI, check the [documentation](https://docs.t
 Example search patterns:
 
 * `ExecutionStatus!='Running'` to see closed workflow
-* ExecutionStatus='Failed' to see failed workflows
-* ExecutionStatus="Failed" AND CloseTime > '2023-03-01T00:00:00.236-08:00' AND CloseTime < '2023-03-02T00:00:00.236-08:00'  to see workflows failed between 03/01 and 03/02 of 2023
-* HistoryLength>30 to find workflows that have more than 30 events
+* `ExecutionStatus='Failed'` to see failed workflows
+* `ExecutionStatus="Failed" AND CloseTime > '2023-03-01T00:00:00.236-08:00' AND CloseTime < '2023-03-02T00:00:00.236-08:00'`  to see workflows failed between 03/01 and 03/02 of 2023
+* `HistoryLength>30` to find workflows that have more than 30 events
 
 On top of the Temporal system search attributes, iWF also provide three system search attributes:
 
-* IwfWorkflowType: Keyword:  
-* IwfExecutingStateIds: Keyword array
-* IwfGlobalWorkflowVersion: Int
+* `IwfWorkflowType`: Keyword:  
+* `IwfExecutingStateIds`: Keyword array
+* `IwfGlobalWorkflowVersion`: Int
 
-For example, you can search for workflow type that is executing a state: IwfWorkflowType='AbcWorkflow' AND IwfExecutingStateIds='StateA'  
+For example, you can search for workflow type that is executing a state: `IwfWorkflowType='AbcWorkflow' AND IwfExecutingStateIds='StateA'`  
 
 Search for executing states will be useful if you want to remove a state from the code base. Use the search query to check there is no workflow running at the state, otherwise the State API will run into error because the state is removed. 
 
@@ -110,8 +110,34 @@ For self-hosted Temporal or Cadence, use command line to register search attribu
 See [examples](https://github.com/indeedeng/iwf/blob/main/CONTRIBUTING.md)
 
 ### Then ...
-Then in your workflow code, use persistence API to set the search attribute value. E.g. persistence.setKeyword("RsvpEventId", "eventId-123");
+Then in your workflow code, use persistence API to set the search attribute value. E.g. 
+```java
+persistence.setKeyword("RsvpEventId", "eventId-123");
+```
 In your application code, use search API to search for workflows. 
 
-Searching for workflows in WebUI will be useful for the rest operation.
 
+## Reset Workflows
+You can reset the workflows to the previous states. You can use [tctl](https://docs.temporal.io/tctl-v1) to perform the reset, but there are limited reset types with tctl.
+
+With iWF it's recommended to reset through the iWF service API.
+
+You can run the [HTTP script](https://github.com/indeedeng/iwf/blob/9a0f8018b409b7f4f162c2841df1348ceee5a240/script/http/local/home.http#L20) locally to invoke the reset API, or use a CURL command. 
+
+Supported resetType:
+
+* BEGINNING: reset to the beginning or the workflow history.
+* HISTORY_EVENT_ID: reset to a particular history event Id, must be used with historyEventId
+* HISTORY_EVENT_TIME: reset to a time (exclusive), must be used with historyEventTime
+* STATE_ID: reset: reset to the first time that the first time that the state is executed (note, by default the class short name is the stateId of the state). E.g. WaitAndPrepareState uses WaitAndPrepareState as the stateId. must be used with stateId
+* STATE_EXECUTION_ID: reset the the particular execution of the state. iWF use increasing number from 1,2,3... to order the state execution for the same StateId. E.g. WaitAndPrepareState-2 means the Id of the second time that state is executed. must be used with stateExecutionId 
+WorkflowRunId is optional, by default it will reset the latest/current workflow execution.
+
+skipSignalReapply is optional, When it's true, it will not reapply the signals to the new run. Recommended to true if you don't really understand what it means (big grin) 
+
+For example, to use a CURL command to reset a workflow to 
+
+`curl -X POST https://iwf-service-ihp-workflow-rsvp.sandbox.qa.indeed.net/api/v1/workflow/reset -d '{ "workflowId": "<workflowId>", "resetType": "STATE_ID", "stateId": "WaitAndPrepareState", "skipSignalReapply": true }'`
+
+
+See iWF service [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) for more details.
