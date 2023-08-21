@@ -31,7 +31,7 @@ To make it easier with iWF, customize the columns by clicking the button from si
 
 ## Troubleshoot & Debugging
 
-### Use QueryHandlers
+### Use QueryHandlers in Cadence/Temporal WebUI
 
 
 * GetDataObjects return all the current data attributes of a workflow.  (TODO, rename GetDataObjects to GetDataAttributes )
@@ -51,7 +51,7 @@ There are two fields that are most useful for debugging purpose:
 
 
 
-### Read Workflow History
+### Read Workflow History in WebUI
 Workflow can be used to understand how does a workflow reach to the current status.
 
 **These are ONLY events that you need to understand. You can ignore the others as implementation details of iWF service**
@@ -118,7 +118,9 @@ In your application code, use search API to search for workflows.
 
 
 ## Reset Workflows
-You can reset the workflows to the previous states. You can use [tctl](https://docs.temporal.io/tctl-v1) to perform the reset, but there are limited reset types with tctl.
+You can reset the workflows to the previous states. 
+
+For Temporal, you can use [tctl](https://docs.temporal.io/tctl-v1) / [temporal](https://github.com/temporalio/cli) to perform the reset, or [cadence command](https://github.com/uber/cadence#use-cadence-cli) for Cadence, but there are limited reset types with tctl/temporal/cadence.
 
 With iWF it's recommended to reset through the iWF service API.
 
@@ -137,7 +139,81 @@ skipSignalReapply is optional, When it's true, it will not reapply the signals t
 
 For example, to use a CURL command to reset a workflow to 
 
-`curl -X POST https://iwf-service-ihp-workflow-rsvp.sandbox.qa.indeed.net/api/v1/workflow/reset -d '{ "workflowId": "<workflowId>", "resetType": "STATE_ID", "stateId": "WaitAndPrepareState", "skipSignalReapply": true }'`
+`curl -X POST https://iwf-service.com/api/v1/workflow/reset -d '{ "workflowId": "<workflowId>", "resetType": "STATE_ID", "stateId": "WaitAndPrepareState", "skipSignalReapply": true }'`
 
 
 See iWF service [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) for more details.
+
+## How To Skip Timer for Workflows
+Any the timer commands can be skipped by an API call. The API is provided by iWF server for free. This can be used for operation or testing purpose. 
+
+To locate a timer to skip, either timerCommandIndex, or timerCommandId is needed, with stateExecutionId + workflowId(and optional workflowRunId). 
+
+You can also use QueryHandler GetCurrentTimerInfos in Cadence/Temporal WebUI to check what are the timers can be skipped.
+
+For example, to use a CURL command to skip a timer of a workflow 
+
+`curl -X POST https://iwf-service.com/api/v1/workflow/timer/skip -d '{ "workflowId": "<workflowId>", "workflowStateExecutionId": "WaitAndPrepareState-1", "timerCommandIndex": 0 }'`
+
+Or run t[his HTTP script](https://github.com/indeedeng/iwf/blob/9a0f8018b409b7f4f162c2841df1348ceee5a240/script/http/local/home.http#L33) in IntelliJ IDE 
+
+See iWF service [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) for more details.
+
+## How To Send a Signal Manually
+**iWF requires a format for the signalValue. Make sure you test it in QA first!**
+
+You can send a signal via Temporal WebUI
+![image](https://github.com/indeedeng/iwf/assets/4523955/40a32801-94d2-4ac5-ad52-d85e21e44591)
+
+Alternatively, use this CURL command to call iWF service:
+
+`curl -X POST https://iwf-service.com/api/v1/workflow/signal -d '{ "workflowId": "<workflowId>", "signalChannelName": "MySignalName", "signalValue": { "encoding": "jsonType", "data": "\"a string value\"" } }'`
+
+Or run t[his HTTP script](https://github.com/indeedeng/iwf/blob/9a0f8018b409b7f4f162c2841df1348ceee5a240/script/http/local/home.http#L43) in IntelliJ IDE 
+
+
+## How To Invoke RPC write manually 
+RPC write operation is implemented as a system signal. So you can send a RPC write by sending a signal with the right format.
+
+**iWF service is sensitive to the format. Make sure you test it in QA first!**
+
+
+
+```json
+[
+  {
+    "RpcInput": {
+      "data": "...",
+      "encoding": "springJackson"
+    },
+    "RpcOutput": null,
+    "UpsertDataObjects": [
+      {
+        "key": "...",
+        "value": {
+          "data": "...",
+          "encoding": "springJackson"
+        }
+      }
+    ],
+    "UpsertSearchAttributes": null,
+    "StateDecision": null,
+    "RecordEvents": null,
+    "InterStateChannelPublishing": [
+      {
+        "channelName": "..."
+      }
+    ]
+  }
+]
+```
+
+
+See iWF service [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) for more details.
+
+## More Operations
+All other operation that you can do is defined in the [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) of iWF service. All the operations supported in SDKs can be done using CURL command:
+
+* Stop a workflow ( you can also just click the button in Temporal UI to do so, but you may want to use this REST API for batch operation using a script)
+* Start a workflow
+* etc
