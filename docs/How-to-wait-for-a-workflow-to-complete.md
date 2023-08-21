@@ -1,3 +1,4 @@
+The page is using Java as example, but should be the same idea for other SDKs.
 
 You can call a Client API after starting workflow, to wait for the completion of the workflow -- getSimpleResultsWithWait  will let you wait for the completion.
 Some details about it:
