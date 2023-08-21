@@ -26,7 +26,7 @@ Finally, if this racing condition is a problem, the [workaround](https://github.
 
 For example, if a workflow want to count some ID from an RPC, like this:
 
-```
+```java
 @RPC
 public void countKeys(Context context, String key, Persistence persistence, Communication communication) {
   KeyHolder keys = persistence.getDataAttribute(DA_KEY_HOLDER KeyHolder.class);
