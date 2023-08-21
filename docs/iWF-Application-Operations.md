@@ -31,6 +31,12 @@ To make it easier with iWF, customize the columns by clicking the button from si
 
 ## Troubleshoot & Debugging
 
+### !!!Important Tips!!!
+* Let your worker service return error stacktrace as the response body to iWF server. E.g.
+  like [this example of Spring Boot using ExceptionHandler](https://github.com/indeedeng/iwf-java-samples/blob/2d500093e2aaecf2d728f78366fee776a73efd29/src/main/java/io/iworkflow/controller/IwfWorkerApiController.java#L51)
+* If you return the full stacktrace in response body, the pending activity view will show it to you! Then use
+  Cadence/Temporal WebUI to debug your application.
+
 ### Use QueryHandlers in Cadence/Temporal WebUI
 
 
