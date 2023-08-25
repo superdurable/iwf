@@ -23,7 +23,9 @@ For example, if a workflow want to count some ID from an RPC, like this:
 
 ```java
 // note that this is only supported by Temporal as backend, with enabling frontend.enableUpdateWorkflowExecution feature
-@RPC( persistenceLoadingPolicy = PARTIAL_WITH_EXCLUSIVE_LOCK, lockingKeys = [DA_KEY_COUNT, DA_KEY_HOLDER], partialLoadingKeys = [DA_KEY_COUNT, DA_KEY_HOLDER])  
+@RPC( persistenceLoadingPolicy = PARTIAL_WITH_EXCLUSIVE_LOCK, 
+      lockingKeys = [DA_KEY_COUNT, DA_KEY_HOLDER], 
+      partialLoadingKeys = [DA_KEY_COUNT, DA_KEY_HOLDER])  
 public void countKeys(Context context, String key, Persistence persistence, Communication communication) {
   KeyHolder keys = persistence.getDataAttribute(DA_KEY_HOLDER KeyHolder.class);
   Integer count = persistence.getDataAttribute(DA_KEY_COUNT, Integer.class);
