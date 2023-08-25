@@ -15,19 +15,14 @@ Level 3 happens when you enable caching in RPC, without setting the bypassCachin
 
 Level 2 is the most common case, but means there could be a racing condition of updating the values for the same workflow. Though both read and write are atomic for each, the whole read+write is NOT. 
 
-Level 1 is not supported yet. It is waiting for the [synchronous update feature ](https://github.com/temporalio/proposals/blob/master/server/update-workflow-interface/update-workflow-interface.md)in Temporal. The feature is already implemented, and available in Golang SDK, but not ready in Cloud service. ( think about this Synchronous Update = atomic [Query](https://legacy-documentation-sdks.temporal.io/java/how-to-handle-a-query-in-a-workflow-in-java) + [Signal](https://legacy-documentation-sdks.temporal.io/java/how-to-handle-a-signal-in-a-workflow-in-java)). The Temporal team is targeting to deliver it to Cloud later the year, and then iWF will support this level 1 atomicity.
+Level 1 requires to use `PARTIAL_WITH_EXCLUSIVE_LOCK` as persistence loading policy for the RPC, which is only supported for Temporal as backend.
 
-
-Note that this is the same problem with using Temporal Java SDK, and it will take a much longer time because they don’t have a plan to support this update feature in their Java SDK.
-
-If level 1 is supported(hopefully soon), then like you image, you just set the persistenceLoadingPolicy to lock the attributes to use in RPC. iWF service/Temporal will serialize all the RPCs that require locking, to execute them one by one – it won’t impact State execution, or RPCs that don’t require locking. 
-
-Finally, if this racing condition is a problem, the [workaround](https://github.com/indeedeng/iwf#persistence-loading-policy) today is to move the write part to a state execution with persistence locking, and let RPC trigger a state movement to do that.
+For Cadence as backend, if this racing condition is a problem, the [workaround](https://github.com/indeedeng/iwf#persistence-loading-policy) today is to move the write part to a state execution with persistence locking, and let RPC trigger a state movement to do that.
 
 For example, if a workflow want to count some ID from an RPC, like this:
 
 ```java
-@RPC
+@RPC( persistenceLoadingPolicy = PARTIAL_WITH_EXCLUSIVE_LOCK) // note that this is only supported by Temporal as backend
 public void countKeys(Context context, String key, Persistence persistence, Communication communication) {
   KeyHolder keys = persistence.getDataAttribute(DA_KEY_HOLDER KeyHolder.class);
   Integer count = persistence.getDataAttribute(DA_KEY_COUNT, Integer.class);
@@ -39,7 +34,8 @@ public void countKeys(Context context, String key, Persistence persistence, Comm
   }
 }
 ```
-You should do this instead because of missing level1 support:
+
+You should do this instead because of missing level1 support in Cadence as backend
 
 ```java
 @RPC
