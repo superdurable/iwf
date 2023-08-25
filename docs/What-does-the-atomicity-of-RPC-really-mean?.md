@@ -22,7 +22,8 @@ For Cadence as backend, if this racing condition is a problem, the [workaround](
 For example, if a workflow want to count some ID from an RPC, like this:
 
 ```java
-@RPC( persistenceLoadingPolicy = PARTIAL_WITH_EXCLUSIVE_LOCK) // note that this is only supported by Temporal as backend
+// note that this is only supported by Temporal as backend
+@RPC( persistenceLoadingPolicy = PARTIAL_WITH_EXCLUSIVE_LOCK) 
 public void countKeys(Context context, String key, Persistence persistence, Communication communication) {
   KeyHolder keys = persistence.getDataAttribute(DA_KEY_HOLDER KeyHolder.class);
   Integer count = persistence.getDataAttribute(DA_KEY_COUNT, Integer.class);
