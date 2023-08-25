@@ -38,7 +38,7 @@ public void countKeys(Context context, String key, Persistence persistence, Comm
 }
 ```
 
-You should do this instead because of missing level1 support in Cadence as backend
+For Cadence as backend, you should do this instead because of missing level1 support 
 
 ```java
 @RPC
