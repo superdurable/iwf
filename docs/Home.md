@@ -3,7 +3,7 @@
 * [Abstracted microservice orchestration]()
 * Employer & JobSeeker engagement
   * [in Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/engagement)
-  * [in Golang(  * [ in Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/engagement)
+  * [in Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/engagement)
 * Subscription Workflow
   * [in Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/subscription)
   * [in Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/subscription)
