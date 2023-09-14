@@ -1,4 +1,13 @@
 # High-level design
+
+An iWF application is composed of several iWF workflow workers. These workers host REST APIs as "worker APIs" for server to call. This callback pattern similar to AWS Step Functions invoking Lambdas, if you are familiar with.
+
+An application also perform actions on workflow executions, such as starting, stopping, signaling, and retrieving results by calling iWF service APIs as "service APIs".
+
+The service APIs are provided by the "API service" in iWF server. Internally, this API service communicates with the Cadence/Temporal service as its backend.
+
+In addition, the iWF server also runs the Cadence/Temporal workers as "worker service". The worker service hosts [an interpreter workflow](https://github.com/indeedeng/iwf/blob/main/service/interpreter/workflowImpl.go). This workflow implements all the core features as described above, and also things like "Auto ContinueAsNew" to let you use iWF without any scaling limitation.
+
 ![Screenshot 2023-07-17 at 10 22 10 AM](https://github.com/indeedeng/iwf/assets/4523955/f85011ee-6f2a-4a7c-9215-459c3630d4b4)
 
 Users define their workflow code with a new SDK “iWF SDK” and the code is running in  workers that talk to the iWF interpreter engine. 
