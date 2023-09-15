@@ -85,7 +85,7 @@ For Java/Python, the `waitUntil` has a default implementation so you just not im
 
 
 A full Java WorkflowState looks like:
-```
+```java
 class WaitSignalOrTimerState implements WorkflowState<Void> {
 
     @Override
@@ -117,14 +117,14 @@ class WaitSignalOrTimerState implements WorkflowState<Void> {
 
 Golang interface doesn't have default implementation. As a result, put `iwf.WorkflowStateDefaultsNoWaitUntil` into the struct to skip `waitUntil`.
 
-```
+```golang
 type state1 struct {
 	iwf.WorkflowStateDefaultsNoWaitUntil
 }
 ```
 
 For Golang a full state is like:
-```
+```golang
 type state3 struct {
 	iwf.WorkflowStateDefaults
 	svc service.MyService
@@ -150,7 +150,7 @@ func (i state3) Execute(ctx iwf.WorkflowContext, input iwf.Object, commandResult
 ```
 
 For Python, a full state is like:
-```
+```python
 class TimerOrInternalChannelState(WorkflowState[None]):
     def wait_until(self, ctx: WorkflowContext, input: T, persistence: Persistence, communication: Communication,
                    ) -> CommandRequest:
