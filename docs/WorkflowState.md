@@ -81,6 +81,7 @@ To implement a WorkflowState, just implement the:
 * [Golang interface](https://github.com/indeedeng/iwf-golang-sdk/blob/main/iwf/workflow_state.go)
 * [Python Base Class](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/workflow_state.py)
 
+#### Java
 For Java/Python, the `waitUntil` has a default implementation so you just not implement it, and SDK will skip it to invoke `execute` directly.
 
 
@@ -113,13 +114,21 @@ class WaitSignalOrTimerState implements WorkflowState<Void> {
     }
 }
 ```
-
+#### Golang
 
 Golang interface doesn't have default implementation. As a result, put `iwf.WorkflowStateDefaultsNoWaitUntil` into the struct to skip `waitUntil`.
 
 ```golang
 type state1 struct {
 	iwf.WorkflowStateDefaultsNoWaitUntil
+}
+```
+
+But if it needs waitUntil:
+
+```golang
+type state1 struct {
+	iwf.WorkflowStateDefaults
 }
 ```
 
@@ -148,7 +157,7 @@ func (i state3) Execute(ctx iwf.WorkflowContext, input iwf.Object, commandResult
 	return iwf.GracefulCompletingWorkflow, nil
 }
 ```
-
+#### Python
 For Python, a full state is like:
 ```python
 class TimerOrInternalChannelState(WorkflowState[None]):
