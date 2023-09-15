@@ -153,4 +153,15 @@ func (e OrchestrationWorkflow) GetCommunicationSchema() []iwf.CommunicationMetho
 		iwf.RPCMethodDef(e.Swap, nil),
 	}
 }
+
+func (e OrchestrationWorkflow) Swap(ctx iwf.WorkflowContext, input iwf.Object, persistence iwf.Persistence, communication iwf.Communication) (interface{}, error) {
+
+	var oldData string
+	persistence.GetDataAttribute(keyData, &oldData)
+	var newData string
+	input.Get(&newData)
+	persistence.SetDataAttribute(keyData, newData)
+
+	return oldData, nil
+}
 ```
