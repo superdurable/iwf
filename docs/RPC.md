@@ -77,7 +77,7 @@ The RPC stub is for providing an strongly typing experience.
 ### Golang
 Golang doesn't have equivalence to Java's annotation or Python's decorator. An RPC must be registered under CommunicationSchema.
 
-```
+```golang
 type MyWorkfow struct{
    iwf.WorkflowDefaults
 }
@@ -101,7 +101,7 @@ func (e MyWorkflow) MyRPC(ctx iwf.WorkflowContext, input iwf.Object, persistence
 ```
 
 To invoke an RPC from external, using client API:
-```
+```golang
 var output string
 err := client.InvokeRPC(context.Background(), wfId, "", wf.MyRPC, input, &output)
 ```
