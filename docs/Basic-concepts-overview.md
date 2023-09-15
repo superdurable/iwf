@@ -23,7 +23,7 @@ Underneath, SDK will invoke the corresponding Workflow/WorkflowState/RPC code wh
 * Golang Example to [register workflows](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/registry.go), and use [Golang Gin server to start worker controller](https://github.com/indeedeng/iwf-golang-samples/blob/main/cmd/server/iwf/iwf.go#L72).
 * Python example to [register workflows](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/iwf_config.py), and use Flask to set up [WorkerControllers](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/main.py#L54).
 
-
+#### Java
 
 The Java interface has default implementation of all methods. So you can skip if you don't need any of them.
 For example, if a workflow doesn't need persistence, then just skip the persistenceSchema.
@@ -80,6 +80,7 @@ public class UserSignupWorkflow implements ObjectWorkflow {
 }
 ```
 
+#### Python
 The Python base class has default implementation of all methods. So you can skip if you don't need any of them.
 For example, if a workflow doesn't need persistence, then just skip the persistenceSchema.
 
@@ -114,6 +115,7 @@ class UserSignupWorkflow(ObjectWorkflow):
         return "done"
 ```
 
+#### Golang
 Golang interface doesn't have default method implementation. So to make it "skippable", you just need to add the default implementation `iwf.DefaultWorkflowType` of all:
 ```golang
 type MyWorkflow struct {
