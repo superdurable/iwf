@@ -36,3 +36,100 @@ Here are some more details:
 * RPC will be processed by worker immediately
 
 ![signals vs rpc](https://user-images.githubusercontent.com/4523955/234932674-b0d062b2-e5dd-4dbe-93b5-1b9863acc5e0.png)
+
+## SDK 
+An RPC belongs to a workflow definition(instance of ObjectWorkflow) as a method of the instance. You can define as many RPCs as needed for a workflow definition. 
+
+An RPC definition can also include optional parameters:
+* RPC timeout: maximum time that server will wait for RPC execution
+* data attribute loading policy: how to load the data attribute(default to all without locking)
+* search attribute loading policy: how to load the data attribute(default to all without locking)
+
+Also, there are some rules to make a method an RPC, which are different based on SDKs:
+
+
+### Java
+* Using the [RPC annotation](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/RPC.java) can make a method an RPC
+* The method must be [one of the four forms](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/RpcDefinitions.java)
+
+Example
+```java
+public class UserSignupWorkflow implements ObjectWorkflow {
+    @RPC
+    public String verify(Context context, Persistence persistence, Communication communication) {
+        String status = persistence.getDataAttribute(DA_Status, String.class);
+        if (status == "verified") {
+            return "already verified";
+        }
+        persistence.setDataAttribute(DA_Status, "verified");
+        communication.publishInternalChannel(VERIFY_CHANNEL, null);
+        return "done";
+    }
+}
+```
+To invoke an RPC from external, using client API:
+```java
+        final UserSignupWorkflow rpcStub = client.newRpcStub(UserSignupWorkflow.class, username);
+        String result = client.invokeRPC(rpcStub::verify);
+```
+The RPC stub is for providing an strongly typing experience.
+
+### Golang
+Golang doesn't have equivalence to Java's annotation or Python's decorator. An RPC must be registered under CommunicationSchema.
+
+```
+type MyWorkfow struct{
+   iwf.WorkflowDefaults
+}
+
+func (e MyWorkflow) GetCommunicationSchema() []iwf.CommunicationMethodDef {
+	return []iwf.CommunicationMethodDef{
+		iwf.RPCMethodDef(e.MyRPC, nil),
+	}
+}
+
+func (e MyWorkflow) MyRPC(ctx iwf.WorkflowContext, input iwf.Object, persistence iwf.Persistence, communication iwf.Communication) (interface{}, error) {
+
+	var oldData string
+	persistence.GetDataAttribute(keyData, &oldData)
+	var newData string
+	input.Get(&newData)
+	persistence.SetDataAttribute(keyData, newData)
+
+	return oldData, nil
+}
+```
+
+To invoke an RPC from external, using client API:
+```
+var output string
+err := client.InvokeRPC(context.Background(), wfId, "", wf.MyRPC, input, &output)
+```
+
+### Python
+* Using [`rpc` decorator factory](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/rpc.py) to annotate a method will make it an RPC. 
+* Because it's decorator factory, parentheses are required even there are not parameters : `@rpc()`
+* An RPC must have at most 5 params: self, context:WorkflowContext, input:Any, persistence:Persistence, communication:Communication, where input can be any type (the order doesn't matter, but it's recommended for convention)
+
+```python
+class UserSignupWorkflow(ObjectWorkflow):
+...
+...
+
+    @rpc()
+    def verify(
+        self, source: str, persistence: Persistence, communication: Communication
+    ) -> str:
+        status = persistence.get_data_attribute(data_attribute_status)
+        if status == "verified":
+            return "already verified"
+        persistence.set_data_attribute(data_attribute_status, "verified")
+        persistence.set_data_attribute(data_attribute_verified_source, source)
+        communication.publish_to_internal_channel(verify_channel)
+        return "done"
+```
+
+Invoke an RPC is very simple in python using client:
+````python
+client.invoke_rpc(username, UserSignupWorkflow.verify, source)
+```
