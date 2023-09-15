@@ -131,5 +131,5 @@ class UserSignupWorkflow(ObjectWorkflow):
 
 Invoke an RPC is very simple in python using client:
 ```python
-output = client.invoke_rpc(username, UserSignupWorkflow.verify, source)
+output = client.invoke_rpc(username, UserSignupWorkflow.verify, input)
 ```
