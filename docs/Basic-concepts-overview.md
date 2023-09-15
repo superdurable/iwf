@@ -14,7 +14,7 @@ The iWF top level concept is `WorkflowDefinition`which consists of the component
 A user application defines an ObjectWorkflow by implementing:
 * [Java Interface](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/ObjectWorkflow.java)
 * [Golang Interface](https://github.com/indeedeng/iwf-golang-sdk/blob/main/iwf/workflow.go) 
-* [Python Base Class](https://github.com/indeedeng/iwf-*python-sdk/blob/main/iwf/workflow.py)
+* [Python Base Class](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/workflow.py)
 
 Once workflow is implemented, register the workflows into `Registry` of SDK, and expose an RESTful endpoint for iWF server to call using `WorkerService` of the SDK.
 
