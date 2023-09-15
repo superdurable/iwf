@@ -82,7 +82,7 @@ To implement a WorkflowState, just implement the:
 * [Python Base Class](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/workflow_state.py)
 
 #### Java
-For Java/Python, the `waitUntil` has a default implementation so you just not implement it, and SDK will skip it to invoke `execute` directly.
+For Java, the `waitUntil` has a default implementation so you just not implement it, and SDK will skip it to invoke `execute` directly.
 
 
 A full Java WorkflowState looks like:
@@ -158,7 +158,9 @@ func (i state3) Execute(ctx iwf.WorkflowContext, input iwf.Object, commandResult
 }
 ```
 #### Python
-For Python, a full state is like:
+For Python, the `wait_until` has a default implementation so you just not implement it, and SDK will skip it to invoke `execute` directly.
+
+A full state is like:
 ```python
 class TimerOrInternalChannelState(WorkflowState[None]):
     def wait_until(self, ctx: WorkflowContext, input: T, persistence: Persistence, communication: Communication,
