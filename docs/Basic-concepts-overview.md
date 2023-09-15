@@ -16,6 +16,15 @@ A user application defines an ObjectWorkflow by implementing:
 * [Golang Interface](https://github.com/indeedeng/iwf-golang-sdk/blob/main/iwf/workflow.go) 
 * [Python Base Class](https://github.com/indeedeng/iwf-*python-sdk/blob/main/iwf/workflow.py)
 
+Once workflow is implemented, register the workflows into `Registry` of SDK, and expose an RESTful endpoint for iWF server to call using `WorkerService` of the SDK.
+
+Underneath, SDK will invoke the corresponding Workflow/WorkflowState/RPC code when being called by iWF server:
+* Java Example to use Spring to register workflow beans, and set up WorkerControllers
+* Golang Example to [register workflows](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/registry.go), and use [Golang Gin server to start worker controller](https://github.com/indeedeng/iwf-golang-samples/blob/main/cmd/server/iwf/iwf.go#L72).
+* Python example to [register workflows](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/iwf_config.py), and use Flask to set up [WorkerControllers](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/main.py#L54).
+
+
+
 The Java interface has default implementation of all methods. So you can skip if you don't need any of them.
 For example, if a workflow doesn't need persistence, then just skip the persistenceSchema.
 
