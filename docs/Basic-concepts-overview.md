@@ -116,10 +116,10 @@ class UserSignupWorkflow(ObjectWorkflow):
 ```
 
 #### Golang
-Golang interface doesn't have default method implementation. So to make it "skippable", you just need to add the default implementation `iwf.DefaultWorkflowType` of all:
+Golang interface doesn't have default method implementation. So to make it "skippable", you just need to add the default implementation `iwf.WorkflowDefaults` of all:
 ```golang
 type MyWorkflow struct {
-	iwf.DefaultWorkflowType
+	iwf.WorkflowDefaults
 }
 ```
 
@@ -128,7 +128,7 @@ Also, Golang doesn't have equivalence to Java's annotation or Python's decorator
 This is an [example](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/microservices/workflow.go) of a Golang workflow definition:
 ```golang
 type OrchestrationWorkflow struct {
-	iwf.DefaultWorkflowType
+	iwf.WorkflowDefaults
 
 	svc service.MyService
 }
