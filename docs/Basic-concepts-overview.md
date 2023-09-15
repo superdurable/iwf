@@ -19,7 +19,7 @@ A user application defines an ObjectWorkflow by implementing:
 Once workflow is implemented, register the workflows into `Registry` of SDK, and expose an RESTful endpoint for iWF server to call using `WorkerService` of the SDK.
 
 Underneath, SDK will invoke the corresponding Workflow/WorkflowState/RPC code when being called by iWF server:
-* Java Example to use Spring to register workflow beans, and set up WorkerControllers
+* Java Example to use [Spring to register workflow beans](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/config/IwfConfig.java), and set up [WorkerControllers](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/controller/IwfWorkerApiController.java)
 * Golang Example to [register workflows](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/registry.go), and use [Golang Gin server to start worker controller](https://github.com/indeedeng/iwf-golang-samples/blob/main/cmd/server/iwf/iwf.go#L72).
 * Python example to [register workflows](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/iwf_config.py), and use Flask to set up [WorkerControllers](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/main.py#L54).
 
