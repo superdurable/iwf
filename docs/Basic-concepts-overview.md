@@ -152,11 +152,11 @@ func (e OrchestrationWorkflow) GetCommunicationSchema() []iwf.CommunicationMetho
 	return []iwf.CommunicationMethodDef{
 		iwf.SignalChannelDef(SignalChannelReady),
 
-		iwf.RPCMethodDef(e.Swap, nil),
+		iwf.RPCMethodDef(e.MyRPC, nil),
 	}
 }
 
-func (e OrchestrationWorkflow) Swap(ctx iwf.WorkflowContext, input iwf.Object, persistence iwf.Persistence, communication iwf.Communication) (interface{}, error) {
+func (e OrchestrationWorkflow) MyRPC(ctx iwf.WorkflowContext, input iwf.Object, persistence iwf.Persistence, communication iwf.Communication) (interface{}, error) {
 
 	var oldData string
 	persistence.GetDataAttribute(keyData, &oldData)
