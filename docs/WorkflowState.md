@@ -73,3 +73,105 @@ WorkflowState 1,2,3 will each publish a message when completing. This ensures pr
 A full execution flow of a single WorklfowState can look like this:
 
 ![Workflow State diagram](https://user-images.githubusercontent.com/4523955/234921554-587d8ad4-84f5-4987-b838-959869293465.png)
+
+### SDK 
+
+To implement a WorkflowState, just implement the:
+* [Java interface](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/WorkflowState.java)
+* [Golang interface](https://github.com/indeedeng/iwf-golang-sdk/blob/main/iwf/workflow_state.go)
+* [Python Base Class](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/workflow_state.py)
+
+For Java/Python, the `waitUntil` has a default implementation so you just not implement it, and SDK will skip it to invoke `execute` directly.
+
+
+A full Java WorkflowState looks like:
+```
+class WaitSignalOrTimerState implements WorkflowState<Void> {
+
+    @Override
+    public Class<Void> getInputType() {
+        return Void.class;
+    }
+
+    @Override
+    public CommandRequest waitUntil(final Context context, final Void input, final Persistence persistence, final Communication communication) {
+        return CommandRequest.forAnyCommandCompleted(
+                TimerCommand.createByDuration(Duration.ofHours(24)),
+                SignalCommand.create(READY_SIGNAL)
+        );
+    }
+
+    @Override
+    public StateDecision execute(final Context context, final Void input, final CommandResults commandResults, final Persistence persistence, final Communication communication) {
+        if (commandResults.getAllTimerCommandResults().get(0).getTimerStatus() == TimerStatus.FIRED) {
+            return StateDecision.singleNextState(State4.class);
+        }
+        
+        String someData = persistence.getDataAttribute(DA_DATA1, String.class);
+        System.out.println("call API3 with backoff retry in this method..");
+        return StateDecision.gracefulCompleteWorkflow();
+    }
+}
+```
+
+
+Golang interface doesn't have default implementation. As a result, put `iwf.WorkflowStateDefaultsNoWaitUntil` into the struct to skip `waitUntil`.
+
+```
+type state1 struct {
+	iwf.WorkflowStateDefaultsNoWaitUntil
+}
+```
+
+For Golang a full state is like:
+```
+type state3 struct {
+	iwf.WorkflowStateDefaults
+	svc service.MyService
+}
+
+func (i state3) WaitUntil(ctx iwf.WorkflowContext, input iwf.Object, persistence iwf.Persistence, communication iwf.Communication) (*iwf.CommandRequest, error) {
+	return iwf.AnyCommandCompletedRequest(
+		iwf.NewTimerCommand("", time.Now().Add(time.Hour*24)),
+		iwf.NewSignalCommand("", SignalChannelReady),
+	), nil
+}
+
+func (i state3) Execute(ctx iwf.WorkflowContext, input iwf.Object, commandResults iwf.CommandResults, persistence iwf.Persistence, communication iwf.Communication) (*iwf.StateDecision, error) {
+	var data string
+	persistence.GetDataAttribute(keyData, &data)
+	i.svc.CallAPI3(data)
+
+	if commandResults.Timers[0].Status == iwfidl.FIRED {
+		return iwf.SingleNextState(state4{}, nil), nil
+	}
+	return iwf.GracefulCompletingWorkflow, nil
+}
+```
+
+For Python, a full state is like:
+```
+class TimerOrInternalChannelState(WorkflowState[None]):
+    def wait_until(self, ctx: WorkflowContext, input: T, persistence: Persistence, communication: Communication,
+                   ) -> CommandRequest:
+        return CommandRequest.for_any_command_completed(
+            TimerCommand.timer_command_by_duration(
+                timedelta(seconds=10)
+            ),  # use 10 seconds for demo
+            InternalChannelCommand.by_name(verify_channel),
+        )
+
+    def execute(self, ctx: WorkflowContext, input: T, command_results: CommandResults, persistence: Persistence,
+                communication: Communication,
+                ) -> StateDecision:
+        form = persistence.get_data_attribute(data_attribute_form)
+        if (
+                command_results.internal_channel_commands[0].status
+                == ChannelRequestStatus.RECEIVED
+        ):
+            print(f"API to send welcome email to {form.email}")
+            return StateDecision.graceful_complete_workflow("done")
+        else:
+            print(f"API to send the a reminder email to {form.email}")
+            return StateDecision.single_next_state(VerifyState)
+```
