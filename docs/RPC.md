@@ -56,7 +56,7 @@ Example
 ```java
 public class UserSignupWorkflow implements ObjectWorkflow {
     @RPC
-    public String verify(Context context, Persistence persistence, Communication communication) {
+    public String verify(Context context, String input, Persistence persistence, Communication communication) {
         String status = persistence.getDataAttribute(DA_Status, String.class);
         if (status == "verified") {
             return "already verified";
@@ -69,8 +69,8 @@ public class UserSignupWorkflow implements ObjectWorkflow {
 ```
 To invoke an RPC from external, using client API:
 ```java
-        final UserSignupWorkflow rpcStub = client.newRpcStub(UserSignupWorkflow.class, username);
-        String result = client.invokeRPC(rpcStub::verify);
+        final UserSignupWorkflow rpcStub = client.newRpcStub(UserSignupWorkflow.class, workflowId);
+        String output = client.invokeRPC(rpcStub::verify, input);
 ```
 The RPC stub is for providing an strongly typing experience.
 
@@ -130,6 +130,6 @@ class UserSignupWorkflow(ObjectWorkflow):
 ```
 
 Invoke an RPC is very simple in python using client:
-````python
-client.invoke_rpc(username, UserSignupWorkflow.verify, source)
+```python
+output = client.invoke_rpc(username, UserSignupWorkflow.verify, source)
 ```
