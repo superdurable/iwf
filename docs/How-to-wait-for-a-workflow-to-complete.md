@@ -1,3 +1,5 @@
+Note that users can wait for a state execution to complete in the new feature: https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-state-to-complete 
+
 The page is using Java as example, but should be the same idea for other SDKs.
 
 You can call a Client API after starting workflow, to wait for the completion of the workflow -- getSimpleResultsWithWait  will let you wait for the completion.
@@ -11,4 +13,3 @@ Some details about it:
 * You can pass Void.class as result class, If you just need to wait for the result, without any real results to return.
 
 
-In the future, we will support https://github.com/indeedeng/iwf/issues/268 which will be more flexible for waiting
