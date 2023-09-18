@@ -1,12 +1,8 @@
 ## Use case study/examples
 * [User sign-up/registry in Python/Java](https://github.com/indeedeng/iwf/wiki/Use-case-study-%E2%80%90%E2%80%90-user-signup-workflow) 
 * [Abstracted microservice orchestration in Java/Golang](https://github.com/indeedeng/iwf/wiki/Use-case-study-%E2%80%90%E2%80%90-Microservice-Orchestration)
-* Employer & JobSeeker engagement
-  * [in Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/engagement)
-  * [in Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/engagement)
-* Subscription Workflow
-  * [in Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/subscription)
-  * [in Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/subscription)
+* Employer & JobSeeker engagement in [Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/engagement) or [Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/engagement)
+* Subscription Workflow in [Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/subscription) or [Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/subscription)
 ## Basic concepts
 * [Basic concepts overview](https://github.com/indeedeng/iwf/wiki/Basic-concepts-overview)
 * [WorkflowState](https://github.com/indeedeng/iwf/wiki/WorkflowState)
