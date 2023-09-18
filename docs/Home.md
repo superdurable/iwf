@@ -26,3 +26,4 @@
 * [RPC atomicity](https://github.com/indeedeng/iwf/wiki/What-does-the-atomicity-of-RPC-really-mean%3F)
 * [iWF limitation](https://github.com/indeedeng/iwf/wiki/iWF-limitation)
 * [Wait for workflow to complete](https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-to-complete)
+* [Wait for workflow state to complete](https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-state-to-complete)
