@@ -28,9 +28,84 @@ The iWF persistence is mainly for storing the workflow intermediate states/data.
 
 ## SDKs
 Defining iWF persistence schema is simply declaring in code the key and value types(if applicable). 
+With the type defined for the attribute, the SDK will check the type matching when read/write. (note that the type enforcement is only on the SDK. The server doesn't care about the types for a data/search attribute -- they are just transparent data blobs.
 
-### Java
+#### Java
 
-### Python
 
-### Golang
+An [example](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/workflow/signup/UserSignupWorkflow.java) of Java workflow definition with persistence:
+```java
+public class UserSignupWorkflow implements ObjectWorkflow {
+
+    public static final String DA_FORM = "Form";
+
+    public static final String DA_Status = "Status";
+...
+
+    @Override
+    public List<PersistenceFieldDef> getPersistenceSchema() {
+        return Arrays.asList(
+                DataAttributeDef.create(SignupForm.class, DA_FORM),
+                DataAttributeDef.create(String.class, DA_Status)
+        );
+    }
+
+...
+}
+```
+Example of read/write persistence:
+```
+        String status = persistence.getDataAttribute(DA_Status, String.class);
+        persistence.setDataAttribute(DA_Status, "verified");
+```
+
+#### Python
+
+[Example](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/signup_workflow.py) in Python with persistence:
+```python
+class UserSignupWorkflow(ObjectWorkflow):
+
+    def get_persistence_schema(self) -> PersistenceSchema:
+        return PersistenceSchema.create(
+            PersistenceField.data_attribute_def(data_attribute_form, Form),
+            PersistenceField.data_attribute_def(data_attribute_status, str),
+            PersistenceField.data_attribute_def(data_attribute_verified_source, str),
+        )
+```
+Example of read/write persistence:
+```
+        status = persistence.get_data_attribute(data_attribute_status)
+        persistence.set_data_attribute(data_attribute_status, "verified")
+```
+
+#### Golang
+Due to the limitation of Golang, the Golang SDK doesn't let you define "type" of an attribute. So there is no type checking in the SDK.
+
+This is an [example](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/microservices/workflow.go) of a Golang workflow definition with persistence:
+```golang
+type OrchestrationWorkflow struct {
+	iwf.WorkflowDefaults
+}
+
+func (e OrchestrationWorkflow) GetPersistenceSchema() []iwf.PersistenceFieldDef {
+	return []iwf.PersistenceFieldDef{
+		iwf.DataAttributeDef(keyData),
+	}
+}
+
+func (e OrchestrationWorkflow) GetCommunicationSchema() []iwf.CommunicationMethodDef {
+	return []iwf.CommunicationMethodDef{
+		iwf.SignalChannelDef(SignalChannelReady),
+
+		iwf.RPCMethodDef(e.MyRPC, nil),
+	}
+}
+```
+And example to read/write the persistence:
+```
+	var oldData string
+	persistence.GetDataAttribute(keyData, &oldData)
+	var newData string
+	input.Get(&newData)
+	persistence.SetDataAttribute(keyData, newData)
+```
