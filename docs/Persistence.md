@@ -26,3 +26,11 @@ Note:
 The iWF persistence is mainly for storing the workflow intermediate states/data.
 **It is important to not abuse iWF persistence for things like permanent storage, or for tracking/analytics purpose.**
 
+## SDKs
+Defining iWF persistence schema is simply declaring in code the key and value types(if applicable). 
+
+### Java
+
+### Python
+
+### Golang
