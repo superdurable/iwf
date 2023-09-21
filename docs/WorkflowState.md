@@ -74,7 +74,7 @@ A full execution flow of a single WorklfowState can look like this:
 
 ![Workflow State diagram](https://user-images.githubusercontent.com/4523955/234921554-587d8ad4-84f5-4987-b838-959869293465.png)
 
-### SDK 
+### SDKs
 
 To implement a WorkflowState, just implement the:
 * [Java interface](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/WorkflowState.java)
