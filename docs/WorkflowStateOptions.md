@@ -18,35 +18,6 @@ policy.
 MaximumAttempts is directly by number of attempts, where MaximumAttemptsDurationSeconds is by the total time duration of
 all attempts including retries. It will be capped to the minimum if both are provided.
 
-#### Persistence loading policy
-
-When a workflowState/RPC API loads DataAttributes/SearchAttributes, by default it will use `LOAD_ALL_WITOUT_LOCKING` to load everything.
-
-For WorkflowState, there is a 2MB limit by default to load data. User can use another loading policy `LOAD_PARTIAL_WITHOUT_LOCKING`
-to specify certain DataAttributes/SearchAttributes only to load.
-
-`None` will skip the loading to save the data transportation/history cost.
-
-`WITHOUT_LOCKING` here means if multiple StateExecutions/RPC try to upsert the same DataAttribute/SearchAttribute, they can be
-done in parallel without locking.
-
-If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` allows specifying some keys to be locked during the execution.
-
-The `PARTIAL_WITH_EXCLUSIVE_LOCK` for RPC is only supported by Temporal as backend with enabling synchronous update feature (by `frontend.enableUpdateWorkflowExecution:true` in Dynamic Config)
-See the [wiki](https://github.com/indeedeng/iwf/wiki/What-does-the-atomicity-of-RPC-really-mean%3F) for further details.
-#### State API failure handling/recovery
-
-By default, the workflow execution will fail when State APIs max out the retry attempts. In some cases that
-workflow want to ignore the errors.
-
-For WaitUntil API, using `PROCEED_ON_API_FAILURE` for `WaitUntilApiFailurePolicy` will let workflow continue to invoke `execute`
-API when the API fails with maxing out all the retry attempts.
-
-For Execute API, you can use `PROCEED_TO_CONFIGURED_STATE` similarly, but it's required to set the `ExecuteApiFailureProceedStateId` to use with it.
-Note that the proceeded state will take the same input from the original failed state.
-
-The failure policies are especially helpful for recovery logic. For example, a workflow state may have errors that you want to eventually do a cleanup/recovery to handle.
-
 #### State/RPC API Context
 There is a context object when invoking RPC or State APIs. It contains information like workflowId, startTime, etc.
 
