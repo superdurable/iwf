@@ -37,7 +37,7 @@ Here are some more details:
 
 ![signals vs rpc](https://user-images.githubusercontent.com/4523955/234932674-b0d062b2-e5dd-4dbe-93b5-1b9863acc5e0.png)
 
-## SDK 
+## SDKs 
 An RPC belongs to a workflow definition(instance of ObjectWorkflow) as a method of the instance. You can define as many RPCs as needed for a workflow definition. 
 
 An RPC definition can also include optional parameters:
