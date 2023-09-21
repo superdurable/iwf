@@ -26,6 +26,23 @@ Note:
 The iWF persistence is mainly for storing the workflow intermediate states/data.
 **It is important to not abuse iWF persistence for things like permanent storage, or for tracking/analytics purpose.**
 
+## Persistence loading policy
+
+When a workflowState/RPC API loads DataAttributes/SearchAttributes, by default it will use `LOAD_ALL_WITOUT_LOCKING` to load everything. There are other options:
+
+* For WorkflowState, there is a 2MB limit by default to load data. User can use another loading policy `LOAD_PARTIAL_WITHOUT_LOCKING`
+to specify certain DataAttributes/SearchAttributes only to load.
+
+* `LOAD_NONE` will skip the loading to save the data transportation/history cost.
+
+* `WITHOUT_LOCKING` here means if multiple StateExecutions/RPC try to upsert the same DataAttribute/SearchAttribute, they can be
+done in parallel without locking.
+
+* If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` allows specifying some keys to be locked during the execution.
+
+The `PARTIAL_WITH_EXCLUSIVE_LOCK` for RPC is only supported by Temporal as backend with enabling synchronous update feature (by `frontend.enableUpdateWorkflowExecution:true` in Dynamic Config)
+See the [wiki](https://github.com/indeedeng/iwf/wiki/What-does-the-atomicity-of-RPC-really-mean%3F) for further details.
+
 ## SDKs
 Defining iWF persistence schema is simply declaring in code the key and value types(if applicable). 
 With the type defined for the attribute, the SDK will check the type matching when read/write. (note that the type enforcement is only on the SDK. The server doesn't care about the types for a data/search attribute -- they are just transparent data blobs.
