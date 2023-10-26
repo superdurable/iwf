@@ -1,7 +1,7 @@
 WorkflowState is how you implement your asynchronous process as a "workflow".  
 It will run in the background, with infinite backoff retry by default. 
  
-A WorkflowState is itself like “a small workflow” of 1 or 2 steps:
+A WorkflowState is a "big step", which includes 1 or 2 "small steps":
 
 **[ `waitUntil` ] → `execute`**
 
