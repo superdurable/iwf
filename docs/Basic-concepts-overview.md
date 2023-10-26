@@ -2,7 +2,7 @@ The iWF top level concept is `WorkflowDefinition`which consists of the component
 
 | Name                                                    | Description                                                                                                                                       | 
 |:--------------------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------| 
-| [WorkflowState](https://github.com/indeedeng/iwf/wiki/WorkflowState)                        | A basic asyn/background execution unit as a "workflow". A State consists of one or two steps: *waitUntil* (optional) and *execute* with retry     |
+| [WorkflowState](https://github.com/indeedeng/iwf/wiki/WorkflowState)                        | A basic asyn/background execution unit as a "big step" of a "workflow". A State actually consists of one or two small steps: *waitUntil* (optional) and *execute*     |
 | [RPC](https://github.com/indeedeng/iwf/wiki/RPC)                                             | API for application to interact with the workflow. It can access to persistence, internal channel, and state execution                            |
 | [Persistence](https://github.com/indeedeng/iwf/wiki/Persistence)                             | A Kev-Value storage out-of-box to storing data. Can be accessed by RPC/WorkflowState implementation.                                              |
 | [DurableTimer](https://github.com/indeedeng/iwf/wiki/WorkflowState#commands-from-waituntil)                | The waitUntil API can return a timer command to wait for certain time as a durable timer -- it is persisted by server and will not be lost.       |
