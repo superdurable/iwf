@@ -119,7 +119,7 @@ func (e OrchestrationWorkflow) GetCommunicationSchema() []iwf.CommunicationMetho
 }
 ```
 And example to read/write the persistence:
-```
+```golang
 	var oldData string
 	persistence.GetDataAttribute(keyData, &oldData)
 	var newData string
