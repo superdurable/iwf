@@ -39,7 +39,8 @@ public class DebitState extends WorkflowState {
     public WorkflowStateOptions getStateOptions() {
         return new WorkflowStateOptionsExtension()
                 .setProceedOnExecuteFailure(UndoDebitState.class)
-                .executeApiRetryPolicy(...); // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
+                // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
+                .executeApiRetryPolicy(...); 
     }
    
     @Override
@@ -56,9 +57,11 @@ type debitState struct{
 }
 
 func (b executeApiFailRecoveryWorkflowState1) GetStateOptions() *iwfidl.WorkflowStateOptions {
-	options := iwf.NewWorkflowStateOptionsExtension(nil).SetProceedOnExecuteFailure(undoDebitState{}, nil)
-	options.ExecuteApiRetryPolicy = &iwfidl.RetryPolicy{...} // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
+	options := iwf.NewWorkflowStateOptionsExtension(nil)
+                      .SetProceedOnExecuteFailure(undoDebitState{}, nil)
 
+        // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
+	options.ExecuteApiRetryPolicy = &iwfidl.RetryPolicy{...} 
 	return options
 }
 
