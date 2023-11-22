@@ -83,7 +83,7 @@ class DebitState(WorkflowState[None]):
         persistence: Persistence,
         communication: Communication,
     ) -> StateDecision:
-        // make three API calls for a debit operation
+        # make three API calls for a debit operation
         return StateDecision...
 
     def get_state_options(self) -> WorkflowStateOptions:
