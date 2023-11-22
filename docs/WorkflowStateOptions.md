@@ -94,12 +94,13 @@ class DebitState(WorkflowState[None]):
 ```
 
 ##### WaitUntil API
-Though this is less commonly used than the failure policy of Execute API.
 
 For WaitUntil API, using `PROCEED_ON_API_FAILURE` for `WaitUntilApiFailurePolicy` will let workflow continue to invoke `execute`
 API when the API fails with maxing out all the retry attempts.
 
 See example here in [Java](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/test/java/io/iworkflow/integ/basic/ProceedOnStateStartFailWorkflowState1.java#L45) and [Golang](https://github.com/indeedeng/iwf-golang-sdk/blob/main/integ/proceed_on_state_start_fail_workflow_state1.go#L36).
+
+This is very uncommonly needed than the failure policy of Execute API. Currently not implemented in Python SDK yet.
 
 #### State/RPC API Context
 There is a context object when invoking RPC or State APIs. It contains information like workflowId, startTime, etc.
