@@ -72,6 +72,27 @@ func (b debitState) Execute(ctx iwf.WorkflowContext, input iwf.Object, commandRe
 
 ```
 
+In Python SDK:
+```python
+class DebitState(WorkflowState[None]):
+    def execute(
+        self,
+        ctx: WorkflowContext,
+        input: T,
+        command_results: CommandResults,
+        persistence: Persistence,
+        communication: Communication,
+    ) -> StateDecision:
+        // make three API calls for a debit operation
+        return StateDecision...
+
+    def get_state_options(self) -> WorkflowStateOptions:
+        return WorkflowStateOptions(
+            execute_api_retry_policy=RetryPolicy(...), //make sure recoveryState has enough time to run
+            execute_failure_handling_state=UndoDebitState,
+        )
+```
+
 ##### WaitUntil API
 Though this is less commonly used than the failure policy of Execute API.
 
