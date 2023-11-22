@@ -56,7 +56,7 @@ type debitState struct{
     iwf.WorkflowStateDefaultsNoWaitUntil
 }
 
-func (b executeApiFailRecoveryWorkflowState1) GetStateOptions() *iwfidl.WorkflowStateOptions {
+func (b debitState) GetStateOptions() *iwfidl.WorkflowStateOptions {
 	options := iwf.NewWorkflowStateOptionsExtension(nil)
                       .SetProceedOnExecuteFailure(undoDebitState{}, nil)
 
