@@ -24,15 +24,19 @@ By default, the workflow execution will fail when State APIs max out the retry a
 workflow want to handle the errors differently.
 
 ##### Execute API
-For Execute API, you can use `PROCEED_TO_CONFIGURED_STATE` similarly, but it's required to set the `ExecuteApiFailureProceedStateId` to use with it.
+For Execute API, you can set `PROCEED_TO_CONFIGURED_STATE` as failure policy, with a `ProceededState` configured.
 The proceeded state will take the same input from the original failed state.
 
-The failure policies are especially helpful for recovery logic. For example, a `DebitState` is making three API calls for the debit operation but failed at the 3rd one. You want to undo the first two. In that case, you can set a `UndoDebitState` as the recovery state for the DebitState. When DebitState fails, instead of failing workflow, it will proceed to `UndoDebitState` to let you undo the first two operations. 
+When the current state fails, instead of failing the workflow, it will go to the ProceededState for recovery.
 
-In the recovery(proceeded) state, it's up to you to continue to run the workflow, or fail the workflow. 
+Then in the recovery(proceeded) state, it's up to state to continue to run the workflow, or fail the workflow. 
+
+Thius failure policy are especially helpful for recovery logic. 
+
+For example, a `DebitState` is making three API calls for the debit operation but failed at the 3rd one. You want to undo the first two. In that case, you can set a `UndoDebitState` as the recovery state for the DebitState. When DebitState fails, instead of failing workflow, it will proceed to `UndoDebitState` to let you undo the first two operations. 
 
 
-In Java SDK, it will be:
+Example in Java SDK:
 ```java
 public class DebitState extends WorkflowState {
     @Override
