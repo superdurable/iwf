@@ -62,9 +62,9 @@ type debitState struct{
 
 func (b debitState) GetStateOptions() *iwf.StateOptions {
 	return &iwf.StateOptions{
-           // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
-	options.
-           ExecuteApiRetryPolicy: &iwfidl.RetryPolicy{...} 
+           // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run options.
+           ExecuteApiRetryPolicy: &iwfidl.RetryPolicy{...},
+
            ExecuteApiFailureProceedState: undoDebitState{},
         }
 }
