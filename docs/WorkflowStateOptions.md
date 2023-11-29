@@ -60,13 +60,13 @@ type debitState struct{
     iwf.WorkflowStateDefaultsNoWaitUntil
 }
 
-func (b debitState) GetStateOptions() *iwfidl.WorkflowStateOptions {
-	options := iwf.NewWorkflowStateOptionsExtension(nil)
-                      .SetProceedOnExecuteFailure(undoDebitState{}, nil)
-
-        // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
-	options.ExecuteApiRetryPolicy = &iwfidl.RetryPolicy{...} 
-	return options
+func (b debitState) GetStateOptions() *iwf.StateOptions {
+	return &iwf.StateOptions{
+           // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
+	options.
+           ExecuteApiRetryPolicy: &iwfidl.RetryPolicy{...} 
+           ExecuteApiFailureProceedState: undoDebitState{},
+        }
 }
 
 
