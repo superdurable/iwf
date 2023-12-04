@@ -16,6 +16,8 @@ Below are the standard ways to address the issues:
    1) The error will be gone if you add the StateB back. Because by default, all State APIs will be backoff retried forever.
    2) If you want to delete StateB as early as possible, use `IwfWorkflowType` and `IwfExecutingStateIds` search attributes to confirm if there is any workflows still running at the state. These are built-in search attributes from iWF server.  
 
+See more in this [wiki](https://github.com/indeedeng/iwf/wiki/How-to-modify-workflow-code-without-breaking-changes).
+
 ## ContinueAsNew
 
 There is NO ContinueAsNew API exposed to user workflow!
