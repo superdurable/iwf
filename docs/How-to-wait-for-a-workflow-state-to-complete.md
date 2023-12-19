@@ -6,4 +6,6 @@ To wait for a workflow state execution to complete, the stateExecutionId must be
 
 Then use `client.waitForStateExecution(stateExecutionId)` API to wait for the completion. 
 
-Note that this feature cannot be used when the same workflowId reused to start more than one execution. See https://github.com/indeedeng/iwf/issues/349 for future redesign. 
+See this [example](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/test/java/io/iworkflow/integ/TimerTest.java#L33) in Java integ test.
+
+Note that this feature cannot be used, when you need to use the same workflowId reused to start more than one execution. See https://github.com/indeedeng/iwf/issues/349 for future v2 redesign (depending on new feature from Temporal). 
