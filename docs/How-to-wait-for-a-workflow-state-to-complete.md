@@ -8,4 +8,4 @@ Then use `client.waitForStateExecution(stateExecutionId)` API to wait for the co
 
 See this [example](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/test/java/io/iworkflow/integ/TimerTest.java#L33) in Java integ test.
 
-Note that this feature cannot be used, when you need to use the same workflowId reused to start more than one execution. See https://github.com/indeedeng/iwf/issues/349 for future v2 redesign (depending on new feature from Temporal). 
+Note that currently, this feature cannot be used with reusing workflowId for more than one executions. See https://github.com/indeedeng/iwf/issues/349 for future v2 redesign (depending on new synchronous Update feature from Temporal). 
