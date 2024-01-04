@@ -7,7 +7,7 @@ The iWF top level concept is `WorkflowDefinition`which consists of the component
 | [Persistence](https://github.com/indeedeng/iwf/wiki/Persistence)                             | A Kev-Value storage out-of-box to storing data. Can be accessed by RPC/WorkflowState implementation.                                              |
 | [DurableTimer](https://github.com/indeedeng/iwf/wiki/WorkflowState#commands-from-waituntil)                | The waitUntil API can return a timer command to wait for certain time as a durable timer -- it is persisted by server and will not be lost.       |
 | [InternalChannel](https://github.com/indeedeng/iwf/wiki/WorkflowState#internalchannel-async-message-queue) | The waitUntil API can return some command for "Internal Channel" -- An internal message queue workflow                                            |
-| ~~[Signal Channel](https://github.com/indeedeng/iwf/wiki/RPC#signal-channel-vs-rpc)~~            | Legacy concept and deprecated. Use InternalChannel + RPC instead. A message queue for the workflowState to receive messages from external sources |
+| [Signal Channel](https://github.com/indeedeng/iwf/wiki/RPC#signal-channel-vs-rpc)            |  Async message queue for the workflowState to receive messages from external sources. Can be replaced by RPC+InternalChannel |
 
 ### SDK
 
