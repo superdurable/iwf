@@ -2,11 +2,11 @@
 
 An iWF application is composed of several iWF workflow workers. These workers host REST APIs as "worker APIs" for server to callback. The Worker APIs are exposed by the SDKs. E.g. the [Java SDK](https://github.com/indeedeng/iwf-java-sdk/blob/71bc52da568cc4e92a71e9565f2a5332943ffeab/src/main/java/io/iworkflow/core/WorkerService.java#L37).
 
-An application also perform actions on workflow executions, such as starting, stopping, signaling, and retrieving results by calling iWF service APIs as "service APIs".
+An application also perform actions on workflow executions, such as starting, stopping, signaling, and retrieving results by calling iWF service APIs as "service APIs". The service APIs are provided by the "API service" in iWF server. 
 
-The service APIs are provided by the "API service" in iWF server. Internally, this API service communicates with the Cadence/Temporal service as its backend.
+The API between client/worker and server is defined in [this OpenAPI yaml](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml).
 
-In addition, the iWF server also runs the Cadence/Temporal workers as "worker service". The worker service hosts [an interpreter workflow](https://github.com/indeedeng/iwf/blob/main/service/interpreter/workflowImpl.go). This workflow implements all the core features as described above, and also things like "Auto ContinueAsNew" to let you use iWF without any scaling limitation.
+Internally, this API service communicates with the Cadence/Temporal service as its backend. The iWF server runs the Cadence/Temporal workers as "worker service". The worker service hosts [an interpreter workflow](https://github.com/indeedeng/iwf/blob/main/service/interpreter/workflowImpl.go). This workflow implements all the core features as described above, and also things like "Auto ContinueAsNew" to let you use iWF without any scaling limitation.
 
 ![Screenshot 2023-07-17 at 10 22 10 AM](https://github.com/indeedeng/iwf/assets/4523955/f85011ee-6f2a-4a7c-9215-459c3630d4b4)
 
