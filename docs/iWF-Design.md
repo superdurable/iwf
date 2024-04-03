@@ -1,6 +1,6 @@
 # High-level design
 
-An iWF application is composed of several iWF workflow workers. These workers host REST APIs as "worker APIs" for server to call. This callback pattern similar to AWS Step Functions invoking Lambdas, if you are familiar with.
+An iWF application is composed of several iWF workflow workers. These workers host REST APIs as "worker APIs" for server to callback. The Worker APIs are exposed by the SDKs. E.g. the [Java SDK](https://github.com/indeedeng/iwf-java-sdk/blob/71bc52da568cc4e92a71e9565f2a5332943ffeab/src/main/java/io/iworkflow/core/WorkerService.java#L37).
 
 An application also perform actions on workflow executions, such as starting, stopping, signaling, and retrieving results by calling iWF service APIs as "service APIs".
 
