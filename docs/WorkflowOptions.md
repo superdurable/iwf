@@ -19,6 +19,9 @@ WorkflowOptions.
 * `ALLOW_TERMINATE_IF_RUNNING`
     * Always allow starting workflow no matter what -- iWF server will terminate the current running one if it exists.
 
+Note that the behavior is limited by Cadence/Temporal workflow retention, which is configured at domain/namespace level.
+If a workflow is deleted after retention expired, the workflowId can be started regardless of any Policy
+
 #### CRON Schedule
 
 iWF allows you to start a workflow with a fixed cron schedule like below
