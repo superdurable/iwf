@@ -9,6 +9,25 @@ The iWF top level concept is `WorkflowDefinition`which consists of the component
 | [InternalChannel](https://github.com/indeedeng/iwf/wiki/WorkflowState#internalchannel-async-message-queue) | The waitUntil API can return some command for "Internal Channel" -- An internal message queue workflow                                            |
 | [Signal Channel](https://github.com/indeedeng/iwf/wiki/RPC#signal-channel-vs-rpc)            |  Async message queue for the workflowState to receive messages from external sources. Can be replaced by RPC+InternalChannel |
 
+
+Above Workflow/WorkflowState concepts will have their instance as "Definitions" and "Executions". Below are the concepts of them:
+
+| Name                                                    | Description                                                                                                                                       | 
+|:--------------------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------| 
+| WorkflowDefinition| The code instance that implemented the interface "ObjectWorkflow". See below examples for Java/Golang/Python|
+| WorkflowType| The identifier of the WorkflowDefinition within an application. By default it's the class/struct name in the code|
+| WorkflowExecution| An instance of the workflow definition. It's initiated by StartWorkflow API |
+| WorkflowID| The business identifier to start a WorkflowExecution. It's like "Primary Key" of a database table. There cannot be more than one WorkflowExecutions running in-parallel with the same WorkflowID |
+| WorkflowRunID| Because WorkflowID is allowed to reused based on [IDReusePolicy](https://github.com/indeedeng/iwf/wiki/WorkflowOptions#idreusepolicy-for-workflowid), the identifier of WorkflowExecution is WorkflowRunID. It's returned from iWF server by StartWorkflow API. However, due to the [AutoContinueAsNew](https://medium.com/@qlong/guide-to-continueasnew-in-cadence-temporal-workflow-using-iwf-as-an-example-part-1-c24ae5266f07) in iWF to workaround the Cadence/Temporal history limitation, the WorkflowRunID could be changed. But it's stable within in StateExecution (It won't change during the backoff retry).|
+| StateID | It's the identifier of a WorkflowState definition. By default it's the className/structName in the code. |
+| StateExecution| The instance of an execution of a WorkflowState. It includes the StateID to load the StateDefinition, the input of the State to invoke the code of StateDefinition|
+| StateExecutionID| Given a WorkflowExecution, the same StateDefinition(StateID) can be executed multiple times. The StateExecutionID is to identifier the different StateExecutions. It's in a format of "StateID-<number>", where "<number>" is incremental counter maintained by iWF server |
+| RPCName| The identifier of an RPC definition within a WorkflowDefinition. By default it's the method name in the code|
+
+More notes:
+* WorkflowType & StateID & RPCName are key elements in SDK. A StateExecution API callback from iWF server contains WorkflowType+StateID for SDK to invoke the associate StateDefinition. A RPC API call back from iWF server contains WorkflowType + RPCName. 
+* The runtime values of WorkflowID, WorkflowRunID, StateExecutionID are accessible by "Context". E.g. [in Java SDK](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/Context.java#L8) (StateExecutionID will be empty for RPC because RPC doesn't below to any WorkflowState).
+
 ### SDK
 
 A user application defines an ObjectWorkflow by implementing:
