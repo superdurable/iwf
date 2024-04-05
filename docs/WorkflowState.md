@@ -39,8 +39,8 @@ iWF provides three types of commands:
 
 * `TimerCommand` -- Wait for a **durable timer** to fire.
 * `InternalChannelCommand` -- Wait for a message from InternalChannel.
-* ~~`SignalCommand` -- [Legacy, Use InternalChannelCommand + RPC instead]Wait for a signal to be published to the workflow signal channel. External applications can use
-  SignalWorkflow API to signal a workflow~~.
+* `SignalCommand` —- Wait for a signal to be published to the workflow signal channel. External applications can use
+  SignalWorkflow API to signal a workflow.
 
 The `waitUntil` API can return multiple commands along with a `CommandWaitingType`:
 
