@@ -19,6 +19,7 @@
 * [iWF server operation](https://github.com/indeedeng/iwf/wiki/iWF-Server-Operations)
 
 ## FAQ
+* [SignalChannel vs InternalChannel](https://github.com/indeedeng/iwf/wiki/SignalChannel-vs-InternalChannel)
 * [Workflow change and backward-compatibility](https://github.com/indeedeng/iwf/wiki/How-to-modify-workflow-code-without-breaking-changes) 
 * [Using iWF as storage system](https://github.com/indeedeng/iwf/wiki/What-are-Pros-and-Cons-of-using-iWF-as-a-database-for-permanent-data-storage%3F)
 * [How iWF works & design](https://github.com/indeedeng/iwf/wiki/iWF-Design)
