@@ -18,11 +18,20 @@ Above Workflow/WorkflowState concepts will have their instance as "Definitions" 
 | WorkflowType| The identifier of the WorkflowDefinition within an application. By default it's the class/struct name in the code|
 | WorkflowExecution| An instance of the workflow definition. It's initiated by StartWorkflow API |
 | WorkflowID| The business identifier to start a WorkflowExecution. It's like "Primary Key" of designing iWF workflow. There cannot be more than one WorkflowExecutions running in-parallel with the same WorkflowID. It must be provided for any interactions after a workflow started. |
-| WorkflowRunID| Because WorkflowID is allowed to reused based on [IDReusePolicy](https://github.com/indeedeng/iwf/wiki/WorkflowOptions#idreusepolicy-for-workflowid), the identifier of WorkflowExecution is WorkflowRunID. It's returned from iWF server by StartWorkflow API. However, due to the [AutoContinueAsNew](https://medium.com/@qlong/guide-to-continueasnew-in-cadence-temporal-workflow-using-iwf-as-an-example-part-1-c24ae5266f07) in iWF to workaround the Cadence/Temporal history limitation, the WorkflowRunID could be changed. But it's stable within in StateExecution (It won't change during the backoff retry).|
+| WorkflowRunID| A UUID to help identifier different workflowExecution. Because WorkflowID is allowed to reused based on [IDReusePolicy](https://github.com/indeedeng/iwf/wiki/WorkflowOptions#idreusepolicy-for-workflowid), the identifier of WorkflowExecution is WorkflowRunID. It's returned from iWF server by StartWorkflow API. However, due to the [AutoContinueAsNew](https://medium.com/@qlong/guide-to-continueasnew-in-cadence-temporal-workflow-using-iwf-as-an-example-part-1-c24ae5266f07) in iWF to workaround the Cadence/Temporal history limitation, the WorkflowRunID could be changed. But it's stable within in StateExecution (It won't change during the backoff retry).|
 | StateID | It's the identifier of a WorkflowState definition. By default it's the className/structName in the code. |
 | StateExecution| The instance of an execution of a WorkflowState. It includes the StateID to load the StateDefinition, the input of the State to invoke the code of StateDefinition|
-| StateExecutionID| Given a WorkflowExecution, the same StateDefinition(StateID) can be executed multiple times. The StateExecutionID is to identifier the different StateExecutions. It's in a format of "StateID-<number>", where "<number>" is incremental counter maintained by iWF server |
+| StateExecutionID| Given a WorkflowExecution, the same StateDefinition(StateID) can be executed multiple times. The StateExecutionID is to identifier the different StateExecutions. It's in a format of "StateID-<number>", where "<number>" is incremental counter maintained by iWF server. This is not an UUID |
 | RPCName| The identifier of an RPC definition within a WorkflowDefinition. By default it's the method name in the code|
+
+For example of this [UserSignupWorkflow](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/workflow/signup/UserSignupWorkflow.java): 
+
+* UserSignupWorkflow is the WorkflowType, which identify the definition of the workflow
+* This startWorkflow API will start a workflowExecution, by providing a workflowID as business identifier. The API will return a workflowRunID (UUID) as internal identifier.
+* The startingState is SubmitState, which is also the StateID.
+* The first execution of the State will be `SubmitState-1`. 
+* The Another State is VerifyState, and it could run as a [loop](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/workflow/signup/UserSignupWorkflow.java#L136). Hence the StateExecutionIDs will be VerifyState-1, VerifyState-2, ... etc. 
+* An RPCName is [verify](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/workflow/signup/UserSignupWorkflow.java#L72).
 
 More notes:
 * WorkflowType & StateID & RPCName are key elements in SDK. A StateExecution API callback from iWF server contains WorkflowType+StateID for SDK to invoke the associate StateDefinition. A RPC API call back from iWF server contains WorkflowType + RPCName. 
