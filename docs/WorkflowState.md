@@ -48,11 +48,16 @@ The `waitUntil` API can return multiple commands along with a `CommandWaitingTyp
 * `AnyCommandCompleted` -- Wait for any of the commands to be completed.
 * `AnyCommandCombinationCompleted` -- Wait for any combination of the commands in a specified list to be completed.
 
-### InternalChannel: async message queue
+### SignalChannel & InternalChannel: async message queue
+iWF provides message queue called `InternalChannel` & `SignalChannel`. User can just declare it in the workflow code without any management at all (you don't need to create or delete it, it just exists as you declaring it like a data attribute).
 
+A message sent to the InternalChannel/SignalChannel is persisted on server side, delivered to any WorkflowState that is waiting for it with `waitUntil`. 
 
-iWF provides message queue called `InternalChannel`. User can just declare it in the workflow code without any management at all.
-A message sent to the InternalChannel is persisted on server side, delivered to any WorkflowState that is waiting for it with `waitUntil`. 
+Both channels are FIFO queues. 
+
+The channels/queues can receive messages whenever you send to them, even there is no state waiting for messages (async).
+
+### InternalChannel
 
 Message can be sent to an InternalChannel by a WorkflowState or RPC.
 
