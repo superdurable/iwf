@@ -59,6 +59,14 @@ Both channels are FIFO queues.
 
 The channels/queues can receive messages whenever you send to them, even there is no state waiting for messages (async).
 
+### SignalChannel
+Signal is sent to iWF service without waiting for response of the processing.
+Using an iWF client to send a signal by calling the API:
+```java
+iwfClient.signalWorkflow( MyWorkflow.class, "wf-id", "SignalChannelName", "some value");
+```
+Signal will be persisted by iWF service into a signal channel until a workflow state consumes it.
+
 ### InternalChannel
 
 Message can be sent to an InternalChannel by a WorkflowState or RPC.
