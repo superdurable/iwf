@@ -38,12 +38,12 @@ iWF provides three types of commands:
 
 
 * `TimerCommand` -- Wait for a **durable timer** to fire. 
-  * Note that for each timer started by a StateExecution, the scope is only valid within that StateExecution. 
+  * Note that for each timer started by the commandRequest of a StateExecution, the scope is only valid within that StateExecution. 
 * `InternalChannelCommand` -- Wait for a message from InternalChannel.
-  * Note that each InternalChannel's scope is within the whole WorkflowExecution(sharing across all the StateExecutions)
+  * Note that each InternalChannelCommand scopes within the StateExecution. However, InternalChannel is declared for the whole workflow, it’s scope is within the whole WorkflowExecution(sharing across all the StateExecutions)
 * `SignalCommand` —- Wait for a signal to be published to the workflow signal channel. External applications can use
   SignalWorkflow API to signal a workflow.
-  * Note that each SignalChannel's scope is within the whole WorkflowExecution(sharing across all the StateExecutions)
+  * Note that each SignalCommand scopes in the StateExecution. However, SignalChannel is declared for the whole workflow, its scope is within the whole WorkflowExecution(sharing across all the StateExecutions)
 
 The `waitUntil` API can return multiple commands along with a `CommandWaitingType`:
 
