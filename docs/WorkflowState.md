@@ -53,7 +53,7 @@ The `waitUntil` API can return multiple commands along with a `CommandWaitingTyp
 
 ### CommandId of a command
 CommandId is for differentiating the commands within the same state execution. 
-It’s mostly only useful for AnyCommandCombination mCompleted CommandType, which is an advanced use case to select a subset of the commands to wait for. It’s required to be non empty when using AnyCommandCombinationCompleted.
+It’s mostly only useful for AnyCommandCombinationCompleted CommandWaitingType, which is an advanced use case to select a subset of the commands to wait for. It’s required to be non empty when using AnyCommandCombinationCompleted.
 
 ### SignalChannel & InternalChannel: async message queue
 iWF provides message queue called `InternalChannel` & `SignalChannel`. User can just declare it in the workflow code without any management at all.
