@@ -38,9 +38,9 @@ to specify certain DataAttributes/SearchAttributes only to load.
 * `WITHOUT_LOCKING` here means if multiple StateExecutions/RPC try to upsert the same DataAttribute/SearchAttribute, they can be
 done in parallel without locking.
 
-* If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` allows specifying some keys to be locked during the execution.
+* If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` or `LOAD_ALL_WITH_PARTIAL_LOCK` allow specifying some keys to be locked during the execution.
 
-The `PARTIAL_WITH_EXCLUSIVE_LOCK` for RPC is only supported by Temporal as backend with enabling synchronous update feature (by `frontend.enableUpdateWorkflowExecution:true` in Dynamic Config)
+The locking with RPC is only supported by Temporal as backend with enabling synchronous update feature (for self hosted Temporal cluster, enable by `frontend.enableUpdateWorkflowExecution:true` in Dynamic Config)
 See the [wiki](https://github.com/indeedeng/iwf/wiki/What-does-the-atomicity-of-RPC-really-mean%3F) for further details.
 
 ## SDKs
