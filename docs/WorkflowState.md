@@ -23,8 +23,10 @@ User workflow implements a **`execute` API** to return a StateDecision for:
   * Graceful complete -- Stop the thread, and also will stop the workflow when all other threads are stopped
   * Force complete -- Stop the workflow immediately
   * Force fail  -- Stop the workflow immediately with failure
-* Dead end -- Just stop the thread
+* Dead end -- Just stop the thread, but not trying to stop the workflow.
+  * This is needed for advanced cases where you want to keep the workflow running when all threads stopped. Otherwise in most cases, using Graceful complete will get the same behavior)
 * Atomically go to next state with condition(e.g. channel is not empty)
+  * This is for the advanced cases where you want stop the workflow while the (signal/internal) channel may be receiving new messages. Using this atomic decision can prevent message loss.
 
 State Decisions let you orchestrate the WorkflowState as complex as needed for any use case!
 
