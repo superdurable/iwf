@@ -155,10 +155,8 @@ And the [application code](https://github.com/indeedeng/iwf-java-samples/blob/ma
     ) {
         try {
             client.startWorkflow(OrchestrationWorkflow.class, workflowId, 3600, "some input data, could be any object rather than a string");
-        } catch (ClientSideException e) {
-            if (e.getErrorSubStatus() != ErrorSubStatus.WORKFLOW_ALREADY_STARTED_SUB_STATUS) {
-                throw e;
-            }
+        } catch (WorkflowAlreadyStartedException e) {
+            // ignore
         }
         return ResponseEntity.ok("success");
     }
