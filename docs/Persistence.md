@@ -3,11 +3,11 @@ As writing code with programming model, you must have to deal with _data_ everyw
 iWF provides a Key-Value storage out of the box. This eliminates the need to depend on a database to implement your workflow.
 
 Your data are stored as Data Attributes and Search Attributes. Together both define the "persistence schema".
-The persistence schema is defined and maintained in the code along with other business logic.
+The persistence schema is defined and maintained in the code along with other business logic. 
 
 Search Attributes work like infinite indexes in a traditional database. You
 only need to specify which attributes should be indexed, without worrying about complications you might be used to in
-a traditional database like the number of shards, and the order of the fields in an index.
+a traditional database like the number of shards, and the order of the fields in an index. Note that Search Attributes must be created accordingly in the Temporal namespace/Cadence domain, and shared across the whole namespace/domain. 
 
 Logically, the workflow definition displayed in the example workflow diagram will have a persistence schema as follows:
 
