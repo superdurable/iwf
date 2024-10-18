@@ -56,6 +56,8 @@ The `waitUntil` API can return multiple commands along with a `CommandWaitingTyp
 * `AnyCommandCompleted` -- Wait for any of the commands to be completed.
 * `AnyCommandCombinationCompleted` -- Wait for any combination of the commands in a specified list to be completed.
 
+For multiple commands in a CommandRequest, the CommandResults (provided in execute API) will remain the same order. 
+
 ### CommandId of a command
 CommandId is for differentiating the commands within the same state execution. 
 It’s mostly only useful for AnyCommandCombinationCompleted CommandWaitingType, which is an advanced use case to select a subset of the commands to wait for. It’s required to be non empty when using AnyCommandCombinationCompleted.
