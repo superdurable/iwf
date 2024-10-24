@@ -49,4 +49,5 @@ Some tips/best practices, for examples:
 * In Java, Make sure to set “ignore unknown fields” in Jackson (default in iWF already) for removing old fields
 * Use duplicated Workflow/WorkflowState when renaming, and remove the duplicated after all old workflows are completed. 
 * By default, the WorkflowType and StateId are the class simple names. But you can override the method to use a different name to make it different from the class name. 
-* Use system search attributes “IwfExecutingStateIds” and “IwfWorkflowType” to check if there are any old workflows running, when rename/removing the old StateId or WorkflowType. By default, t
+* Use system search attributes “IwfExecutingStateIds” and “IwfWorkflowType” to check if there are any old workflows running, when rename/removing the old StateId or WorkflowType. 
+NOTE: IwfExecutingStateIds is disabled by default because of cost. To enable it by setting "disableSystemSearchAttributes" to false for WorkflowConfig when starting a workflow. We are working on [this](https://github.com/indeedeng/iwf/issues/411) as a more cost effective way – it only records the SearchAttribute for states that have waitUntil. And also comes with several [optimizations](https://github.com/indeedeng/iwf/issues/454). 
