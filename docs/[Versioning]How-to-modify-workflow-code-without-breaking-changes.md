@@ -38,8 +38,6 @@ Finally, maybe the most common breaking changes are technical in-compabible chan
 * Rename or remove a Workflow/WorkflowState, but the Workflow/WorkflowState is still running 
 * Making breaking changes to any data model in the workflow, while the data model is still being used with old data values. E.g. change a field from optional to required, rename a field, add a new required field, etc. 
 
-![image](https://github.com/indeedeng/iwf/assets/4523955/1fb915a5-a6c9-40d6-9039-12c1eba20589)
-
 
 Essentially, users should keep in mind that all the workflow code is running as a RESTful service, and use the standard approaches to avoid those breaking changes. 
 
@@ -51,3 +49,6 @@ Some tips/best practices, for examples:
 * By default, the WorkflowType and StateId are the class simple names. But you can override the method to use a different name to make it different from the class name. 
 * Use system search attributes “IwfExecutingStateIds” and “IwfWorkflowType” to check if there are any old workflows running, when rename/removing the old StateId or WorkflowType. 
 NOTE: IwfExecutingStateIds is disabled by default because of cost. To enable it by setting "disableSystemSearchAttributes" to false for WorkflowConfig when starting a workflow. We are working on [this](https://github.com/indeedeng/iwf/issues/411) as a more cost effective way – it only records the SearchAttribute for states that have waitUntil. And also comes with several [optimizations](https://github.com/indeedeng/iwf/issues/454). 
+
+![Screenshot 2024-10-24 at 8 17 13 AM](https://github.com/user-attachments/assets/3de7c550-0343-4011-8dba-f72866237847)
+
