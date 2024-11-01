@@ -72,10 +72,23 @@ public class UserSignupWorkflow implements ObjectWorkflow {
 ...
 }
 ```
-Example of read/write persistence:
+Example of read/write persistence in the workflow states or RPCs:
 ```
         String status = persistence.getDataAttribute(DA_Status, String.class);
         persistence.setDataAttribute(DA_Status, "verified");
+```
+
+To access the persistence outside of workflow, you can use [RRC](../RPC) via client, since RPC has read/write access.
+Alternatively, you can use direct APIs:
+
+```
+client.getDataAttributes(...)
+client.getSearchAttributes(...)
+```
+The below APIs are WIP:
+```
+client.setDataAttributes(...) 
+client.setSearchAttributes(...)
 ```
 
 #### Python
@@ -96,19 +109,6 @@ To read/write persistence in workflow states or RPCs:
 ```
         status = persistence.get_data_attribute(data_attribute_status)
         persistence.set_data_attribute(data_attribute_status, "verified")
-```
-
-To access the persistence outside of workflow, you can use [RRC](../RPC) via client, since RPC has read/write access.
-Alternatively, you can use direct APIs:
-
-```
-client.getDataAttributes(...)
-client.getSearchAttributes(...)
-```
-The below APIs are WIP:
-```
-client.setDataAttributes(...) 
-client.setSearchAttributes(...)
 ```
 
 
