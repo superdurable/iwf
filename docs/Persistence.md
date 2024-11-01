@@ -91,11 +91,26 @@ class UserSignupWorkflow(ObjectWorkflow):
             PersistenceField.data_attribute_def(data_attribute_verified_source, str),
         )
 ```
-Example of read/write persistence:
+
+To read/write persistence in workflow states or RPCs:
 ```
         status = persistence.get_data_attribute(data_attribute_status)
         persistence.set_data_attribute(data_attribute_status, "verified")
 ```
+
+To access the persistence outside of workflow, you can use [RRC](../RPC) via client, since RPC has read/write access.
+Alternatively, you can use direct APIs:
+
+```
+client.getDataAttributes(...)
+client.getSearchAttributes(...)
+```
+The below APIs are WIP:
+```
+client.setDataAttributes(...) 
+client.setSearchAttributes(...)
+```
+
 
 #### Golang
 Due to the limitation of Golang, the Golang SDK doesn't let you define "type" of an attribute. So there is no type checking in the SDK.
