@@ -43,7 +43,7 @@ done in parallel without locking.
 ### Locking in RPC
 **[Experimental]** The locking with RPC is only supported by Temporal as backend using [synchronous update feature](https://docs.temporal.io/encyclopedia/workflow-message-passing#sending-updates). Temporal Update is under [experimental stage](https://github.com/temporalio/sdk-go/blob/v1.29.1/workflow/workflow.go#L529). So it's also considered "experimental" in iWF.
 
-Note that only locking in RPC is experimental. Locking in State APIs is stable and production ready.
+
 
 ## SDKs
 Defining iWF persistence schema is simply declaring in code the key and value types(if applicable). 
