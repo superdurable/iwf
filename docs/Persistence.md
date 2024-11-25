@@ -41,7 +41,7 @@ done in parallel without locking.
 * If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` or `LOAD_ALL_WITH_PARTIAL_LOCK` allow specifying some keys to be locked during the execution.
 
 ### Locking in RPC
-**[Experimental]** The locking with RPC is only supported by Temporal as backend using [synchronous update feature](https://docs.temporal.io/encyclopedia/workflow-message-passing#sending-updates). Temporal Update is under [experimental stage](https://github.com/temporalio/sdk-go/blob/v1.29.1/workflow/workflow.go#L529). So it's also considered "experimental" in iWF.
+The locking with RPC is only supported by Temporal as backend using [synchronous update feature](https://docs.temporal.io/encyclopedia/workflow-message-passing#sending-updates). 
 
 
 
