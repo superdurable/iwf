@@ -53,7 +53,7 @@ iWF provides three types of commands:
 The `waitUntil` API can return multiple commands along with a `CommandWaitingType`:
 
 * `AllCommandCompleted` -- Wait for all commands to be completed.
-* `AnyCommandCompleted` -- Wait for any of the commands to be completed.
+* `AnyCommandCompleted` -- Wait for any of the commands to be completed. It could return more than one commands completed, even all, if more than one are completed.
 * `AnyCommandCombinationCompleted` -- Wait for any combination of the commands in a specified list to be completed.
 
 For multiple commands in a CommandRequest, the CommandResults (provided in execute API) will remain the same order. 
