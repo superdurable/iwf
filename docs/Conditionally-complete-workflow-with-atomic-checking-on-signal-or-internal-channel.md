@@ -3,3 +3,39 @@ One of the [StateDecision](https://github.com/indeedeng/iwf/wiki/WorkflowState#s
 * [forceCompleteIfSignalChannelEmptyOrElse](https://github.com/indeedeng/iwf-java-sdk/blob/b2994f187f6786d8b7570ade93fcd5ff7a5b893f/src/main/java/io/iworkflow/core/StateDecision.java#L132C33-L132C72)
 
 The main scenario/use case of this feature is to keep the workflow execution as short as possible, while the workflow is receiving requests from external to process (via Signal, or RPC+internalChannel). Keeping the workflow short will help reduce the cost of using Cadence/Temporal, especially if the number of the workflow is large. And it's generally easier to maintain a short workflow than a long one, for [versioning](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes) workflow. 
+
+The atomic checking of channel being empty is performed on iWF server. This is to to safely ensure no racing conditions, leading to message unprocessed when completing a workflow. 
+
+However, you must be sure that there is only one state consuming the signal or internal channel that are being checked. Otherwise there could still be racing conditions. 
+
+For example, the below is a wrong usage:
+```
+InitState implement WorkflowState{ //starting State
+execute(...){
+   return StateDecision.multiNextStates(State1.class, State2.class);
+}   
+}
+
+State1 implement WorkflowState{
+
+waitUntil(...){
+   return CommandRequest.forAnyCommandCompleted( InternalChannelCommand.create("TEST_CHANNEL"));
+}
+
+execute(...){
+   return forceCompleteIfInternalChannelEmptyOrElse("TEST_CHANNEL", State1.class);
+}
+}
+
+State2 implement WorkflowState{
+
+waitUntil(...){
+   return CommandRequest.forAnyCommandCompleted( InternalChannelCommand.create("TEST_CHANNEL"));
+}
+
+execute(...){
+   return forceCompleteIfInternalChannelEmptyOrElse("TEST_CHANNEL", State2.class);
+}
+}
+```
+The problem is that when the channel has one message, and it may send one message to State1 and also check the emptiness for State2. State2 will see empty channel and complete the workflow. While State1 doesn't have a chance to process the last message.
