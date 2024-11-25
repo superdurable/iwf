@@ -11,7 +11,7 @@ However, you must be sure that there is only one state consuming the signal or i
 For example, the below is a wrong usage:
 ```
 InitState implement WorkflowState{ //starting State
-execute(...){
+   execute(...){
       return StateDecision.multiNextStates(State1.class, State2.class);
    }   
 }
