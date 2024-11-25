@@ -38,4 +38,4 @@ State2 implement WorkflowState{
    }
 }
 ```
-The problem is that when the channel has one message, and it may send one message to State1 and also check the emptiness for State2. State2 will see empty channel and complete the workflow. While State1 doesn't have a chance to process the last message.
+The problem is that when the channel has one message, it may happen that State1 consumes the message and also State2 checks the emptiness. Therefore, State2 will see empty channel and complete the workflow. While State1 doesn't have a chance to process the last message.
