@@ -12,30 +12,30 @@ For example, the below is a wrong usage:
 ```
 InitState implement WorkflowState{ //starting State
 execute(...){
-   return StateDecision.multiNextStates(State1.class, State2.class);
-}   
+      return StateDecision.multiNextStates(State1.class, State2.class);
+   }   
 }
 
 State1 implement WorkflowState{
 
-waitUntil(...){
-   return CommandRequest.forAnyCommandCompleted( InternalChannelCommand.create("TEST_CHANNEL"));
-}
+   waitUntil(...){
+      return CommandRequest.forAnyCommandCompleted( InternalChannelCommand.create("TEST_CHANNEL"));
+   }
 
-execute(...){
-   return forceCompleteIfInternalChannelEmptyOrElse("TEST_CHANNEL", State1.class);
-}
+   execute(...){
+      return forceCompleteIfInternalChannelEmptyOrElse("TEST_CHANNEL", State1.class);
+   }
 }
 
 State2 implement WorkflowState{
 
-waitUntil(...){
-   return CommandRequest.forAnyCommandCompleted( InternalChannelCommand.create("TEST_CHANNEL"));
-}
+   waitUntil(...){
+      return CommandRequest.forAnyCommandCompleted( InternalChannelCommand.create("TEST_CHANNEL"));
+   }
 
-execute(...){
-   return forceCompleteIfInternalChannelEmptyOrElse("TEST_CHANNEL", State2.class);
-}
+   execute(...){
+      return forceCompleteIfInternalChannelEmptyOrElse("TEST_CHANNEL", State2.class);
+   }
 }
 ```
 The problem is that when the channel has one message, and it may send one message to State1 and also check the emptiness for State2. State2 will see empty channel and complete the workflow. While State1 doesn't have a chance to process the last message.
