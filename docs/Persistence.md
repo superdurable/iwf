@@ -42,7 +42,7 @@ done in parallel without locking.
 
 ### Locking in RPC
 The locking with RPC is only supported by Temporal as backend using [synchronous update feature](https://docs.temporal.io/encyclopedia/workflow-message-passing#sending-updates). 
-
+See [more in this wiki page](https://github.com/indeedeng/iwf/wiki/RPC-locking:-What-does-the-atomicity-of-RPC-really-mean%3F).
 
 
 ## SDKs
