@@ -29,7 +29,7 @@ User workflow implements a **`execute` API** to return a StateDecision for:
 * Dead end -- Just stop the thread, but not trying to stop the workflow.
   * This is needed for advanced cases where you want to keep the workflow running when all threads stopped. Otherwise in most cases, using Graceful complete will get the same behavior)
 * Atomically go to next state with condition(e.g. channel is not empty)
-  * This is for the advanced cases where you want stop the workflow while the (signal/internal) channel may be receiving new messages. Using this atomic decision can prevent message loss.
+  * This is for the advanced cases where you want stop the workflow while the (signal/internal) channel may be receiving new messages. Using this atomic decision can prevent message loss. Note that there [must be only one state consuming the signal/internal channel](https://github.com/indeedeng/iwf/wiki/Conditionally-complete-workflow-with-atomic-checking-on-signal-internal-channel).
 
 State Decisions let you orchestrate the WorkflowState as complex as needed for any use case!
 
