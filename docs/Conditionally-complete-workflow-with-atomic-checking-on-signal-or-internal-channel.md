@@ -1,0 +1,5 @@
+One of the [StateDecision](https://github.com/indeedeng/iwf/wiki/WorkflowState#statedecision-from-execute) can be conditional checking on signal/internal channel, like :
+* [forceCompleteIfInternalChannelEmptyOrElse](https://github.com/indeedeng/iwf-java-sdk/blob/b2994f187f6786d8b7570ade93fcd5ff7a5b893f/src/main/java/io/iworkflow/core/StateDecision.java#L93)
+* [forceCompleteIfSignalChannelEmptyOrElse](https://github.com/indeedeng/iwf-java-sdk/blob/b2994f187f6786d8b7570ade93fcd5ff7a5b893f/src/main/java/io/iworkflow/core/StateDecision.java#L132C33-L132C72)
+
+The main scenario/use case of this feature is to keep the workflow execution as short as possible, while the workflow is receiving requests from external to process (via Signal, or RPC+internalChannel). Keeping the workflow short will help reduce the cost of using Cadence/Temporal, especially if the number of the workflow is large. And it's generally easier to maintain a short workflow than a long one, for [versioning](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes) workflow. 
