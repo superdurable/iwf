@@ -110,3 +110,10 @@ This is very uncommonly needed than the failure policy of Execute API. Currently
 There is a context object when invoking RPC or State APIs. It contains information like workflowId, startTime, etc.
 
 For example, WorkflowState can utilize `attempts` or `firstAttemptTime` from the context to make some advanced logic.
+
+#### StateOptionsOverride 
+To have a different WorkflowStateOptions, normally you just need to implement the method of the WorkflowState interface. 
+
+But in some rare cases, you may need it to be more dynamic -- for example, different state executions could have a different retry policy, even they are from the same state definitions. 
+
+To achieve this, you can provide an [stateOptionsOverride to the StateMovement of StateDecision](https://github.com/indeedeng/iwf-java-sdk/blob/b2994f187f6786d8b7570ade93fcd5ff7a5b893f/src/main/java/io/iworkflow/core/StateDecision.java#L152).
