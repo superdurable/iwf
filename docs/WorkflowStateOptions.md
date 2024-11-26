@@ -1,6 +1,6 @@
 users can customize the WorkflowState
 
-#### WorkflowState WaitUntil/Execute API timeout and retry policy
+## WorkflowState WaitUntil/Execute API timeout and retry policy
 
 By default, the API timeout is 30s with infinite backoff retry. 
 Users can customize the API timeout and retry policy:
@@ -18,12 +18,12 @@ policy.
 MaximumAttempts is directly by number of attempts, where MaximumAttemptsDurationSeconds is by the total time duration of
 all attempts including retries. It will be capped to the minimum if both are provided.
 
-#### State API failure handling/recovery
+## State API failure handling/recovery
 
 By default, the workflow execution will fail when State APIs max out the retry attempts. In some cases that
 workflow want to handle the errors differently.
 
-##### Execute API
+### Execute API
 For Execute API, you can set `PROCEED_TO_CONFIGURED_STATE` as failure policy, with a `ProceededState` configured.
 The proceeded state will take the same input from the original failed state.
 
@@ -97,7 +97,7 @@ class DebitState(WorkflowState[None]):
         )
 ```
 
-##### WaitUntil API
+### WaitUntil API
 
 For WaitUntil API, using `PROCEED_ON_API_FAILURE` for `WaitUntilApiFailurePolicy` will let workflow continue to invoke `execute`
 API when the API fails with maxing out all the retry attempts.
@@ -106,12 +106,12 @@ See example here in [Java](https://github.com/indeedeng/iwf-java-sdk/blob/main/s
 
 This is very uncommonly needed than the failure policy of Execute API. Currently not implemented in Python SDK yet.
 
-#### State/RPC API Context
+## State/RPC API Context
 There is a context object when invoking RPC or State APIs. It contains information like workflowId, startTime, etc.
 
 For example, WorkflowState can utilize `attempts` or `firstAttemptTime` from the context to make some advanced logic.
 
-#### StateOptionsOverride 
+## StateOptionsOverride 
 To have a different WorkflowStateOptions, normally you just need to implement the method of the WorkflowState interface. 
 
 But in some rare cases, you may need it to be more dynamic -- for example, different state executions could have a different retry policy, even they are from the same state definitions. 
