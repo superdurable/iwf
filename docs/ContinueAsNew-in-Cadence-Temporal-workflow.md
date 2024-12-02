@@ -191,7 +191,7 @@ Because they are running in parallel, suddenly calling the continueAsNew API in 
 *   The activity could just completed with results but not processed properly
 *   Etc.
 
-The safest way is to merge all the threads, just like calling “Join” API in some multi-threading world (like Java/Python)
+The safest way is to merge all the threads, just like calling “Join” API in some multi-threading world (like Java/Python).
 
 ### What are sub-threads
 
