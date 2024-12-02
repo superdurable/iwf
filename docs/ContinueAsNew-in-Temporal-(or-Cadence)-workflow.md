@@ -49,15 +49,13 @@ class MyWorkflowImpl implements MyWorkflow{
          if(input.isFromContinueAsNew()){
             rebuildEverything(input);
          }
-         ....
-         ....
+         ...
          if(shouldContinueAsNew(...)){
              // it's time to do a continueAsNew
              Input snapshot = collectCurrentStatesAsSnapshot(...);
              throw Workflow.newContinueAsNewError(snapshot);
          }
-         ....
-         ....
+         ...
    }
 }
 ```
@@ -123,8 +121,6 @@ Implementing continueAsNew for the Golang SDK is a common mistake because the SD
 Therefore, if using APIs to proactively receive signals like Golang ReceiveChanel, you need to do `drainAllSignalsInOneWorkflowTask` like below:
 
 ```
-
-...
 ...
           if(shouldContinueAsNew(...)){
              // it's time to do a continueAsNew
@@ -133,7 +129,6 @@ Therefore, if using APIs to proactively receive signals like Golang ReceiveChane
              Input snapshot = collectCurrentStatesAsSnapshot(...);
              throw Workflow.newContinueAsNewError(snapshot);
          }
-...
 ...
 ```
 
@@ -280,8 +275,6 @@ This is because draining sub-threads could involve some â€œblocking API calls.â€
 Until now, your workflow code may be like this to drain threads and signals.
 
 ```
-
-...
 ...
           if(shouldContinueAsNew(...)){
              // it's time to do a continueAsNew
@@ -290,7 +283,6 @@ Until now, your workflow code may be like this to drain threads and signals.
              Input snapshot = collectCurrentStatesAsSnapshot(...);
              throw Workflow.newContinueAsNewError(snapshot);
          }
-...
 ...
 ```
 
