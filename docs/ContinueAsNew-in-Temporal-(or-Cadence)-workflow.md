@@ -275,6 +275,8 @@ It’s also important to ensure the ordering: draining sub-threads **before** dr
 
 This is because draining sub-threads could involve some “blocking API calls.” If draining signals first, then new signals could arrive during the draining of sub-threads, and as a result, the newly arrived signals could be lost.
 
+# Summary
+
 Until now, your workflow code may be like this to drain threads and signals.
 
 ```
