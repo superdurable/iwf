@@ -12,17 +12,15 @@ As a result, [continue as new](https://docs.temporal.io/workflows#continue-as-ne
 
 Also, continueAsNew will help [reduce costs if you are using Temporal Cloud](https://docs.temporal.io/cloud/pricing). The open storage will be smaller after a continueAsNew, and the old events will be deleted after a retention period.
 
-This article is to provide some guidance to implement “Continue As New” in a Temporal workflow.
+This page is to provide some guidance to implement “Continue As New” in a Temporal workflow. We start with some basic concepts and then explore different aspects of implementing “continueAsNew” in a safe, scalable, and reliable way.
 
-We start with some basic concepts and then explore different aspects of implementing “continueAsNew” in a safe, scalable, and reliable way!
+The goal is to provide a comprehensive guide for implementing continueAsNew. It’s not for providing a lot of details of all the basics of Temporal workflow. It assumes you are already familiar with the basic concepts and APIs, and the key concept — [workflow task](https://stackoverflow.com/questions/62904129/what-exactly-is-a-cadence-decision-task/63964726#63964726) in Temporal.
 
-The goal of this article is to provide “probably” comprehensive guidance of implementing continueAsNew. It’s not for providing a lot of details of all the basics of Temporal workflow. It assumes you are already familiar with the basic concepts and APIs, and the key concept — [workflow task](https://stackoverflow.com/questions/62904129/what-exactly-is-a-cadence-decision-task/63964726#63964726) in Temporal.
-
-iWF as a Temporal [abstraction/framework](https://github.com/temporalio/awesome-temporal#frameworks), has already implemented continueAsNew underneath. This article uses iWF as example to show how to implement it and provide a summary of how it’s implemented so that people can understand iWF better.
+iWF as a Temporal [abstraction/framework](https://github.com/temporalio/awesome-temporal#frameworks), has already implemented continueAsNew underneath. This article uses iWF as example to show how to implement it and provide a summary of how it’s implemented so that people can better understand iWF.
 
 # What is ContinueAsNew
 
-This “unique” concept only exists for replay-based programming models like Temporal. (It also exists in other replay based workflow engines like [SWF](https://docs.aws.amazon.com/amazonswf/latest/apireference/API_ContinueAsNewWorkflowExecutionDecisionAttributes.html) and [Azure Durable Function](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-eternal-orchestrations?tabs=csharp#resetting-and-restarting)).
+This “unique” concept only exists for replay-based programming models like Temporal. (It also exists in other replay-based workflow engines like [SWF](https://docs.aws.amazon.com/amazonswf/latest/apireference/API_ContinueAsNewWorkflowExecutionDecisionAttributes.html) and [Azure Durable Function](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-eternal-orchestrations?tabs=csharp#resetting-and-restarting)).
 
 In a replay-based workflow definition, a user workflow is defined as a single or “monolithic” function to run. Based on the history events, the function is required to be ready to be “replayed” **anytime**.
 
@@ -156,7 +154,7 @@ In draining the signals, it only mutates the workflow in-memory variables withou
 
 Before [actually calling the continueAsNew API](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/workflowImpl.go#L267), it may fail the workflow early, but won’t make another other blocking API call.
 
-### What if the workflow code does NOT know all the signal names beforehand
+### What if the workflow code does NOT know all the signal names beforehand?
 
 When proactively receiving and processing all the signals received, if you know all the signal names:
 
@@ -165,7 +163,7 @@ When proactively receiving and processing all the signals received, if you know 
 
 However, in a very dynamic workflow like iWF, the workflow doesn’t know all the signal names beforehand. In that case, [iWF uses a special API from Cadence/Temporal called GetUnhandledSignalNames](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/signalReceiver.go#L227C31-L227C54).
 
-### What happens if a new signal is received when the continueAsNew command is returned to the server
+### What if a signal is received when the continueAsNew command is returned to the server?
 
 This racing condition is a popular question.
 
@@ -193,7 +191,7 @@ Because they are running in parallel, suddenly calling the continueAsNew API in 
 
 The safest way is to merge all the threads, just like calling “Join” API in some multi-threading world (like Java/Python).
 
-### What are sub-threads
+### What are sub-threads?
 
 A workflow code can start a new thread explicitly.
 
@@ -209,7 +207,7 @@ The SDK automatically creates/starts the threads. The implicitness of the sub-th
 
 For example, if the signal handling function executes an activity, it will have race conditions with continueAsNew, like above.
 
-### How to merge sub-threads
+### How to merge sub-threads?
 
 There are some options when merging the sub-threads:
 
