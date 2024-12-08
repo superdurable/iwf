@@ -8,15 +8,25 @@
 * [WorkflowState](https://github.com/indeedeng/iwf/wiki/WorkflowState)
 * [RPC](https://github.com/indeedeng/iwf/wiki/RPC)
 * [Persistence](https://github.com/indeedeng/iwf/wiki/Persistence)
+* [Compare with Cadence/Temporal](https://github.com/indeedeng/iwf/wiki/Compare-with-Cadence-Temporal)
 
 ## Advanced concepts
 * [WorkflowOptions](https://github.com/indeedeng/iwf/wiki/WorkflowOptions)
 * [WorkflowStateOptions](https://github.com/indeedeng/iwf/wiki/WorkflowStateOptions)
-* [Persistence Caching](https://github.com/indeedeng/iwf/wiki/Persistence-Caching)
+* [Conditional complete workflow with checking channel emptiness](https://github.com/indeedeng/iwf/wiki/Conditionally-complete-workflow-with-atomic-checking-on-signal-or-internal-channel) 
+* [WaitForStateExecutionCompletion](https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-state-to-complete)
+* [iWF limitation](https://github.com/indeedeng/iwf/wiki/iWF-limitation)
+* [Persistence Caching (experimental)](https://github.com/indeedeng/iwf/wiki/Persistence-Caching)
+* [RPC locking](https://github.com/indeedeng/iwf/wiki/RPC-locking:-What-does-the-atomicity-of-RPC-really-mean%3F)
+* [SignalChannel vs InternalChannel](https://github.com/indeedeng/iwf/wiki/SignalChannel-vs-InternalChannel)
+
 
 ## Operation
 * [iWF application operation](https://github.com/indeedeng/iwf/wiki/iWF-Application-Operations)
 * [iWF server operation](https://github.com/indeedeng/iwf/wiki/iWF-Server-Operations)
+* [How to version iWF workflow](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes)
+* [How to change server config in docker](https://github.com/indeedeng/iwf/wiki/How-to-change-server-config-in-docker)
+
 
 ## FAQ
 * [SignalChannel vs InternalChannel](https://github.com/indeedeng/iwf/wiki/SignalChannel-vs-InternalChannel)
@@ -28,3 +38,4 @@
 * [iWF limitation](https://github.com/indeedeng/iwf/wiki/iWF-limitation)
 * [Wait for workflow to complete](https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-to-complete)
 * [Wait for workflow state to complete](https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-state-to-complete)
+* [How does waitForStateExecutionCompletion works](https://github.com/indeedeng/iwf/wiki/How-does-waitForStateCompletion-work%3F}
