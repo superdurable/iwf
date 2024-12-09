@@ -26,8 +26,10 @@ all attempts including retries. It will be capped to the minimum if both are pro
 
 ## State API failure handling/recovery after retries are exhausted 
 
-By default, the workflow execution will fail when State APIs max out the retry attempts. In some cases that
-workflow want to handle the errors differently (especially cleanup/compensation like SAGA pattern).
+By default, the workflow execution will fail when State APIs max out the retry attempts. But in some cases you want the
+workflow to handle cleanup/compensation after all retries have failed(as SAGA pattern).
+
+!!! Do not use this feature unless necessary -- in most cases, you should just let a workflow fail and get alerted -- which is simpler to do !!!
 
 ### Execute API
 For Execute API, you can set `PROCEED_TO_CONFIGURED_STATE` as failure policy, with a `ProceededState` configured.
