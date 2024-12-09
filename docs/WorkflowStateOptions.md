@@ -2,6 +2,10 @@ users can customize the WorkflowState
 
 ## WorkflowState WaitUntil/Execute API timeout and retry policy
 
+Retry is built-in in iWF WorkflowState. Returning any error will just let the state API(waitUntil/execute) retry until the attempts has maxed out the retryPolicy.
+
+Generally, it's recommended to NOT catch retryable (e.g. 5xx status from REST APIs, service internal error or unavailable, timeouts), or a generic error (e.g. Exception in Java), otherwise you lose the benefits of the retry. In other words, it's anti-pattern to catch those exceptions (unless catch and re-throw after logging).
+
 By default, the API timeout is 30s with infinite backoff retry. 
 Users can customize the API timeout and retry policy:
 
@@ -17,6 +21,8 @@ Both MaximumAttempts and MaximumAttemptsDurationSeconds are used for controlling
 policy.
 MaximumAttempts is directly by number of attempts, where MaximumAttemptsDurationSeconds is by the total time duration of
 all attempts including retries. It will be capped to the minimum if both are provided.
+
+
 
 ## State API failure handling/recovery
 
