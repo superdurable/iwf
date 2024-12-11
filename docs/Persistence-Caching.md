@@ -1,3 +1,5 @@
+NOTE: this is an experimental feature.
+
 By default, remote procedure calls (RPCs) will load data/search attributes with the Cadence/Temporal [query API](https://docs.temporal.io/workflows#query),
 which is not optimized for very high request volume (~>100 requests per second) on a single workflow execution. Such request volumes could cause
 too many history replays, especially when workflows are closed. This could in turn produce undesirable latency and load.
