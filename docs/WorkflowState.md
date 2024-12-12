@@ -10,13 +10,12 @@ A WorkflowState is a "big step", which includes 1 or 2 "small steps":
 
 The `waitUntil` API is optional. If not defined, then the `execute` API will be invoked immediately when the Workflow State is started.
 
-The `execute` API returns a StateDecision to decide what is next.
+**The `execute` API** returns a StateDecision to decide what is next.
 
 NOTES:
 1. Both `waitUntil` and `execute` are hosted by REST APIs(via SDKs). 
 2. `waitUntil` method will not be waiting for the commands directly. The commands will be returned to server, then server will be waiting for the commands on behalf of application/workflow. There is nothing needed from application/workflow while it's waiting. In other words, `waitUntil` is non-blocking, and not consuming any CPU/memory/resources on the waiting.
-3. Both `waitUntil` and `execute` are implemented by code and executed in runtime dynamically. They are both hosted as REST API for iWF server to call. 
-It's extremely flexible for business -- [any code change deployed will take effect immediately](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes). 
+3. Both `waitUntil` and `execute` are implemented by code and executed in runtime dynamically. It's extremely flexible for business -- [any code change deployed will take effect immediately](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes). 
 
 ### StateDecision from `execute` 
 User workflow implements a **`execute` API** to return a StateDecision for:
