@@ -146,7 +146,7 @@ class WaitSignalOrTimerState implements WorkflowState<Void> {
 
 Golang interface doesn't have default implementation. As a result, put `iwf.WorkflowStateDefaultsNoWaitUntil` into the struct to skip `waitUntil`.
 
-```golang
+```go
 type state1 struct {
 	iwf.WorkflowStateDefaultsNoWaitUntil
 }
@@ -154,14 +154,14 @@ type state1 struct {
 
 But if it needs waitUntil:
 
-```golang
+```go
 type state1 struct {
 	iwf.WorkflowStateDefaults
 }
 ```
 
 For Golang a full state is like:
-```golang
+```go
 type state3 struct {
 	iwf.WorkflowStateDefaults
 	svc service.MyService
