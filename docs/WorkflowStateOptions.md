@@ -1,4 +1,6 @@
-users can customize the WorkflowState
+<!---## DOCHUB-PATH: get-started/advanced-concepts/WorkflowStateOptions.mdx :DOCHUB-PATH ##--->
+
+Users can customize the WorkflowState
 
 ## WorkflowState WaitUntil/Execute API timeout and retry policy
 
@@ -43,8 +45,16 @@ Thius failure policy are especially helpful for recovery logic.
 
 For example, a `DebitState` is making three API calls for the debit operation but failed at the 3rd one. You want to undo the first two. In that case, you can set a `UndoDebitState` as the recovery state for the DebitState. When DebitState fails, instead of failing workflow, it will proceed to `UndoDebitState` to let you undo the first two operations. 
 
+<!---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
+<Tabs>
+    <TabItem value="java" label="Java">
+--->
+<!--- ## GITHUB-ONLY ## --->
 Example in Java SDK:
+<!--- ## END-GITHUB-ONLY ## --->
 ```java
 public class DebitState extends WorkflowState {
     @Override
@@ -62,8 +72,9 @@ public class DebitState extends WorkflowState {
 }
 ```
 
+<!--- ## GITHUB-ONLY ## --->
 In Golang SDK:
-```golang
+```go
 type debitState struct{
     iwf.WorkflowStateDefaultsNoWaitUntil
 }
@@ -81,10 +92,16 @@ func (b debitState) GetStateOptions() *iwf.StateOptions {
 func (b debitState) Execute(ctx iwf.WorkflowContext, input iwf.Object, commandResults iwf.CommandResults, persistence iwf.Persistence, communication iwf.Communication) (*iwf.StateDecision, error) {
        // make three API calls for a debit operation
 }
-
 ```
+<!--- ## END-GITHUB-ONLY ## --->
 
+<!---
+</TabItem>
+<TabItem value="py" label="Python">
+--->
+<!--- ## GITHUB-ONLY ## --->
 In Python SDK:
+<!--- ## END-GITHUB-ONLY ## --->
 ```python
 class DebitState(WorkflowState[None]):
     def execute(
@@ -104,6 +121,10 @@ class DebitState(WorkflowState[None]):
             execute_failure_handling_state=UndoDebitState,
         )
 ```
+<!---
+</TabItem>
+</Tabs>
+--->
 
 ### WaitUntil API
 
