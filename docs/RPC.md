@@ -1,3 +1,13 @@
+<!---
+---
+sidebar_position: 3
+---
+--->
+
+<!---## DOCHUB-PATH: get-started/core-concepts/RPC.mdx :DOCHUB-PATH ##--->
+
+## Overview
+
 RPC stands for "Remote Procedure Call". Allows external systems to interact with the workflow execution.
 
 It's invoked by client, executed in workflow worker, and then respond back the results to client. 
@@ -5,7 +15,7 @@ It's invoked by client, executed in workflow worker, and then respond back the r
 RPC can have access to not only persistence read/write API, but also interact with WorkflowStates using InternalChannel, 
 or trigger a new WorkflowState execution in a new thread.
 
-### Atomicity of RPC APIs
+## Atomicity of RPC APIs
 
 It's important to note that in addition to read/write persistence fields, a RPC can **trigger new state executions, and publish message to InternalChannel, all atomically.**
 
@@ -22,7 +32,7 @@ To ensure the atomicity of the whole RPC for read+write, you should use `PARTIAL
 The `PARTIAL_WITH_EXCLUSIVE_LOCK` for RPC is only supported by Temporal as backend with enabling synchronous update feature (by `frontend.enableUpdateWorkflowExecution:true` in Dynamic Config).
 See the [wiki](https://github.com/indeedeng/iwf/wiki/RPC-locking:-What-does-the-atomicity-of-RPC-really-mean%3F) for further details.
 
-### Signal Channel vs RPC
+## Signal Channel vs RPC
 
 There are two major ways for external clients to interact with workflows: Signal and RPC. 
 
@@ -47,8 +57,16 @@ An RPC definition can also include optional parameters:
 
 Also, there are some rules to make a method an RPC, which are different based on SDKs:
 
+<!---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
+<Tabs>
+    <TabItem value="java" label="Java">
+--->
+<!--- ## GITHUB-ONLY ## --->
 ### Java
+<!--- ## END-GITHUB-ONLY ## --->
 * Using the [RPC annotation](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/RPC.java) can make a method an RPC
 * The method must be [one of the four forms](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/RpcDefinitions.java)
 
@@ -69,44 +87,18 @@ public class UserSignupWorkflow implements ObjectWorkflow {
 ```
 To invoke an RPC from external, using client API:
 ```java
-        final UserSignupWorkflow rpcStub = client.newRpcStub(UserSignupWorkflow.class, workflowId);
-        String output = client.invokeRPC(rpcStub::verify, input);
+final UserSignupWorkflow rpcStub = client.newRpcStub(UserSignupWorkflow.class, workflowId);
+String output = client.invokeRPC(rpcStub::verify, input);
 ```
 The RPC stub is for providing an strongly typing experience.
 
-### Golang
-Golang doesn't have equivalence to Java's annotation or Python's decorator. An RPC must be registered under CommunicationSchema.
-
-```golang
-type MyWorkfow struct{
-   iwf.WorkflowDefaults
-}
-
-func (e MyWorkflow) GetCommunicationSchema() []iwf.CommunicationMethodDef {
-	return []iwf.CommunicationMethodDef{
-		iwf.RPCMethodDef(e.MyRPC, nil),
-	}
-}
-
-func (e MyWorkflow) MyRPC(ctx iwf.WorkflowContext, input iwf.Object, persistence iwf.Persistence, communication iwf.Communication) (interface{}, error) {
-
-	var oldData string
-	persistence.GetDataAttribute(keyData, &oldData)
-	var newData string
-	input.Get(&newData)
-	persistence.SetDataAttribute(keyData, newData)
-
-	return oldData, nil
-}
-```
-
-To invoke an RPC from external, using client API:
-```golang
-var output string
-err := client.InvokeRPC(context.Background(), wfId, "", wf.MyRPC, input, &output)
-```
-
+<!---
+</TabItem>
+<TabItem value="py" label="Python">
+--->
+<!--- ## GITHUB-ONLY ## --->
 ### Python
+<!--- ## END-GITHUB-ONLY ## --->
 * Using [`rpc` decorator factory](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/rpc.py) to annotate a method will make it an RPC. 
 * Because it's decorator factory, parentheses are required even there are not parameters : `@rpc()`
 * An RPC must have at most 5 params: self, context:WorkflowContext, input:Any, persistence:Persistence, communication:Communication, where input can be any type (the order doesn't matter, but it's recommended for convention)
@@ -133,3 +125,45 @@ Invoke an RPC is very simple in python using client:
 ```python
 output = client.invoke_rpc(username, UserSignupWorkflow.verify, input)
 ```
+
+<!---
+</TabItem>
+<TabItem value="go" label="Golang">
+--->
+<!--- ## GITHUB-ONLY ## --->
+### Golang
+<!--- ## END-GITHUB-ONLY ## --->
+Golang doesn't have equivalence to Java's annotation or Python's decorator. An RPC must be registered under CommunicationSchema.
+
+```go
+type MyWorkfow struct{
+   iwf.WorkflowDefaults
+}
+
+func (e MyWorkflow) GetCommunicationSchema() []iwf.CommunicationMethodDef {
+	return []iwf.CommunicationMethodDef{
+		iwf.RPCMethodDef(e.MyRPC, nil),
+	}
+}
+
+func (e MyWorkflow) MyRPC(ctx iwf.WorkflowContext, input iwf.Object, persistence iwf.Persistence, communication iwf.Communication) (interface{}, error) {
+
+	var oldData string
+	persistence.GetDataAttribute(keyData, &oldData)
+	var newData string
+	input.Get(&newData)
+	persistence.SetDataAttribute(keyData, newData)
+
+	return oldData, nil
+}
+```
+
+To invoke an RPC from external, using client API:
+```go
+var output string
+err := client.InvokeRPC(context.Background(), wfId, "", wf.MyRPC, input, &output)
+```
+<!---
+</TabItem>
+</Tabs>
+--->

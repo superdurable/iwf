@@ -1,3 +1,12 @@
+<!---
+---
+sidebar_position: 4
+---
+--->
+
+<!---## DOCHUB-PATH: get-started/core-concepts/Persistence.mdx :DOCHUB-PATH ##--->
+
+## Overview
 
 As writing code with programming model, you must have to deal with _data_ everywhere. 
 iWF provides a Key-Value storage out of the box. This eliminates the need to depend on a database to implement your workflow.
@@ -49,8 +58,17 @@ See [more in this wiki page](https://github.com/indeedeng/iwf/wiki/RPC-locking:-
 Defining iWF persistence schema is simply declaring in code the key and value types(if applicable). 
 With the type defined for the attribute, the SDK will check the type matching when read/write. (note that the type enforcement is only on the SDK. The server doesn't care about the types for a data/search attribute -- they are just transparent data blobs.
 
-#### Java
 
+<!---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+    <TabItem value="java" label="Java">
+--->
+<!--- ## GITHUB-ONLY ## --->
+### Java
+<!--- ## END-GITHUB-ONLY ## --->
 
 An [example](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/workflow/signup/UserSignupWorkflow.java) of Java workflow definition with persistence:
 ```java
@@ -91,7 +109,14 @@ client.setDataAttributes(...)
 client.setSearchAttributes(...)
 ```
 
-#### Python
+
+<!---
+</TabItem>
+<TabItem value="py" label="Python">
+--->
+<!--- ## GITHUB-ONLY ## --->
+### Python
+<!--- ## END-GITHUB-ONLY ## --->
 
 [Example](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/signup_workflow.py) in Python with persistence:
 ```python
@@ -107,16 +132,21 @@ class UserSignupWorkflow(ObjectWorkflow):
 
 To read/write persistence in workflow states or RPCs:
 ```
-        status = persistence.get_data_attribute(data_attribute_status)
-        persistence.set_data_attribute(data_attribute_status, "verified")
+status = persistence.get_data_attribute(data_attribute_status)
+persistence.set_data_attribute(data_attribute_status, "verified")
 ```
+<!---
+</TabItem>
+<TabItem value="go" label="Golang">
+--->
+<!--- ## GITHUB-ONLY ## --->
+### Golang
+<!--- ## END-GITHUB-ONLY ## --->
 
-
-#### Golang
 Due to the limitation of Golang, the Golang SDK doesn't let you define "type" of an attribute. So there is no type checking in the SDK.
 
 This is an [example](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/microservices/workflow.go) of a Golang workflow definition with persistence:
-```golang
+```go
 type OrchestrationWorkflow struct {
 	iwf.WorkflowDefaults
 }
@@ -136,7 +166,7 @@ func (e OrchestrationWorkflow) GetCommunicationSchema() []iwf.CommunicationMetho
 }
 ```
 And example to read/write the persistence:
-```golang
+```go
 func (s *MyState)Execute(...){
 	var oldData string
 	persistence.GetDataAttribute(keyData, &oldData)
@@ -146,3 +176,7 @@ func (s *MyState)Execute(...){
         ...
 }
 ```
+<!---
+</TabItem>
+</Tabs>
+--->
