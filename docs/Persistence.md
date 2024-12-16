@@ -96,7 +96,7 @@ Example of read/write persistence in the workflow states or RPCs:
         persistence.setDataAttribute(DA_Status, "verified");
 ```
 
-To access the persistence outside of workflow, you can use [RRC](../RPC) via client, since RPC has read/write access.
+To access the persistence outside of workflow, you can use [RRC](./RPC) via client, since RPC has read/write access.
 Alternatively, you can use direct APIs:
 
 ```
