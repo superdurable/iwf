@@ -47,7 +47,7 @@ public void start( State startState, byte[] startInput){
 	while (currentStates.isNotEmpty()){
 		stateExecution = currentStates.pop()
 		Async.procedure( ()->{
-			decision = executeState( stateExecution )
+			decision = processStateExecution( stateExecution )
 			if(decision.hasCompletedState){
 				return decision.completedResult
 			}else{
@@ -57,7 +57,7 @@ public void start( State startState, byte[] startInput){
      }
 }
 
-private void processState(StateExecution currentState){
+private void processStateExecution(StateExecution currentState){
 	commandRequest = executeActivity( currentState.waitUntil, input)
 	commandResults = new Array()
 	foreach timerCommand = commandRequest.timerCommands {
