@@ -57,12 +57,9 @@ public void start( State startState, byte[] startInput){
      }
 }
 
-private void executeState(StateExecution currentState){
+private void processState(StateExecution currentState){
 	commandRequest = executeActivity( currentState.waitUntil, input)
 	commandResults = new Array()
-	foreach activityCommand = commandRequest.longRunActivityCommands {
-		commandResults.add ( scheduleActivity( activityCommand ) ) 
-	}
 	foreach timerCommand = commandRequest.timerCommands {
 		commandResults.add ( scheduleTimer( timerCommand ) ) 
 	}
