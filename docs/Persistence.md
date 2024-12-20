@@ -49,7 +49,7 @@ But if you need to go beyond above best practices, make sure you understand the 
   * Delete (setting to NULL) is okay. 
 * If using optimizeActivity=true (LocalActivity), each state execution should not update data attributes exceeding 40KB.
 * Each signal/internal channel message, should not greater than 100KB 
-* If has more than two 2 MB data/search attribute, specify [another persistence loading policy](https://github.com/indeedeng/iwf/wiki/Persistence#persistence-loading-policy) to reduce the loading data. By default, a state is loading all data/search attributes, which could exceed the 2MB limit of activity input. 
+* If a workflow execution has more than two 2 MB data+search attributes, specify [another persistence loading policy](https://github.com/indeedeng/iwf/wiki/Persistence#persistence-loading-policy) to reduce the loading data. By default, a state is loading all data/search attributes, which could exceed the 2MB limit of activity input.
   * Using dynamic data attributes will help break into smaller pieces for write . 
   * For execute from waitUntil, this also includes the commandResults(eg signal messages)
 * Total history size cannot exceed 50MB
