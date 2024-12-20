@@ -36,6 +36,8 @@ The iWF persistence is mainly for storing the workflow intermediate states/data.
 **It is important to not abuse iWF persistence for things like any large dataset, permanent storage, or for tracking/analytics purpose.**
 
 ## Persistence best practices and size limits
+DO NOT abuse iWF persistence for things like any large dataset. You should store reference(key, Id) to external storage(database,S3) instead.
+ 
 Best practices for ease of mind is to make sure never store large blob of data into data attributes, channel messages, or state inputs:
 * Total data attributes stored in a workflow execution is not greater than 500KB
 * For each state execution, the total state input + data/search attributes loaded + commandResults shouldn't be greater than 2MB
