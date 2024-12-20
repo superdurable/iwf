@@ -33,7 +33,26 @@ Note:
 * Lifecycle: after workflows are closed(completed, timeout, terminated, canceled, failed), all the data retained in your persistence schema will be deleted once the configured retention period elapses.
 
 The iWF persistence is mainly for storing the workflow intermediate states/data.
-**It is important to not abuse iWF persistence for things like permanent storage, or for tracking/analytics purpose.**
+**It is important to not abuse iWF persistence for things like any large dataset, permanent storage, or for tracking/analytics purpose.**
+
+## Persistence best practices and size limits
+Best practices for ease of mind is to make sure never store large blob of data into data attributes, channel messages, or state inputs:
+* Total data attributes stored in a workflow execution is not greater than 500KB
+* For each state execution, the total state input + data/search attributes loaded + commandResults shouldn't be greater than 2MB
+* Each data attribute should not greater than 100KB
+
+
+But if you need to go beyond above best practices, make sure you understand the limits:
+* Using "OptimizeActivity" to save the history size for reading the data attribute
+* Any write to the data attribute is a full value replacement . So avoid too many updates on large data attributes – because it is always a full write record in the Cadence/Temporal history could cause history size problems 
+* For large data attributes(>100KB), do not update it once set(readonly after writing)
+  * Delete (setting to NULL) is okay. 
+* If using optimizeActivity=true (LocalActivity), each state execution should not update data attributes exceeding 40KB.
+* Each signal/internal channel message, should not greater than 100KB 
+* If has more than two 2 MB data/search attribute, specify [another persistence loading policy](https://github.com/indeedeng/iwf/wiki/Persistence#persistence-loading-policy) to reduce the loading data. By default, a state is loading all data/search attributes, which could exceed the 2MB limit of activity input. 
+  * Using dynamic data attributes will help break into smaller pieces for write . 
+  * For execute from waitUntil, this also includes the commandResults(eg signal messages)
+* Total history size cannot exceed 50MB
 
 ## Persistence loading policy
 
