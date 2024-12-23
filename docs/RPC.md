@@ -72,7 +72,9 @@ import TabItem from '@theme/TabItem';
 
 Example
 ```java
+// Java
 public class UserSignupWorkflow implements ObjectWorkflow {
+...
     @RPC
     public String verify(Context context, String input, Persistence persistence, Communication communication) {
         String status = persistence.getDataAttribute(DA_Status, String.class);
@@ -82,6 +84,22 @@ public class UserSignupWorkflow implements ObjectWorkflow {
         persistence.setDataAttribute(DA_Status, "verified");
         communication.publishInternalChannel(VERIFY_CHANNEL, null);
         return "done";
+    }
+}
+
+// Kotlin , "open" is required for RPC methods
+open class UserSignupWorkflow : ObjectWorkflow {
+...
+
+    @RPC 
+    open fun verify(context: Context,str: String,persistence: Persistence,communication: Communication): String {
+        val status = persistence.getDataAttribute(DA_Status, String::class.java)
+        if (status === "verified") {
+            return "already verified"
+        }
+        persistence.setDataAttribute(DA_Status, "verified")
+        communication.publishInternalChannel(VERIFY_CHANNEL, null)
+        return "done"
     }
 }
 ```
