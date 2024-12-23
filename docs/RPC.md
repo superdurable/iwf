@@ -91,7 +91,8 @@ public class UserSignupWorkflow implements ObjectWorkflow {
 open class UserSignupWorkflow : ObjectWorkflow {
 //...
 
-    // "open" is required for RPC methods!!!!
+    // "open" is required for RPC methods in Kotlin!!!!
+    // "open" means "non final" in Java
     @RPC 
     open fun verify(context: Context,str: String,persistence: Persistence,communication: Communication): String {
         val status = persistence.getDataAttribute(DA_Status, String::class.java)
