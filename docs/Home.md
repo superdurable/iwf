@@ -8,10 +8,12 @@
 * [WorkflowState](https://github.com/indeedeng/iwf/wiki/WorkflowState)
 * [RPC](https://github.com/indeedeng/iwf/wiki/RPC)
 * [Persistence](https://github.com/indeedeng/iwf/wiki/Persistence)
+* [Client APIs](https://github.com/indeedeng/iwf/wiki/Client-APIs)
 * [Compare with Cadence/Temporal](https://github.com/indeedeng/iwf/wiki/Compare-with-Cadence-Temporal)
 
 ## Advanced concepts
 * [WorkflowOptions](https://github.com/indeedeng/iwf/wiki/WorkflowOptions)
+* [WorkflowContext](https://github.com/indeedeng/iwf/wiki/WorkflowContext)
 * [WorkflowStateOptions](https://github.com/indeedeng/iwf/wiki/WorkflowStateOptions)
 * [Conditional complete workflow with checking channel emptiness](https://github.com/indeedeng/iwf/wiki/Conditionally-complete-workflow-with-atomic-checking-on-signal-or-internal-channel) 
 * [WaitForStateExecutionCompletion](https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-state-to-complete)
