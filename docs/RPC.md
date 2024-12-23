@@ -74,7 +74,7 @@ Example
 ```java
 // Java
 public class UserSignupWorkflow implements ObjectWorkflow {
-...
+//...
     @RPC
     public String verify(Context context, String input, Persistence persistence, Communication communication) {
         String status = persistence.getDataAttribute(DA_Status, String.class);
@@ -87,10 +87,11 @@ public class UserSignupWorkflow implements ObjectWorkflow {
     }
 }
 
-// Kotlin , "open" is required for RPC methods
+// Kotlin 
 open class UserSignupWorkflow : ObjectWorkflow {
-...
+//...
 
+    // "open" is required for RPC methods!!!!
     @RPC 
     open fun verify(context: Context,str: String,persistence: Persistence,communication: Communication): String {
         val status = persistence.getDataAttribute(DA_Status, String::class.java)
