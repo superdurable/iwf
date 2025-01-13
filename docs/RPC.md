@@ -60,7 +60,9 @@ Also, there are some rules to make a method an RPC, which are different based on
 <!---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import CodeSnippet from '@site/src/components/CodeSnippet';
 
+<CodeSnippet>
 <Tabs>
     <TabItem value="java" label="Java">
 --->
@@ -193,4 +195,5 @@ err := client.InvokeRPC(context.Background(), wfId, "", wf.MyRPC, input, &output
 <!---
 </TabItem>
 </Tabs>
+</CodeSnippet>
 --->
