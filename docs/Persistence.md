@@ -4,7 +4,7 @@ sidebar_position: 4
 ---
 --->
 
-<!---## DOCHUB-PATH: get-started/core-concepts/Persistence.mdx :DOCHUB-PATH ##--->
+<!---## DOCHUB-PATH: production-readiness/advanced-concepts/Persistence.mdx :DOCHUB-PATH ##--->
 
 ## Overview
 
@@ -84,6 +84,11 @@ With the type defined for the attribute, the SDK will check the type matching wh
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
+<div style={{
+    "border": "1px darkgray solid",
+    "border-radius": "1rem",
+    "padding": "0.5rem"
+}}>
 <Tabs>
     <TabItem value="java" label="Java">
 --->
@@ -200,4 +205,5 @@ func (s *MyState)Execute(...){
 <!---
 </TabItem>
 </Tabs>
+</div>
 --->

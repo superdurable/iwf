@@ -4,7 +4,7 @@ sidebar_position: 3
 ---
 --->
 
-<!---## DOCHUB-PATH: get-started/core-concepts/RPC.mdx :DOCHUB-PATH ##--->
+<!---## DOCHUB-PATH: production-readiness/advanced-concepts/RPC.mdx :DOCHUB-PATH ##--->
 
 ## Overview
 

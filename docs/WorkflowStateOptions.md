@@ -1,4 +1,4 @@
-<!---## DOCHUB-PATH: get-started/advanced-concepts/WorkflowStateOptions.mdx :DOCHUB-PATH ##--->
+<!---## DOCHUB-PATH: production-readiness/advanced-concepts/WorkflowStateOptions.mdx :DOCHUB-PATH ##--->
 
 Users can customize the WorkflowState
 
@@ -49,6 +49,11 @@ For example, a `DebitState` is making three API calls for the debit operation bu
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
+<div style={{
+    "border": "1px darkgray solid",
+    "border-radius": "1rem",
+    "padding": "0.5rem"
+}}>
 <Tabs>
     <TabItem value="java" label="Java">
 --->
@@ -124,6 +129,7 @@ class DebitState(WorkflowState[None]):
 <!---
 </TabItem>
 </Tabs>
+</div>
 --->
 
 ### WaitUntil API
