@@ -6,8 +6,6 @@
 
 <!---## DOCHUB-PATH: production-readiness/advanced-concepts/Persistence.mdx :DOCHUB-PATH ##--->
 
-# Persistence
-
 ## Overview
 
 As writing code with programming model, you must have to deal with _data_ everywhere. 
