@@ -4,7 +4,7 @@
 ---
 --->
 
-<!---## DOCHUB-PATH: production-readiness/advanced-concepts/Persistence.mdx :DOCHUB-PATH ##--->
+<!---## DOCHUB-PATH: advanced-concepts/Persistence.mdx :DOCHUB-PATH ##--->
 
 ## Overview
 

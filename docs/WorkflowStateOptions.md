@@ -4,7 +4,7 @@
 ---
 --->
 
-<!---## DOCHUB-PATH: production-readiness/advanced-concepts/WorkflowStateOptions.mdx :DOCHUB-PATH ##--->
+<!---## DOCHUB-PATH: advanced-concepts/WorkflowStateOptions.mdx :DOCHUB-PATH ##--->
 
 Users can customize the WorkflowState
 

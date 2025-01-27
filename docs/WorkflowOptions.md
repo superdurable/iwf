@@ -4,7 +4,7 @@
 ---
 --->
 
-<!---## DOCHUB-PATH: production-readiness/advanced-concepts :DOCHUB-PATH ##--->
+<!---## DOCHUB-PATH: advanced-concepts :DOCHUB-PATH ##--->
 
 iWF let you deeply customize the workflow behaviors with the below options.
 

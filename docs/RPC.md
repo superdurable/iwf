@@ -4,7 +4,7 @@
 ---
 --->
 
-<!---## DOCHUB-PATH: production-readiness/advanced-concepts/RPC.mdx :DOCHUB-PATH ##--->
+<!---## DOCHUB-PATH: advanced-concepts/RPC.mdx :DOCHUB-PATH ##--->
 
 ## Overview
 
