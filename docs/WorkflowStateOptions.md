@@ -57,7 +57,7 @@ import TabItem from '@theme/TabItem';
 
 <div style={{
     "border": "1px darkgray solid",
-    "border-radius": "1rem",
+    "borderRadius": "1rem",
     "padding": "0.5rem"
 }}>
 <Tabs>
