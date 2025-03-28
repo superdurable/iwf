@@ -24,6 +24,10 @@
 
 # How To
 
+## Scale up horizontally 
+
+iWF Application is REST based micro-service. To scale it up, you simply add instances. 
+
 ## Make a better view of workflow in Temporal UI
 To make it easier with iWF, customize the columns by clicking the button from sidebar, to replace WorkflowType with IwfWorkflowType
 
