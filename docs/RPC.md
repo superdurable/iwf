@@ -117,12 +117,10 @@ String output = client.invokeRPC(rpcStub::verify, input);
 ```
 The RPC stub is for providing an strongly typing experience.
 
-NOTE there there are two restriction to use RPC:
+NOTE there there is a restriction to use RPC in Java/Kotlin:
 * RPC methods must be [public and not final](https://github.com/indeedeng/iwf-java-sdk/issues/286).
   * In Java, a method is not final by default. But in Kotlin, you MUST add `open` to make it non final.
   * This is to make the ByteBuddy work for intercepting the call.
-* Workflow class should accept null for constructor parameters. In other words, do not validate the null for the parameters in the constructor.
-  * This is to make the ByteBuddy create a proxy instance for intercepting the call. (see future [improvement](https://github.com/indeedeng/iwf-java-sdk/issues/259))
 
 <!---
 </TabItem>
