@@ -1,4 +1,4 @@
-# How to build & run locally
+# How to build & run
 
 * Run `make bins` to build the binary `iwf-server`
 * Make sure you have registered the system search attributes required by iWF server:
@@ -11,10 +11,16 @@
       to DISABLED
 * Then run  `./iwf-server start` to run the service . This defaults to serve workflows APIs with Temporal interpreter
   implementation. It requires to have local Temporal setup. See Run with local Temporal.
-* Alternatively, run `./iwf-server --config config/development_cadence.yaml start` to run with local Cadence. See below
-  instructions for setting up local Cadence.
+* Alternatively, run `./iwf-server --config config/development_cadence.yaml start` to run with local Cadence.
 
 # Suggested Monitors and Runbook
+
+## Scale up horizontally
+Most of the time, you can just simply add instances when you see cpu/memory got too hot.
+
+For some really, really large use cases, you will need to adjust the number of partitions for Temporal task queue (by default it’s 4). This is needed for ~>400 tasks per second (400 is a rough number, depending on your instance perf)
+
+Reference to temporal [task queue partitions](https://docs.temporal.io/task-queue) and [task queue scalability](https://community.temporal.io/t/scaling-task-queues-correlation-between-numhistoryshards-taskqueuepartitions-number-of-matching-service-hosts/6909/2).
 
 ## Service API availability
 * Meaning: The iWF API is directly calling Temporal /Cadence service, there are no other dependencies
