@@ -1,4 +1,6 @@
-# How to build & run
+# How to Deploy 
+
+## Option 1: Build & Run
 
 * Run `make bins` to build the binary `iwf-server`
 * Make sure you have registered the system search attributes required by iWF server:
@@ -12,6 +14,14 @@
 * Then run  `./iwf-server start` to run the service . This defaults to serve workflows APIs with Temporal interpreter
   implementation. It requires to have local Temporal setup. See Run with local Temporal.
 * Alternatively, run `./iwf-server --config config/development_cadence.yaml start` to run with local Cadence.
+
+## Option 2: Using docker image
+You can use docker image to deploy in K8s cluster
+
+You can provide a volume override for this [config](https://github.com/indeedeng/iwf/blob/main/config/config_template.yaml) using the path: `/iwf/config/config_template.yaml` so that you can connect to any Cadence/Temporal cluster.
+
+# Configuration
+All the server configuration is defined [here](https://github.com/indeedeng/iwf/blob/main/config/config.go).
 
 # Suggested Monitors and Runbook
 
@@ -76,3 +86,4 @@ Contact Cadence/Temporal need to scale up their cluster to process more tasks in
   * Check if CPU/memory is too hot. If so scale up the worker fleet
   * Check logs to see if we can find the workflow tasks that have high latency
   * Check if there is high latency in the Cadence/Temporal API. Executing workflow tasks may need to pull the history to replay. If workflow history is too large, it could take more time for workflow to get the history from Cadence/Temporal. See above instructions for "workflow task execution failure".
+
