@@ -23,6 +23,16 @@ You can provide a volume override for this [config](https://github.com/indeedeng
 # Configuration
 All the server configuration is defined [here](https://github.com/indeedeng/iwf/blob/main/config/config.go).
 
+For a new iWF server, it's recommended to use "new" for SignalWithStartOn and "WaitForOn".
+```
+api:
+  port: 8801
+  waitForStateCompletionMigration:
+    signalWithStartOn: new
+    waitForOn: new
+```
+For old cluster, use instruction [here](https://github.com/indeedeng/iwf/releases/tag/v1.11.0) to migrate over to new behavior.
+
 # Suggested Monitors and Runbook
 
 ## Scale up horizontally
