@@ -35,7 +35,7 @@
 * [Workflow change and backward-compatibility](https://github.com/indeedeng/iwf/wiki/How-to-modify-workflow-code-without-breaking-changes) 
 * [Using iWF as storage system](https://github.com/indeedeng/iwf/wiki/What-are-Pros-and-Cons-of-using-iWF-as-a-database-for-permanent-data-storage%3F)
 * [How iWF works & design](https://github.com/indeedeng/iwf/wiki/iWF-Design)
-* [Data Persistence vs StateExecutionLocal vs input](https://github.com/indeedeng/iwf/wiki/Data-persistence-vs-State-input-vs-StateExecutionLocal)
+* [Data Persistence vs StateExecutionLocal vs input](https://github.com/indeedeng/iwf/wiki/Using-persistence-vs-State-input-vs-StateExecutionLocal-to-pass-data)
 * [RPC atomicity](https://github.com/indeedeng/iwf/wiki/What-does-the-atomicity-of-RPC-really-mean%3F)
 * [iWF limitation](https://github.com/indeedeng/iwf/wiki/iWF-limitation)
 * [Wait for workflow to complete](https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-to-complete)
