@@ -26,13 +26,12 @@
 ## Operation
 * [iWF application operation](https://github.com/indeedeng/iwf/wiki/iWF-Application-Operations)
 * [iWF server operation](https://github.com/indeedeng/iwf/wiki/iWF-Server-Operations)
-* [How to version iWF workflow](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes)
+* [How to modify/version iWF workflow safely](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes)
 * [How to change server config in docker](https://github.com/indeedeng/iwf/wiki/How-to-change-server-config-in-docker)
 
 
 ## FAQ
 * [SignalChannel vs InternalChannel](https://github.com/indeedeng/iwf/wiki/SignalChannel-vs-InternalChannel)
-* [Workflow change and backward-compatibility](https://github.com/indeedeng/iwf/wiki/How-to-modify-workflow-code-without-breaking-changes) 
 * [Using iWF as storage system](https://github.com/indeedeng/iwf/wiki/What-are-Pros-and-Cons-of-using-iWF-as-a-database-for-permanent-data-storage%3F)
 * [How iWF works & design](https://github.com/indeedeng/iwf/wiki/iWF-Design)
 * [Data Persistence vs StateExecutionLocal vs input](https://github.com/indeedeng/iwf/wiki/Using-persistence-vs-State-input-vs-StateExecutionLocal-to-pass-data)
