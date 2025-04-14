@@ -1,4 +1,17 @@
+<!---
+---
+
+---
+--->
+
+<!---## DOCHUB-PATH: advanced-concepts/signal-and-internal-channels.mdx :DOCHUB-PATH ##--->
+<!--- ## GITHUB-ONLY ## --->
 ## TL; DR:
+<!--- ## END-GITHUB-ONLY ## --->
+
+<!---
+# Signal and Internal Channels
+--->
 
 SignalChannel can be replaced by InternalChannel + RPC. However, this replacement has a slight overhead in performance (latency) and cost (two Temporal Cloud actions vs. one).
 
@@ -10,7 +23,8 @@ Signal is created first, it’s mapped directly to Cadence/Temporal’s signal f
 There are two reasons that we introduced InternalChannel later:
 * Signal is like sending a message to MessageQueue without a response. Sometimes users want to get results as part of the write operation. So RPC is created. In order to let RPC wake up some WorkflowStates running in the background, we need a message channel.
 * The WorkflowStates executions (especially when executing in parallel) may need some synchronization. E.g. 1 -> 2, 3, 4 -> 5 where 2, 3, 4 need to be completed together before 5 is executed. This is an internal communication as well, so we call it “internal channel”.
-
+<!--- ## GITHUB-ONLY ## --->
 ## See more
 * https://github.com/indeedeng/iwf/wiki/RPC#signal-channel-vs-rpc
 * https://github.com/indeedeng/iwf/wiki/WorkflowState#internalchannel-async-message-queue
+<!--- ## END-GITHUB-ONLY ## --->
