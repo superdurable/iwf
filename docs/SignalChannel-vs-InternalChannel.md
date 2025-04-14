@@ -5,13 +5,14 @@
 --->
 
 <!---## DOCHUB-PATH: advanced-concepts/signal-and-internal-channels.mdx :DOCHUB-PATH ##--->
-<!--- ## GITHUB-ONLY ## --->
-## TL; DR:
-<!--- ## END-GITHUB-ONLY ## --->
 
 <!---
 # Signal and Internal Channels
 --->
+
+<!--- ## GITHUB-ONLY ## --->
+## TL; DR:
+<!--- ## END-GITHUB-ONLY ## --->
 
 SignalChannel can be replaced by InternalChannel + RPC. However, this replacement has a slight overhead in performance (latency) and cost (two Temporal Cloud actions vs. one).
 
