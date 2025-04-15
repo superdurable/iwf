@@ -1,3 +1,10 @@
+
+<!---## DOCUB-PATH: advanced-concepts/persistence-v-input-v-local.mdx :DOCHUB-PATH ##--->
+
+<!---
+# Using persistence vs State input vs StateExecutionLocal to pass data
+--->
+
 Some tips for making decisions:
 
 * If using OptimizeActivity, using data/search attributes will save Temporal storage cost(because the payload won't be shown in activity input). 
