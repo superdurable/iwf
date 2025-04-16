@@ -6,6 +6,10 @@
 
 <!---## DOCHUB-PATH: advanced-concepts/completing-workflow-with-channel-check.mdx :DOCHUB-PATH ##--->
 
+<!---
+# Conditionally complete workflow with atomic checking on signal or internal channel
+--->
+
 One of the [StateDecision](https://github.com/indeedeng/iwf/wiki/WorkflowState#statedecision-from-execute) can be conditional checking on signal/internal channel, like:
 * [forceCompleteIfInternalChannelEmptyOrElse](https://github.com/indeedeng/iwf-java-sdk/blob/b2994f187f6786d8b7570ade93fcd5ff7a5b893f/src/main/java/io/iworkflow/core/StateDecision.java#L93)
 * [forceCompleteIfSignalChannelEmptyOrElse](https://github.com/indeedeng/iwf-java-sdk/blob/b2994f187f6786d8b7570ade93fcd5ff7a5b893f/src/main/java/io/iworkflow/core/StateDecision.java#L132C33-L132C72)
