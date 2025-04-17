@@ -13,6 +13,7 @@
 
 ## Advanced concepts
 * [WorkflowOptions](https://github.com/indeedeng/iwf/wiki/WorkflowOptions)
+* [WorkflowConfig](https://github.com/indeedeng/iwf/wiki/WorkflowConfig)
 * [WorkflowContext](https://github.com/indeedeng/iwf/wiki/WorkflowContext)
 * [WorkflowStateOptions](https://github.com/indeedeng/iwf/wiki/WorkflowStateOptions)
 * [Conditional complete workflow with checking channel emptiness](https://github.com/indeedeng/iwf/wiki/Conditionally-complete-workflow-with-atomic-checking-on-signal-or-internal-channel) 
