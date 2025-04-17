@@ -28,7 +28,7 @@ Sets a threshold for the number of workflow operations (signals received + execu
 Specifies the maximum size (in bytes) of the data dump where continuing workflow is new. `0` sets it to default 1 MB.
 
 ### **`OptimizeActivity`** (*bool*)
-Enables optimizations for activity executions within the workflow. Defaults to `false`.
+Enables optimizations for activity executions within the workflow. When `true`, Temporal's [Local Activity](https://docs.temporal.io/local-activity) will be used instead of regular activity. It minimizes the storage cost as the payload will not be shown in activity input. Defaults to `false`.
 
 ### **`OptimizeTimer`** (*bool*)
 Enables optimizations for timer executions within the workflow. Minimizes costs by limiting number of timers started.
