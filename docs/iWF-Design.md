@@ -1,3 +1,11 @@
+<!---
+---
+
+---
+--->
+
+<!---## DOCHUB-PATH: get-started/high-level-design.mdx :DOCHUB-PATH ##--->
+
 # High-level design
 
 An iWF application is composed of several iWF workflow workers. These workers host REST APIs as "worker APIs" for server to callback. The Worker APIs are exposed by the SDKs. E.g. the [Java SDK](https://github.com/indeedeng/iwf-java-sdk/blob/71bc52da568cc4e92a71e9565f2a5332943ffeab/src/main/java/io/iworkflow/core/WorkerService.java#L37).
@@ -28,6 +36,18 @@ Config will store configuration of the execution so that the workflow knows the 
 Input/output of this workflow are all binaries as the workflow doesn’t need to deserialize them. Similar as the activity input/output
 Here uses Java to demonstrate the signature because Java is more declarative. But we will use Golang to implement the workflow because the Cadence/Temporal Golang SDK is more powerful than Java SDK. Workflow thread in Golang SDK is based on goroutines which are lightweight and efficient(memory/CPU)
 
+<!---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div style={{
+    "border": "1px darkgray solid",
+    "borderRadius": "1rem",
+    "padding": "0.5rem"
+}}>
+<Tabs>
+    <TabItem value="java" label="Java">
+--->
 ```java
 public interface InterpreterWorkflow{
    @WorkflowMethod
@@ -87,3 +107,8 @@ private boolean isTimerReady(){
 
 Note, this is the pseudo code to outline the high-level idea. The actual implementation is probably 100x more complicated. 
 
+<!---
+</TabItem>
+</Tabs>
+</div>
+--->
