@@ -1,16 +1,20 @@
 # How to Deploy 
 
+## Prerequisite 
+Make sure you have registered the below search attributes into the namespace/domain required by iWF server:
+
+* Keyword: IwfWorkflowType
+* Int: IwfGlobalWorkflowVersion
+* Keyword: IwfExecutingStateIds
+
+See [Contribution](./CONTRIBUTING.md) for more detailed commands.
+* For Cadence without advancedVisibility enabled,
+      set [executingStateIdMode](https://github.com/indeedeng/iwf/blob/main/config/development_cadence.yaml#L9)
+      to DISABLED 
+
 ## Option 1: Build & Run
 
 * Run `make bins` to build the binary `iwf-server`
-* Make sure you have registered the system search attributes required by iWF server:
-    * Keyword: IwfWorkflowType
-    * Int: IwfGlobalWorkflowVersion
-    * Keyword: IwfExecutingStateIds
-    * See [Contribution](./CONTRIBUTING.md) for more detailed commands.
-    * For Cadence without advancedVisibility enabled,
-      set [executingStateIdMode](https://github.com/indeedeng/iwf/blob/main/config/development_cadence.yaml#L9)
-      to DISABLED
 * Then run  `./iwf-server start` to run the service . This defaults to serve workflows APIs with Temporal interpreter
   implementation. It requires to have local Temporal setup. See Run with local Temporal.
 * Alternatively, run `./iwf-server --config config/development_cadence.yaml start` to run with local Cadence.
