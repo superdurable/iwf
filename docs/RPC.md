@@ -58,6 +58,7 @@ An RPC definition can also include optional parameters:
 Also, there are some rules to make a method an RPC, which are different based on SDKs:
 
 <!---
+import { FaJava, FaPython } from "react-icons/fa";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -67,7 +68,7 @@ import TabItem from '@theme/TabItem';
     "padding": "0.5rem"
 }}>
 <Tabs>
-    <TabItem value="java" label="Java">
+    <TabItem value="java" label={<><FaJava size={26} /> Java</>}>
 --->
 <!--- ## GITHUB-ONLY ## --->
 ### Java
@@ -124,7 +125,7 @@ NOTE there there is a restriction to use RPC in Java/Kotlin:
 
 <!---
 </TabItem>
-<TabItem value="py" label="Python">
+<TabItem value="python" label={<><FaPython size={26} /> Python</>}>
 --->
 <!--- ## GITHUB-ONLY ## --->
 ### Python
