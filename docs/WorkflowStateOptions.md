@@ -52,6 +52,7 @@ Thius failure policy are especially helpful for recovery logic.
 For example, a `DebitState` is making three API calls for the debit operation but failed at the 3rd one. You want to undo the first two. In that case, you can set a `UndoDebitState` as the recovery state for the DebitState. When DebitState fails, instead of failing workflow, it will proceed to `UndoDebitState` to let you undo the first two operations. 
 
 <!---
+import { FaJava, FaPython } from "react-icons/fa";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -61,7 +62,7 @@ import TabItem from '@theme/TabItem';
     "padding": "0.5rem"
 }}>
 <Tabs>
-    <TabItem value="java" label="Java">
+    <TabItem value="java" label={<><FaJava size={26} /> Java</>}>
 --->
 <!--- ## GITHUB-ONLY ## --->
 Example in Java SDK:
@@ -108,7 +109,7 @@ func (b debitState) Execute(ctx iwf.WorkflowContext, input iwf.Object, commandRe
 
 <!---
 </TabItem>
-<TabItem value="py" label="Python">
+<TabItem value="python" label={<><FaPython size={26} /> Python</>}>
 --->
 <!--- ## GITHUB-ONLY ## --->
 In Python SDK:
