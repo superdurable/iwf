@@ -81,6 +81,7 @@ With the type defined for the attribute, the SDK will check the type matching wh
 
 
 <!---
+import { FaJava, FaPython } from "react-icons/fa";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -90,7 +91,7 @@ import TabItem from '@theme/TabItem';
     "padding": "0.5rem"
 }}>
 <Tabs>
-    <TabItem value="java" label="Java">
+    <TabItem value="java" label={<><FaJava size={26} /> Java</>}>
 --->
 <!--- ## GITHUB-ONLY ## --->
 ### Java
@@ -138,7 +139,7 @@ client.setSearchAttributes(...)
 
 <!---
 </TabItem>
-<TabItem value="py" label="Python">
+<TabItem value="python" label={<><FaPython size={26} /> Python</>}>
 --->
 <!--- ## GITHUB-ONLY ## --->
 ### Python
