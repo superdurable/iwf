@@ -130,7 +130,7 @@ class DebitState(WorkflowState[None]):
     def get_state_options(self) -> WorkflowStateOptions:
         return WorkflowStateOptions(
             execute_api_retry_policy=RetryPolicy(...), //make sure recoveryState has enough time to run
-            execute_failure_handling_state=UndoDebitState,
+            proceed_to_state_when_execute_retry_exhausted=UndoDebitState,
         )
 ```
 <!---
