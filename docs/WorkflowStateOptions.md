@@ -71,10 +71,10 @@ Example in Java SDK:
 public class DebitState extends WorkflowState {
     @Override
     public WorkflowStateOptions getStateOptions() {
-        return new WorkflowStateOptionsExtension()
-                .setProceedOnExecuteFailure(UndoDebitState.class)
+        return new WorkflowStateOptions()
+                .setProceedToStateWhenExecuteRetryExhausted(UndoDebitState.class)
                 // make sure the retry duration is less than the workflow timeout so that recovery state has a chance to run
-                .executeApiRetryPolicy(...); 
+                .setExecuteApiRetryPolicy(...); 
     }
    
     @Override
