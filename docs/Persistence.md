@@ -68,7 +68,10 @@ to specify certain DataAttributes/SearchAttributes only to load.
 * `WITHOUT_LOCKING` here means if multiple StateExecutions/RPC try to upsert the same DataAttribute/SearchAttribute, they can be
 done in parallel without locking.
 
-* If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` or `LOAD_ALL_WITH_PARTIAL_LOCK` allow specifying some keys to be locked during the execution.
+* If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` or `LOAD_ALL_WITH_PARTIAL_LOCK` allow specifying some keys to be locked during the execution. Both are exclusive locks(like write locks in database). 
+  * `PARTIAL_WITH_EXCLUSIVE_LOCK` let you specify a list of data attributes to load, and a list to lock (can be different).   
+  * `LOAD_ALL_WITH_PARTIAL_LOCK` means load all the data attributes, but you can provide a list of data attributes to lock.
+  * Note that the locking is only affective to state/RPCs that are also locking. If there is a state/RPC try to read without locking, the locking states/RPC won't prevent them. This is similar to locking in database that the regular read operation will not be blocked by any lock operations/transactions. 
 
 ### Locking in RPC
 The locking with RPC is only supported by Temporal as backend using [synchronous update feature](https://docs.temporal.io/encyclopedia/workflow-message-passing#sending-updates). 
