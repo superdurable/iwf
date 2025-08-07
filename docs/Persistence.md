@@ -70,7 +70,7 @@ done in parallel without locking.
 
 * If racing conditions could be a problem, using`PARTIAL_WITH_EXCLUSIVE_LOCK` or `LOAD_ALL_WITH_PARTIAL_LOCK` allow specifying some keys to be locked during the execution. Both are exclusive locks(like write locks in database). 
   * `PARTIAL_WITH_EXCLUSIVE_LOCK` let you specify a list of data attributes to load, and a list to lock (can be different).   
-  * `LOAD_ALL_WITH_PARTIAL_LOCK` means load all the data attributes, but you can provide a list of data attributes to lock.
+  * `LOAD_ALL_WITH_PARTIAL_LOCK` means load all the data attributes, but you can provide a list of data attributes to lock. `LOAD_ALL` is like `SELECT *  FROM TABLE ...`. 
   * Note that the locking is only affective to state/RPCs that are also locking. If there is a state/RPC try to read without locking, the locking states/RPC won't prevent them. This is similar to locking in database that the regular read operation will not be blocked by any lock operations/transactions. 
 
 ### Locking in RPC
