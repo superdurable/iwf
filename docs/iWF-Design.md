@@ -65,15 +65,18 @@ Below is the implementation of the start method in “Java like” pseudo code b
 public void start( State startState, byte[] startInput){
 	currentStates = new Queue( new StateExecution(startState, startInput))
 	while (currentStates.isNotEmpty()){
-		stateExecution = currentStates.pop()
-		Async.procedure( ()->{
-			decision = processStateExecution( stateExecution )
-			if(decision.hasCompletedState){
-				return decision.completedResult
-			}else{
-		 	currentStates.pushAll(decision.allNextStateExecutions)
-			}
-		})
+		statesToExecute = currentStates.popAll()
+                for( stateExecutioin in statesToExecute){
+			Async.procedure( ()->{
+				decision = processStateExecution( stateExecution )
+				if(decision.hasCompletedState){
+					return decision.completedResult
+				}else{
+			 	currentStates.pushAll(decision.allNextStateExecutions)
+				}
+			})
+                }
+		
      }
 }
 
