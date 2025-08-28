@@ -67,14 +67,14 @@ public void start( State startState, byte[] startInput){
 	while (currentStates.isNotEmpty()){
 		statesToExecute = currentStates.popAll()
                 for( stateExecutioin in statesToExecute){
-			Async.procedure( ()->{
-				decision = processStateExecution( stateExecution )
-				if(decision.hasCompletedState){
-					return decision.completedResult
-				}else{
-			 	currentStates.pushAll(decision.allNextStateExecutions)
-				}
-			})
+				Async.procedure( ()->{
+					decision = processStateExecution( stateExecution )
+					if(decision.hasCompletedState){
+						return decision.completedResult
+					}else{
+			 		currentStates.pushAll(decision.allNextStateExecutions)
+					}
+				})
                 }
 		
      }
