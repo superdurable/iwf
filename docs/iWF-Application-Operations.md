@@ -41,6 +41,9 @@ To make it easier with iWF, customize the columns by clicking the button from si
 * If you return the full stacktrace in response body, the pending activity view will show it to you! Then use
   Cadence/Temporal WebUI to debug your application.
 
+<img width="428" height="499" alt="Screenshot 2026-01-29 at 7 25 41 PM" src="https://github.com/user-attachments/assets/76289828-ccee-4398-92f6-87e6411b3257" />
+
+
 ### Use QueryHandlers in Cadence/Temporal WebUI
 
 
