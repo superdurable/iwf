@@ -21,7 +21,7 @@ The atomic checking of channel being empty is performed on iWF server. This is t
 However, you must be sure that only one state is consuming the signal or internal channel being checked. Otherwise, there could still be racing conditions. 
 
 For example, the below is a wrong usage:
-```
+```golang
 InitState implements WorkflowState { // starting State
    execute(...) {
       return StateDecision.multiNextStates(State1.class, State2.class);
