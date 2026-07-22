@@ -1,0 +1,43 @@
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~
+
+# Go
+*.exe
+*.test
+*.out
+coverage.out
+iwf-server
+iwf-samples
+.bin/
+.build/
+vendor/
+
+# Java / Gradle
+.gradle/
+**/build/
+!.github/**/build/
+.run/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/
+.tox/
+.nox/
+
+# Logs / local
+*.log
+test.log

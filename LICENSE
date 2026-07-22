@@ -1,0 +1,22 @@
+This repository is a monorepo that combines multiple formerly separate projects.
+Different directories are licensed under different terms. See the LICENSE (or
+LICENSE.md) file in each directory for the authoritative license text and
+copyright notices. Do not strip or replace those notices.
+
+Summary:
+
+MIT License
+  - server/
+  - samples-go/
+  - protos/ (also available under Apache-2.0; see protos/LICENSE and protos/LICENSE.md)
+
+Apache License 2.0
+  - sdk-go/
+  - sdk-java/
+  - sdk-python/
+  - samples-java/
+  - samples-python/
+  - protos/ (dual-licensed; see above)
+
+New contributions to this monorepo should retain the license of the directory
+they modify, unless otherwise agreed in writing by the copyright holders.
