@@ -1,0 +1,38 @@
+name: Java SDK CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sdk-java/**"
+      - "protos/**"
+      - ".github/workflows/sdk-java-ci.yml"
+  pull_request:
+    paths:
+      - "sdk-java/**"
+      - "protos/**"
+      - ".github/workflows/sdk-java-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Build and integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk-java
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start iWF environment
+        run: docker compose -f script/docker-compose.yml up -d
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "8"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Wait and build
+        run: sleep 30 && ./gradlew build -x signMavenJavaPublication
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2

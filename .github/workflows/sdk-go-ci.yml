@@ -1,0 +1,38 @@
+name: Go SDK CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sdk-go/**"
+      - "protos/**"
+      - ".github/workflows/sdk-go-ci.yml"
+  pull_request:
+    paths:
+      - "sdk-go/**"
+      - "protos/**"
+      - ".github/workflows/sdk-go-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Unit and integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk-go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sdk-go/go.mod
+          cache-dependency-path: |
+            sdk-go/go.sum
+            go.work.sum
+      - name: Start iWF environment
+        run: docker compose -f integ/docker-compose.yml up -d
+      - name: Wait and run tests
+        run: sleep 30 && make ci-tests
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2

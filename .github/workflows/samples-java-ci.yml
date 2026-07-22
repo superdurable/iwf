@@ -1,0 +1,33 @@
+name: Java samples CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "samples-java/**"
+      - "sdk-java/**"
+      - ".github/workflows/samples-java-ci.yml"
+  pull_request:
+    paths:
+      - "samples-java/**"
+      - "sdk-java/**"
+      - ".github/workflows/samples-java-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build samples
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: samples-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "8"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build
+        run: ./gradlew build -x test

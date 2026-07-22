@@ -1,0 +1,77 @@
+name: Server CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "protos/**"
+      - ".github/workflows/server-ci.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "protos/**"
+      - ".github/workflows/server-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Unit tests
+        env:
+          GOWORK: "off"
+        run: make unitTests
+
+  temporal-integ:
+    name: Temporal integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Start Temporal dependencies
+        run: docker compose -f docker-compose/ci-temporal-dependencies.yml up -d
+      - name: Temporal integ tests
+        env:
+          GOWORK: "off"
+        run: make ci-temporal-integ-test
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+
+  cadence-integ:
+    name: Cadence integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Start Cadence dependencies
+        run: docker compose -f docker-compose/ci-cadence-dependencies.yml up -d
+      - name: Cadence integ tests
+        env:
+          GOWORK: "off"
+        run: make ci-cadence-integ-test
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2

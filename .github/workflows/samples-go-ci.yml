@@ -1,0 +1,31 @@
+name: Go samples CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "samples-go/**"
+      - "sdk-go/**"
+      - ".github/workflows/samples-go-ci.yml"
+  pull_request:
+    paths:
+      - "samples-go/**"
+      - "sdk-go/**"
+      - ".github/workflows/samples-go-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build samples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: samples-go/go.mod
+          cache-dependency-path: |
+            samples-go/go.sum
+            sdk-go/go.sum
+            go.work.sum
+      - name: Build
+        run: go build ./samples-go/...
