@@ -1,0 +1,47 @@
+package io.iworkflow.integ.stateapifail;
+
+import io.iworkflow.core.Context;
+import io.iworkflow.core.StateDecision;
+import io.iworkflow.core.WorkflowState;
+import io.iworkflow.core.WorkflowStateOptions;
+import io.iworkflow.core.command.CommandRequest;
+import io.iworkflow.core.command.CommandResults;
+import io.iworkflow.core.communication.Communication;
+import io.iworkflow.core.persistence.Persistence;
+import io.iworkflow.gen.models.RetryPolicy;
+
+public class StateFailBasic implements WorkflowState<Integer> {
+
+    @Override
+    public Class<Integer> getInputType() {
+        return Integer.class;
+    }
+
+    @Override
+    public CommandRequest waitUntil(
+            Context context,
+            Integer input,
+            Persistence persistence,
+            final Communication communication) {
+        return CommandRequest.empty;
+    }
+
+    @Override
+    public StateDecision execute(
+            Context context,
+            Integer input,
+            CommandResults commandResults,
+            Persistence persistence,
+            final Communication communication) {
+        throw new RuntimeException("test api failing");
+    }
+
+    @Override
+    public WorkflowStateOptions getStateOptions() {
+        return new WorkflowStateOptions().setExecuteApiRetryPolicy(
+                new RetryPolicy()
+                        .maximumAttempts(1)
+                        .backoffCoefficient(2f)
+        );
+    }
+}
