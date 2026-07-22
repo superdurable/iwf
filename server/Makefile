@@ -2,6 +2,10 @@
 MAKEFLAGS += --no-builtin-rules
 .SUFFIXES:
 
+# Monorepo root go.work intentionally excludes this module (Cadence/Temporal
+# genproto conflict). Force module mode for all Make targets.
+export GOWORK := off
+
 default: help
 
 # ###########################################
@@ -195,7 +199,7 @@ integTestsNoSearch:
 	$Q go test -v ./integ -search=false -timeout 20m
 
 unitTests:
-	@go test -v $(shell go list ./service/... | grep -v ./service/common/blobstore)
+	@GOWORK=off go test -v $$(GOWORK=off go list ./service/... | grep -v ./service/common/blobstore)
 
 help:
 	@# print help first, so it's visible
