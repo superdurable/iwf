@@ -84,22 +84,15 @@ poetry install
 ```
 
 #### Update IDL
-Initialize the IDL Git submodule
-```bash
-git submodule update --init --recursive
-```
 
-Update IDL to the latest commit.
-```bash
-git submodule update --remote --merge
-```
+Edit OpenAPI specs in monorepo [`protos/`](../protos/) (`iwf-sdk.yaml`). No git submodule is used in this monorepo.
 
 #### Generate API client from IDL
 
 This project uses [openapi-python-client](https://github.com/openapi-generators/openapi-python-client) to generate an API client from the IDL. To update the generated client:
 
 ```bash
-poetry run openapi-python-client generate --path iwf-idl/iwf-sdk.yaml --config iwf/.openapi-python-client-config.yaml
+poetry run openapi-python-client generate --path ../protos/iwf-sdk.yaml --config iwf/.openapi-python-client-config.yaml
 cp -R iwf_api/iwf_api/* iwf/iwf_api && rm -R iwf_api/ && poetry update
 ```
 

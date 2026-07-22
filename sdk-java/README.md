@@ -57,7 +57,7 @@ See more in https://github.com/indeedeng/iwf#what-is-iwf
 
 ### Using IntelliJ
 
-1. Check out the idl submodule by running the command: `git submodule update --init --recursive`
+1. OpenAPI specs live in monorepo [`protos/`](../protos/) (no submodule checkout needed).
 2. In "Build, Execution, Deployment" -> "Gradle", choose "wrapper task in Gradle build script" for "Use gradle from".
 3. Open Gradle tab, click "build" under "build" to build the project
 
@@ -65,7 +65,7 @@ See more in https://github.com/indeedeng/iwf#what-is-iwf
 
 ### Update IDL
 
-Run the command `git submodule update --remote --merge` to update IDL to the latest commit
+Edit OpenAPI specs in monorepo [`protos/`](../protos/), then regenerate via the Gradle OpenAPI tasks.
 
 ### Local testing
 
@@ -89,7 +89,7 @@ use the local publishing command:
 
 ### Repo structure
 * `.github/workflows/`: the GithubActions workflows
-* `iwf-idl/`: the idl submodule
+* IDL OpenAPI specs live in monorepo `protos/` (was formerly the `iwf-idl` submodule)
 * `script/`: some scripts for GithubActions and testing
 * `src/`: Java source code
   * `main/java/io/iworkflow/core/`: SDK code

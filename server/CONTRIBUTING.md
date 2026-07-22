@@ -14,7 +14,7 @@ Here is the repository layout if you are interested to learn about it:
 * `integ/` the end to end integration tests.
     * `workflow/` the iWF workflows that are written without SDK(just implemented the REST APIs)
     * `*.go` the tests
-* `iwf-idl/` the idl submodule
+* IDL OpenAPI specs live in monorepo `protos/` (was formerly the `iwf-idl` submodule)
 * `script/` some scripts
     * `http/` some example HTTP scripts to call server, like REST API
     * `start-server.sh` the script to start iWF server in Docker image
@@ -34,9 +34,8 @@ Here is the repository layout if you are interested to learn about it:
 
 ## How to update IDL and the generated code
 
-1. Check out the idl submodule by running the command: `git submodule update --init --recursive`
-2. Run the command `git submodule update --remote --merge` to update IDL to the latest commit
-3. Run `make idl-code-gen` to refresh the generated code.
+1. Edit OpenAPI specs in monorepo [`protos/`](../protos/) (`iwf.yaml` / `iwf-sdk.yaml`)
+2. Run `make idl-code-gen` to refresh the generated code.
 
 # How to run server or integration test
 

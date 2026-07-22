@@ -13,7 +13,7 @@ Here is the repository layout if you are interested to learn about it:
     * `xyz_test` the test for a test case xyz
     * `xyz_workflow.go` the test workflow for a test xyz
     * `xyz_workflow_state_*` the test workflow states for a test xyz
-* `iwf-idl/` the idl submodule
+* IDL OpenAPI specs live in monorepo `protos/` (was formerly the `iwf-idl` submodule)
 * `iwf` the main directory
   * `*_impl.go` these are implementation for SDK. Ideally we should put them in separate folder, but Golang doesn't allow circular dependency, and we hate to use alias across packages
   * `internal_*.go` these are implementation for SDK
@@ -22,9 +22,8 @@ Here is the repository layout if you are interested to learn about it:
 
 ## How to update IDL and the generated code
 1. Install openapi-generator using Homebrew if you haven't. See more [documentation](https://openapi-generator.tech/docs/installation)
-2. Check out the idl submodule by running the command: `git submodule update --init --recursive`
-3. Run the command `git submodule update --remote --merge` to update IDL to the latest commit
-4. Run `make idl-code-gen` to refresh the generated code
+2. Edit OpenAPI specs in monorepo [`protos/`](../protos/) (`iwf-sdk.yaml`)
+3. Run `make idl-code-gen` to refresh the generated code
 
 ### Coding convention 
 There are lots of convention that we love here that we haven't summarized all of them. So you may get some code review feedback about more than just below:

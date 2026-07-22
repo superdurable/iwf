@@ -90,12 +90,12 @@ tasks.named('test') {
 }
 
 openApiValidate {
-    inputSpec = "$rootDir/iwf-idl/iwf-sdk.yaml".toString()
+    inputSpec = "$rootDir/../protos/iwf-sdk.yaml".toString()
 }
 
 openApiGenerate {
     generatorName = "java"
-    inputSpec = "$rootDir/iwf-idl/iwf-sdk.yaml".toString()
+    inputSpec = "$rootDir/../protos/iwf-sdk.yaml".toString()
     outputDir = "$buildDir/generated".toString()
     apiPackage = "io.iworkflow.gen.api"
     modelPackage = "io.iworkflow.gen.models"
