@@ -479,21 +479,19 @@ files = [
 
 [[package]]
 name = "iwf-sdk"
-version = "0.12.0"
+version = "0.0.1"
 description = "Python SDK for the iWF workflow engine"
 optional = false
-python-versions = "^3.9"
+python-versions = "<4.0,>=3.9"
 groups = ["main"]
-files = []
-develop = true
+files = [
+    {file = "iwf_sdk-0.0.1-py3-none-any.whl", hash = "sha256:4d40206af8edcc4c7ea959f3f540cbbf5ae3354b248e648a09172dd6644f1c08"},
+    {file = "iwf_sdk-0.0.1.tar.gz", hash = "sha256:ad0e5b3a29b8e25022428766561c33deaccd60f11d720c717c62dbcef3cafec4"},
+]
 
 [package.dependencies]
 httpx = "0.28.1"
-python-dateutil = {version = "^2.8.2", markers = "python_version < \"3.11\""}
-
-[package.source]
-type = "directory"
-url = "../sdk-python"
+python-dateutil = {version = ">=2.8.2,<3.0.0", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "jinja2"
@@ -1236,4 +1234,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "558e454346671394babf0596a6b4d7a31eba7b6d496c066ed39a7482e52ee8ad"
+content-hash = "a550b84727d8864acb82650df4de4759185d4e6d247a22597d489c0d5fc3869b"

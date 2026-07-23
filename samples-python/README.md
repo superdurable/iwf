@@ -1,6 +1,6 @@
 # iwf-python-samples
 
-samples for [iWF Python SDK](https://github.com/superdurable/iwf-python-sdk)
+samples for [iWF Python SDK](https://github.com/superdurable/iwf/tree/main/sdk-python) (`pip install iwf-sdk`)
 
 ## Running Requirements
 
@@ -151,6 +151,6 @@ def signup_verify():
 
 ### development tips
 
-When update iwf-python-sdk if the dependency is not updated:
+When updating iwf-sdk if the dependency is not updated:
 
 `poetry cache clear pypi --all && poetry update`

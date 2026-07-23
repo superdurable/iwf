@@ -1,23 +1,52 @@
 name: Python samples CI
 
-# Disabled on push/PR until the Python SDK is published as iwf-sdk on PyPI.
-# Re-enable path filters after release.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "samples-python/**"
+      - ".github/workflows/samples-python-ci.yml"
+  pull_request:
+    paths:
+      - "samples-python/**"
+      - ".github/workflows/samples-python-ci.yml"
   workflow_dispatch:
 
 jobs:
-  install:
-    name: Poetry install
+  integ:
+    name: Install + integ tests
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: samples-python
     steps:
       - uses: actions/checkout@v4
+      - name: Start iWF environment
+        run: docker compose -f ../sdk-python/iwf/tests/iwf-service-env/docker-compose.yml up -d
+      - name: Wait for iWF server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf --connect-timeout 1 http://127.0.0.1:8801/ >/dev/null; then
+              sleep 15
+              echo "iWF server port open"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for iWF server"
+          exit 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
       - name: Install Poetry
         run: pipx install poetry
-      - name: Install dependencies
+      - name: Install dependencies (PyPI iwf-sdk)
         run: poetry install --no-interaction
+      - name: Verify published package
+        run: |
+          poetry run python -c "import iwf, importlib.metadata as m; print(m.version('iwf-sdk')); assert m.version('iwf-sdk') == '0.0.1'"
+      - name: Integ tests
+        run: poetry run pytest -vv tests/
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
