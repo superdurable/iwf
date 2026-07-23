@@ -68,9 +68,12 @@ services:
     entrypoint: sh -c "/etc/temporal/init.sh"
   iwf-server:
     container_name: iwf-server
-    image: iworkflowio/iwf-server:latest #NOTE: you can change to version tag like v1.0.0-RC6
+    image: ${IWF_SERVER_IMAGE:-superdurable/iwf-server:latest}
     environment:
-      - AUTO_FIX_WORKER_URL=172.17.0.1 # this will let iwf-server automatically replace all iwfWorkerUrls of "localhost" or "127.0.0.1" with "172.17.0.1"
+      # host-gateway works on Docker Desktop (Mac/Win) and Linux CI
+      - AUTO_FIX_WORKER_URL=host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - temporal-network
     ports:

@@ -1,16 +1,17 @@
 # iwf-java-samples
 
-Samples for [iWF Java SDK](https://github.com/superdurable/iwf-java-sdk) that runs
-against [iWF server](https://github.com/superdurable/iwf).
+Samples for [iWF Java SDK](../sdk-java) (`io.superdurable:iwf-sdk`) that run against [iWF server](../server).
 
-We also have smaller [code snippets](https://github.com/superdurable/iwf-java-code-snippets) (also known as mini demos) that demonstrate how to utilize [iWF](https://github.com/superdurable/iwf) to perform a minimum funcion.
+```gradle
+implementation 'io.superdurable:iwf-sdk:0.0.2'
+```
 
 ## Setup
 
-1. Start a iWF server following the [instructions](https://github.com/superdurable/iwf#how-to-run-this-server)
-2. Run this project by using gradle task `bootRun`.
+1. Start an iWF server (for local monorepo testing, use `sdk-java/script/docker-compose.yml` which pulls `superdurable/iwf-server:latest`).
+2. Run this project with Gradle `bootRun`.
 
-_Note that by default this project will listen on 8803 port
+_Note that by default this project listens on port 8803._
 
 ## Design Patterns
 Check out all the [design patterns](./src/main/java/io/iworkflow/patterns) that we use iwf to build applications.
