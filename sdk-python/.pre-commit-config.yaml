@@ -1,6 +1,7 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
-exclude: ^iwf/iwf_api/
+# Generated OpenAPI client is excluded (paths differ standalone vs monorepo).
+exclude: ^(iwf/iwf_api/|sdk-python/iwf/iwf_api/)
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -42,15 +43,14 @@ repos:
 
   - id: mypy
     name: Validate types with MyPy
-    entry: poetry run mypy
+    entry: bash -euo pipefail -c 'cd sdk-python && poetry run mypy iwf'
     language: system
     types: [python]
     pass_filenames: false
-    args:
-    - "iwf"
+    files: ^sdk-python/
 
   - id: no-nexus
     name: Remove nexus references
-    entry: .githooks/no-nexus.sh
+    entry: sdk-python/.githooks/no-nexus.sh
     language: script
-    types: [file] # Example: run on all files, adjust as needed
+    files: ^sdk-python/poetry\.lock$
