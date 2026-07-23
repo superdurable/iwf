@@ -40,6 +40,12 @@ func TestMicroserviceOrchestrationWorkflow(t *testing.T) {
 	require.NotEmpty(t, runID)
 
 	rpcWorkflow := microservices.OrchestrationWorkflow{}
+	require.Eventually(t, func() bool {
+		var current string
+		rpcErr := client.InvokeRPC(context.Background(), wfID, "", rpcWorkflow.Swap, "initial-data", &current)
+		return rpcErr == nil && current == "initial-data"
+	}, 15*time.Second, 200*time.Millisecond)
+
 	var swapped string
 	err = client.InvokeRPC(context.Background(), wfID, "", rpcWorkflow.Swap, "updated-data", &swapped)
 	require.NoError(t, err)
