@@ -152,7 +152,8 @@ Every implementation plan must include all three sections below. Use
 
 ## Documentation
 
-- Name module READMEs or `CONTRIBUTING.md` sections to create or update.
+- Product docs: [`docs/`](docs/) (entry: [`docs/Home.md`](docs/Home.md)).
+- Contributor / module docs: module READMEs or `CONTRIBUTING.md`.
 
 ## UI/UX
 

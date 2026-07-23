@@ -20,8 +20,8 @@ Every implementation plan must include all three sections below. Use
 
 ## Documentation
 
-- Name module READMEs or [`CONTRIBUTING.md`](CONTRIBUTING.md) sections to create
-  or update. There is no top-level `docs/` tree yet.
+- Product docs: [`docs/`](docs/) (entry: [`docs/Home.md`](docs/Home.md)).
+- Contributor / module docs: module READMEs or [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## UI/UX
 

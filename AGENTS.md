@@ -22,8 +22,8 @@ only when a section genuinely doesn't apply.
 
 ### Documentation
 
-- Name docs under module READMEs or `CONTRIBUTING.md`. There is no top-level
-  `docs/` tree yet.
+- Product docs live in [`docs/`](docs/) (start at [`docs/Home.md`](docs/Home.md)).
+- Contributor / module docs: update module READMEs or `CONTRIBUTING.md`.
 
 ### UI/UX
 
