@@ -26,7 +26,10 @@ flowchart LR
 - **RPC locking:** re-add a minimal lock surface — `repeated string
   lock_attribute_keys` on `InvokeRPCRequest`. Non-empty → sync-update locking path
   over those keys; empty → non-locking. Keeps the retained
-  `RPC_ACQUIRE_LOCK_FAILURE` + `skip_locking_rpc_reapply` meaningful.
+  `RPC_ACQUIRE_LOCK_FAILURE` + `skip_locking_rpc_reapply` meaningful. Because the
+  locking path uses `SynchronousUpdateWorkflow`, a **non-empty `lock_attribute_keys`
+  is Temporal-only** — Cadence returns `codes.Unimplemented`; non-locking RPC still
+  works on Cadence via signal+query.
 - **Global versioning:** reset the interpreter `GlobalVersioner` to v1 and keep the
   mechanism as a forward determinism hook (do not remove versioning).
 - **Health:** implement both the IDL `HealthCheck` RPC and the standard
@@ -48,6 +51,11 @@ flowchart LR
   `WaitForStateCompletionMigration`, dual signal/internal APIs, `optimize_timer`,
   `useMemoForDataAttributes`, DeciderTriggerType dual path, worker-RPC
   `upsert_step_exe_locals`.
+- **Memo is metadata, never attribute storage.** Fully delete the
+  `useMemoForDataAttributes` feature and its config/interface/runtime plumbing. Keep
+  only the legitimate backend memo uses: `WorkerTargetMemoKey`, workflow request-id
+  idempotency, and the client memo encode/decode/encryption helpers serving those
+  system keys. `iwf.proto` intentionally has no memo field.
 - **SDK boundary:** SDK client/worker implementations are intentionally untouched.
   This phase makes `server/` + `server/integ` green; existing SDK implementations
   are expected to remain incompatible until their follow-up rewrite. Do not
@@ -221,8 +229,9 @@ always-on, no version gate:
 - **Defaults:** both unset → Exact 1; only `at_most` set → Exact N
   (`at_least = at_most`); only `at_least` set → OneToAll / ZeroToAll as above.
 - Reject invalid pairs when validating the untrusted `WorkerService` response
-  (`at_least < 0`, or `at_most > 0 && at_most < at_least`). The interpreter treats
-  a post-validation violation as an invariant failure.
+  (`at_least < 0`, `at_most < 0`, or
+  `at_most > 0 && at_most < at_least`). The interpreter treats a post-validation
+  violation as an invariant failure.
 - Matching is two-phase: normalize/peek without mutation, deterministically choose
   the winning ALL/ANY/combination set while reserving shared-channel capacity, then
   atomically consume the selected conditions in declaration order. Never consume a
@@ -257,6 +266,8 @@ always-on, no version gate:
   plus protobuf overhead.
 - **Delete** `WaitForStateCompletionMigration` struct, its `ApiConfig` field, and
   the `GetSignalWithStartOnWithDefault` / `GetWaitForOnWithDefault` helpers.
+- **Delete** `Interpreter.FailAtMemoIncompatibility`; it guarded only the removed
+  memo-as-data-attribute path.
 - Retype `Interpreter.DefaultWorkflowConfig` `*iwfidl.WorkflowConfig` →
   `*iwfpb.FlowConfig`; update the `DefaultWorkflowConfig` package var
   (`ContinueAsNewThreshold: 100`).
@@ -312,7 +323,7 @@ always-on, no version gate:
   | `ApiV1WorkflowStartPost` | `StartFlow` | worker_target→Memo, requestId idempotency kept; **drop** `useMemoForDataAttributes`; SA/DA split → unified `attributes` + `IndexConfig` |
   | `ApiV1WorkflowSignalPost` + `ApiV1WorkflowPublishToInternalChannelPost` | `PublishToChannel` | one system signal carrying `[]ChannelMessage` |
   | `ApiV1WorkflowStopPost` | `StopFlow` | `COMPLETE` sends the successful force-complete system signal described below |
-  | `ApiV1WorkflowGetQueryAttributesPost` + `ApiV1WorkflowGetSearchAttributesPost` | `GetAttributes` | single store; `all_keys` flag |
+  | `ApiV1WorkflowGetQueryAttributesPost` + `ApiV1WorkflowGetSearchAttributesPost` | `GetAttributes` | single store; `all_keys` flag; never read attributes from backend Memo |
   | `ApiV1WorkflowSetQueryAttributesPost` + `ApiV1WorkflowSetSearchAttributesPost` | `SetAttributes` | `AttributeWrite` w/ `IndexConfig` |
   | `ApiV1WorkflowGetPost` + `ApiV1WorkflowGetWithWaitPost` | `WaitForFlow` | Describe-first; zero wait returns status immediately, positive wait may call `GetWorkflowResult` |
   | `ApiV1WorkflowSearchPost` | `SearchFlows` | |
@@ -357,9 +368,13 @@ always-on, no version gate:
 
 - **`StartFlow` specifics:** keep `worker_target` in Memo
   (`service.WorkerTargetMemoKey`) — still the dial target; keep `requestId` memo
-  idempotency for `ignore_already_started`. Delete the whole `useMemoForDAs`
-  block. External-storage large-input offload stays but writes blob ids onto
-  `Value` (Phase 2 value model), not `EncodedObject.ExtStoreId/ExtPath`.
+  idempotency for `ignore_already_started`. Delete the whole `useMemoForDAs` block:
+  do not write a feature-flag memo key or copy each data attribute into Memo. Delete
+  `service.UseMemoForDataAttributesKey`. `GetAttributes` deletes
+  `GetUseMemoForDataAttributes`, the `response.Memos` attribute-read branch, and its
+  incompatibility check. External-storage large-input offload stays but writes blob
+  ids onto `Value` (Phase 2 value model), not
+  `EncodedObject.ExtStoreId/ExtPath`.
 
 **`StopFlow(COMPLETE)`:**
 - Send a new `CompleteFlowSignalChannelName` system signal to the interpreter on
@@ -382,9 +397,10 @@ always-on, no version gate:
   (`min(wait_time_seconds, Api.MaxWaitSeconds)`). Result → `WaitForStepCompletionResponse`.
   Workflow-side timeout → `DeadlineExceeded` + `LONG_POLL_TIME_OUT`.
 - Require exactly one target through the Phase 0 `oneof`.
-  `step_execution_id` returns that exact completion. `step_type` returns the first
-  completed execution of that type by monotonic execution number. An already
-  retained completion returns immediately.
+  `step_execution_id` returns that exact completion. For `step_type`, bind the
+  target to that type's first-started monotonic execution id and wait for that exact
+  execution; a later execution cannot win by finishing first. An already retained
+  completion returns immediately.
 - Reject negative `wait_time_seconds`; zero performs an immediate retained-state
   check, and a positive value is capped by `Api.MaxWaitSeconds`.
 - `StartFlow.wait_for_completion_step_execution_ids` /
@@ -414,15 +430,18 @@ always-on, no version gate:
   its workflow-side capped deadline.
 
 Add an API pre-check: when `client.GetBackendType() == BackendTypeCadence`,
-short-circuit these two RPCs to `Unimplemented` before dialing.
+short-circuit these two RPCs — and any `InvokeRPC` with non-empty
+`lock_attribute_keys` — to `Unimplemented` before dialing.
 
 **RPC locking (`InvokeRPC`):** driven by the new `InvokeRPCRequest.lock_attribute_keys`
-(Phase 0). When non-empty, run the synchronous-update locking path and lock those keys
-via `persistence.go:awaitAndLockForKeys`; when empty, run the non-locking path.
-Normalize duplicate keys and acquire them in deterministic sorted order. The
-validator returns `RPC_ACQUIRE_LOCK_FAILURE` / `Aborted` when any requested key is
-locked; the handler marks all keys locked before its first yield and releases them
-with `defer` on every path. This replaces the old
+(Phase 0). When non-empty, run the synchronous-update locking path and atomically
+`TryLockKeys(sortedUniqueKeys)`; when empty, run the non-locking path. The validator
+returns `RPC_ACQUIRE_LOCK_FAILURE` / `Aborted` when any requested key is locked; the
+handler acquires all keys before its first yield and releases them with `defer` on
+every path. It never waits while partially holding keys. A locking worker response
+may write only keys in its normalized lock set; queue any non-owner step/signal
+result touching those keys and apply its whole side-effect batch after unlock. This
+replaces the old
 `PersistenceLoadingPolicy.LockingKeys` surface; partial-loading types are gone (we
 always load all attributes).
 
@@ -442,7 +461,10 @@ always load all attributes).
   types) — string names stay in Go; the **payload messages** move to proto in
   Phase 2.5. Add update-type constants `WaitForStepCompletionUpdateType`,
   `WaitForAttributeUpdateType` next to `ExecuteOptimisticLockingRpcUpdateType`.
-  Phase 2.5 replaces the remaining Go internal serializable structs with `iwfpb` messages.
+  Phase 2.5 replaces the remaining Go internal serializable structs with `iwfpb`
+  messages. Delete `InterpreterWorkflowInput.UseMemoForDataAttributes` from any
+  interim Go struct and every constructor/call site; the Phase 2.5 proto
+  intentionally has no replacement field.
 - [`server/service/client/interfaces.go`](../../../server/service/client/interfaces.go)
   + `temporal/` + `cadence/`: retype `UnifiedClient` and both impls to `iwfpb`
   names (`flow_id`, `run_id`, unified attributes, channel publish,
@@ -774,6 +796,20 @@ Behavioral cleanups:
 | Options | Only `wait_for_*` / `execute_*` on `StepOptions` |
 | RPC invoke | Remove loading policies; `lock_attribute_keys` is the only explicit lock surface |
 
+**Delete memo-as-attribute storage completely:**
+
+- Remove `WorkflowProvider.UpsertMemo`, its Temporal/Cadence implementations, the
+  generated mock method, and test-provider stubs. Its only caller is the deleted
+  attribute-storage branch.
+- Remove `PersistenceManager.useMemo`, all constructor/rebuild parameters, and the
+  `ProcessUpsertDataAttribute` branch that builds a memo map and calls
+  `UpsertMemo`. Unified attribute writes update persistence/index state only.
+- Remove `input.UseMemoForDataAttributes` from initial and CAN-restore
+  `PersistenceManager` construction in `workflowImpl.go`.
+- Do not pass memo-encryption flags/converters into interpreter workers for this
+  feature. Legitimate `WorkerTargetMemoKey` and workflow request-id Memo
+  encode/decode/encryption stays in the backend client/bootstrap path.
+
 **Channels:** `InternalChannel` becomes the single unified store (rename →
 `Channel`/`channelStore`), `receivedData map[string][]*iwfpb.Value`. Implement
 the Phase 0 two-phase reservation/consume algorithm; a per-condition
@@ -789,18 +825,19 @@ payloads route into the unified channel store.
 
 **Sync-update wait handlers (new — Temporal-only):**
 - The existing `provider.SetRpcUpdateHandler` is hard-coded to the old
-  `WorkflowRpcRequest`. Generalize the provider to accept concrete typed
-  handler/validator wrappers, or add separate strongly typed registration methods
-  for InvokeRPC, WaitForStepCompletion, and WaitForAttribute. Cadence implementations
-  remain no-ops. Regenerate `interfaces_mock.go`.
-- Add a provider `AwaitWithTimeout(ctx, duration, condition)` abstraction for
-  Temporal/Cadence rather than composing an unread `NewTimer` with `Await`. It must
+  `WorkflowRpcRequest`. Split a Temporal-only `UpdateProvider` from the common
+  provider and add strongly typed registration methods for InvokeRPC,
+  WaitForStepCompletion, and WaitForAttribute. Cadence does not implement this
+  capability; do not add no-op methods. Regenerate `interfaces_mock.go`.
+- Add `AwaitWithTimeout(ctx, duration, condition)` to the Temporal-only
+  `UpdateProvider` rather than composing an unread `NewTimer` with `Await`. It must
   report match vs timeout and cancel its timer when the condition wins.
 
 - **WaitForStepCompletion handler:** `AwaitWithTimeout` where `cond` = the
   target `step_execution_id`/`step_type` present in the completed-output map
   (surfaced from `outputCollector.go`, indexed and retained per the API contract).
-  Returns the `StepCompletionOutput` or a timeout marker.
+  Step-type lookup binds to the first-started monotonic execution id. Returns the
+  `StepCompletionOutput` or a timeout marker.
 - **WaitForAttribute handler:** add a monotonic `attributeRevision` to
   `PersistenceManager`, incremented by every SetAttributes, Wait/Execute response,
   InvokeRPC upsert, and deletion. Compute the absolute workflow deadline once.
@@ -810,10 +847,13 @@ payloads route into the unified channel store.
   the deadline. The Await predicate performs no I/O. A null condition matches a
   missing key; object equality compares exact `encoding` and serialized `payload`
   bytes.
-- Both wrap with `continueAsNewer.IncreaseInflightOperation()/Decrease...` so
-  continue-as-new deterministically waits for blocked handlers. CAN is intentionally
-  postponed until each handler matches or reaches its capped workflow deadline.
-  Do not rely solely on the client-side context deadline.
+- Both increment/decrement the CAN inflight counter, but a long wait also includes
+  `IsThresholdMet()` in its predicate. If CAN wins, return a private
+  `IWF_CAN_PREEMPTED` application error, decrement inflight, and let the API retry
+  the same update against the current run (`runID=""` only at the backend client
+  boundary) with the original caller context/absolute deadline. Match and terminal
+  state win over CAN when visible in the same workflow task. Do not expose the
+  sentinel over gRPC or reset the wait budget.
 - **Delete** the standalone WaitForStateCompletion system-workflow definition and its
   registration in the Temporal & Cadence interpreter workers.
 
@@ -893,17 +933,19 @@ aliases. Preserve/move comments per project rules.
     and CAN at the match/consume boundary. Existing threshold=1 and
     command-thread-completion scenarios assert the proto CAN dump round-trip.
   - `wait_for_step_completion_test.go` — exact execution id, first monotonic
-    execution for step type, immediate retained completion, unregistered target,
-    zero timeout, concurrent waiters, client cancellation, closed/not-found flow,
-    and completion/CAN interaction. Temporal-only; Cadence `Unimplemented`.
+    execution for step type (including a later execution finishing first), immediate
+    retained completion, unregistered target, zero timeout, concurrent waiters,
+    client cancellation, closed/not-found flow, and completion/CAN interaction.
+    Temporal-only; Cadence `Unimplemented`.
   - `wait_for_attribute_test.go` — immediate match, timeout/zero timeout, every
     scalar arm, blob hydration, null/missing equivalence, serialized object
     equality, deletion wake-up, concurrent waiters, client cancellation,
     closed/not-found flow, and CAN interaction. Temporal-only; Cadence
     `Unimplemented`.
   - `rpc_locking_test.go` — overlapping and disjoint key sets, duplicate key
-    normalization, lock release on worker error/cancellation, RPC vs SetAttributes,
-    and RPC vs step activity.
+    normalization, out-of-set worker writes, lock release on worker
+    error/cancellation, RPC vs SetAttributes, already-inflight/new step activities,
+    and whole-result FIFO commit after unlock.
   - `stop_complete_test.go` — successful completion with accumulated outputs on
     Temporal/Cadence, waiting-thread drain, in-flight step behavior, already-closed
     rejection, and CAN race.
@@ -929,6 +971,11 @@ make -C server temporalIntegTests   2>&1 | tee /tmp/test-temporal-integ.log
 make -C server cadenceIntegTests    2>&1 | tee /tmp/test-cadence-integ.log
 make -C server lint                 2>&1 | tee /tmp/test-lint.log
 make copyright-check                2>&1 | tee /tmp/test-copyright.log
+
+if rg -n 'useMemoFor(DataAttributes|DAs)|UseMemoFor(DataAttributes|DAs)|FailAtMemoIncompatibility|UseMemoForDataAttributesKey|UpsertMemo|\buseMemo\b' \
+  server --glob '*.go'; then
+  exit 1
+fi
 ```
 
 Inspect the final diff for ignored errors in touched Go code; every error must be
@@ -977,9 +1024,10 @@ determinism-sensitive and must have their own captured histories.
 ## Resolved decisions
 
 1. **RPC locking** — add `repeated string lock_attribute_keys` to `InvokeRPCRequest`.
-   Non-empty → sync-update locking path over those keys
-   (`persistence.go:awaitAndLockForKeys`, `RPC_ACQUIRE_LOCK_FAILURE` on contention);
-   empty → non-locking. Replaces `PersistenceLoadingPolicy.LockingKeys`.
+   Non-empty → sync-update locking path with atomic, fail-fast
+   `TryLockKeys(sortedUniqueKeys)` (`RPC_ACQUIRE_LOCK_FAILURE` on contention);
+   empty → non-locking. Replaces `PersistenceLoadingPolicy.LockingKeys`; never wait
+   while partially holding keys.
 2. **Global versioning** — keep `GlobalVersioner` + `globalChangeId`, reset to v1,
    delete historical branches (`MaxOfAllVersions = StartingVersionV1`).
 3. **Cadence rejection** — `WaitForStepCompletion` / `WaitForAttribute` return
@@ -1007,6 +1055,9 @@ determinism-sensitive and must have their own captured histories.
     ProtoJSON compatibility path; Cadence uses the versioned `IWFDC` framing. API
     client and interpreter worker use the same converter configuration and codec
     chain.
+12. **Memo boundary** — Memo stores only worker-target/request-id system metadata.
+    Attribute persistence never reads, writes, restores, or snapshots Memo; all
+    `useMemoForDataAttributes` plumbing is deleted without a proto replacement.
 
 ---
 
@@ -1019,6 +1070,9 @@ determinism-sensitive and must have their own captured histories.
   wait-for-attribute timeout/blob/null/object/cancellation/CAN; RPC key locking;
   Stop COMPLETE; gRPC error details, metadata, connection lifecycle and message
   limits; `AttributeWrite(null)` persistence/index deletion; `LoadBlobs`.
+  Delete memo-as-attribute-storage variants from persistence/loading-policy/RPC/S3
+  tests instead of porting them. Retain dedicated WorkerTarget/request-id Memo
+  encode/decode and Temporal memo-encryption coverage.
   Success: `make -C server temporalIntegTests` and `cadenceIntegTests` green on the
   full suite (tee logs). Binary DataConverter coverage is explicit: inspect raw
   Temporal/Cadence history and reject any interpreter internal serializable outer payload
@@ -1041,7 +1095,9 @@ determinism-sensitive and must have their own captured histories.
   proto generation target, connection lifecycle, and graceful shutdown; note
   WaitForStepCompletion / WaitForAttribute are Temporal-only and SDK compatibility
   is intentionally deferred; document binary protobuf DataConverter on Temporal and
-  Cadence (client + worker configuration/codec chain must match).
+  Cadence (client + worker configuration/codec chain must match). State explicitly
+  that Memo is reserved for worker-target/request-id metadata and must not be used as
+  attribute storage.
 - [`server/replayTests/README.md`](../../../server/replayTests/README.md): reset
   baseline + Temporal CLI capture; fresh version scheme; note binary payload
   encoding.
