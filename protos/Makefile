@@ -41,9 +41,23 @@ else
   GRPC_JAVA_CLASSIFIER := windows-x86_64
 endif
 
-.PHONY: proto proto-go proto-java proto-python clean ensure-tools
+.PHONY: proto proto-go proto-server-go proto-java proto-python clean ensure-tools
 
 proto: proto-go proto-java proto-python
+
+# Server-only codegen for the server rewrite. Does not touch SDK trees.
+proto-server-go: ensure-tools
+	rm -rf $(SERVER_GO_OUT)
+	mkdir -p $(SERVER_GO_OUT)
+	protoc \
+		-I $(PROTO_DIR) \
+		--go_out=$(SERVER_GO_OUT) \
+		--go_opt=paths=source_relative \
+		--go_opt=Miwf.proto=$(SERVER_GO_PKG) \
+		--go-grpc_out=$(SERVER_GO_OUT) \
+		--go-grpc_opt=paths=source_relative \
+		--go-grpc_opt=Miwf.proto=$(SERVER_GO_PKG) \
+		$(PROTO_FILE)
 
 proto-go: ensure-tools
 	rm -rf $(SERVER_GO_OUT) $(SDK_GO_OUT)

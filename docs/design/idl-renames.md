@@ -44,9 +44,10 @@ Canonical naming for the protobuf rewrite. Old OpenAPI names are not kept as ali
 | /workflow/rpc | **InvokeRPC** |
 | /timer/skip | SkipTimer |
 | /config/update | UpdateFlowConfig |
-| /waitForStateCompletion | WaitForStepCompletion |
+| /waitForStateCompletion | WaitForStepCompletion (`oneof` step_execution_id \| step_type) |
 | (new) | **WaitForAttribute** (exactly-equal condition for now) |
-| /internal/dump | **deleted** |
+| /internal/dump (public) | **deleted** as FlowService RPC |
+| (new, server-internal) | **InternalService.DumpFlowForContinueAsNew** + `ContinueAsNewDump` (proto pages; replaces JSON dump) |
 | /triggerContinueAsNew | TriggerContinueAsNew |
 | /info/healthcheck | HealthCheck |
 
@@ -83,7 +84,11 @@ Canonical naming for the protobuf rewrite. Old OpenAPI names are not kept as ali
 | command_id / command_ids | condition_id / condition_ids |
 | timer_command_id / timer_command_index | timer_condition_id / timer_condition_index |
 | TimerStatus (SCHEDULED/FIRED) + ChannelRequestStatus (WAITING/RECEIVED) | **ConditionStatus** (`WAITING` / `COMPLETED`) |
-| SignalResult + InterStateChannelResult | ChannelResult |
+| SignalResult + InterStateChannelResult | ChannelResult (`repeated Value values`; singular `value` deleted) |
+| ChannelCondition.at_least / at_most | `optional int32` (omit vs 0 distinguishable) |
+| worker_url (StartFlow) | **worker_target** (plaintext gRPC `host:port`) |
+| PersistenceLoadingPolicy.LockingKeys (RPC) | `InvokeRPCRequest.lock_attribute_keys` |
+| WorkflowDumpRequest/Response (JSON pages) | ContinueAsNewDumpRequest/Response + ContinueAsNewDump (proto) |
 | InterStateChannelPublishing | ChannelMessage |
 | SearchAttribute* types | deleted (IndexConfig / inferred from Value) |
 | PersistenceLoadingPolicy / PersistenceLoadingType | deleted |

@@ -145,6 +145,9 @@ iwf-server:
 idl-code-gen: # regenerate protobuf stubs from protos/iwf.proto into server + SDKs
 	$(MAKE) -C ../protos proto
 
+idl-code-gen-server: # server rewrite: regenerate only server/gen/iwfpb (leave SDK trees alone)
+	$(MAKE) -C ../protos proto-server-go
+
 bins: $(BINS)
 
 clean: ## Clean binaries and build folder
