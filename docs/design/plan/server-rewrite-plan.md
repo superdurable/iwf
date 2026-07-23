@@ -58,6 +58,19 @@ flowchart LR
   branches, no "legacy Exact-1 ignores AtLeast/AtMost" path. Every
   `ChannelCondition` always honors `at_least`/`at_most`; results always use
   `repeated Value values`.
+- **History / control-plane payloads are proto (Phase 2.5):** Every value that
+  Temporal or Cadence serializes into workflow history (workflow I/O, activity I/O,
+  signals, sync updates, continue-as-new input) **and** every query/update handler
+  request/response is a `proto.Message` defined in `iwf.proto` (server-internal
+  section). Do not leave Go structs with nested `iwfpb` fields as the outer
+  history type — that falls through to JSON and double-encodes `Value`s.
+- **Binary protobuf DataConverter (Temporal + Cadence):** Both backends use a
+  shared encoding policy: `proto.Message` → binary protobuf. Temporal: custom
+  composite converter with `ProtoPayloadConverter` **before**
+  `ProtoJSONPayloadConverter` (default SDK prefers ProtoJSON). Cadence: custom
+  `encoded.DataConverter` (Cadence default is JSON-only). API client Options and
+  interpreter worker Options must use the **same** converter (including any memo
+  encryption codec wrapper).
 
 ### Supersedes earlier drafts
 
@@ -88,11 +101,12 @@ tests (Phase 5), then replay (Phase 6). Do the work bottom-up so the final wirin
 compiles in one pass:
 
 `common (Value/mapper/errors/rpc) → service/interfaces+const → client →
-interpreter → api → cmd → integ`.
+Phase 2.5 (control-plane proto + DataConverters) → interpreter → api → cmd →
+integ`.
 
-Treat Phases 1–4 as workstreams in one source migration, not independently
-mergeable releases. Use targeted build checkpoints after each bottom-up slice;
-the first whole-server green checkpoint is after Phase 4:
+Treat Phases 1–4 (incl. 2.5) as workstreams in one source migration, not
+independently mergeable releases. Use targeted build checkpoints after each
+bottom-up slice; the first whole-server green checkpoint is after Phase 4:
 
 ```
 cd server
@@ -411,17 +425,18 @@ always load all attributes).
 ## Phase 2 — Shared types + UnifiedClient
 
 - [`server/service/interfaces.go`](../../../server/service/interfaces.go) +
-  [`const.go`](../../../server/service/const.go): retype interpreter input/output
-  structs (`InterpreterWorkflowInput/Output`, `ExecuteRpcSignalRequest`, etc.) to
-  `iwfpb` + Flow/Step/Condition names, including `IwfWorkerUrl` →
-  `WorkerTarget`. Drop HTTP worker-path constants
+  [`const.go`](../../../server/service/const.go): **interim** retype of interpreter
+  input/output Go structs (`InterpreterWorkflowInput/Output`,
+  `ExecuteRpcSignalRequest`, etc.) to nested `iwfpb` fields + Flow/Step/Condition
+  names, including `IwfWorkerUrl` → `WorkerTarget`. Drop HTTP worker-path constants
   (`StateStartApi`, `StateDecideApi`, `WorkflowWorkerRpcApi`). **Keep** the system
   signal/query channel-name constants (`ExecuteRpcSignalChannelName`,
   `UpdateConfigSignalChannelName`, `FailWorkflowSignalChannelName`,
   `SkipTimerSignalChannelName`, `TriggerContinueAsNewSignalChannelName`, query
-  types) — internal control plane, not IDL surface; rename to Flow/Step where cheap.
-  Add update-type constants `WaitForStepCompletionUpdateType`,
+  types) — string names stay in Go; the **payload messages** move to proto in
+  Phase 2.5. Add update-type constants `WaitForStepCompletionUpdateType`,
   `WaitForAttributeUpdateType` next to `ExecuteOptimisticLockingRpcUpdateType`.
+  Phase 2.5 replaces the remaining Go control-plane structs with `iwfpb` messages.
 - [`server/service/client/interfaces.go`](../../../server/service/client/interfaces.go)
   + `temporal/` + `cadence/`: retype `UnifiedClient` and both impls to `iwfpb`
   names (`flow_id`, `run_id`, unified attributes, channel publish,
@@ -458,6 +473,117 @@ always load all attributes).
   WorkerService responses; workers return concrete values and the server performs
   threshold offload afterward. `LoadBlobs` is the only public operation that
   accepts server-minted blob ids.
+
+---
+
+## Phase 2.5 — Control-plane proto messages + DataConverters
+
+**Goal:** Everything Temporal/Cadence serializes for the interpreter (history and
+query/update control plane) is a top-level `proto.Message`, encoded as **binary
+protobuf** on both backends. Stop JSON-wrapping Go structs that nest `iwfpb`
+fields.
+
+### IDL (`protos/iwf.proto`)
+
+Add a **server-internal interpreter control plane** section (same spirit as
+`ContinueAsNewDump` / `InternalService` — not FlowService public RPCs). Migrate
+**all** types currently in
+[`server/service/interfaces.go`](../../../server/service/interfaces.go):
+
+| Area | Messages / enums (names indicative) |
+|------|-------------------------------------|
+| Workflow I/O | `InterpreterWorkflowInput`, `InterpreterWorkflowOutput`, `ContinueAsNewInput`, `BasicInfo` |
+| Activity I/O | `InvokeWaitForMethodActivityInput`, `InvokeExecuteMethodActivityInput` (+ any activity outputs still Go-typed) |
+| Signals | `ExecuteRpcSignalRequest`, `SkipTimerSignalRequest`, `FailFlowSignalRequest`, `CompleteFlowSignalRequest`; UpdateConfig signal payload if not already `FlowConfig` |
+| Queries | `GetAttributesQueryRequest`/`Response`, `PrepareRpcQueryRequest`/`Response`, `GetCurrentTimerInfosQueryResponse`, `GetScheduledGreedyTimerTimesQueryResponse`, `DebugDumpResponse` |
+| Timers / status | `TimerInfo`, `InternalTimerStatus`, `StepExecutionStatus` (as proto enums/messages) |
+| Sync updates | Reuse public wait/RPC request/response messages where they already exist; add any missing update-handler envelopes |
+
+Regen server stubs only: `make -C protos proto-server-go` +
+`make -C server idl-code-gen-server`. Do **not** regen SDKs.
+
+After migration, `interfaces.go` retains only non-payload helpers (e.g.
+`ValidateTimerSkipRequest`) and type aliases if needed during Phase 4 renames;
+delete the Go structs that became proto messages. Signal/query/update **name**
+constants stay in `const.go`.
+
+### Temporal DataConverter
+
+Provide a shared factory (e.g. `service/common/converter` or under
+`service/client/temporal`):
+
+```go
+converter.NewCompositeDataConverter(
+  converter.NewNilPayloadConverter(),
+  converter.NewByteSlicePayloadConverter(),
+  converter.NewProtoPayloadConverter(),       // binary first — storage efficiency
+  converter.NewProtoJSONPayloadConverter(),   // optional decode compat only
+  converter.NewJSONPayloadConverter(),
+)
+```
+
+Wire into:
+
+- Temporal API `client.Options.DataConverter` (`cmd/server`, integ helpers)
+- Interpreter Temporal `worker.Options.DataConverter`
+- Memo-encryption path: wrap this converter with the existing codec converter;
+  do not fall back to `GetDefaultDataConverter()` for interpreter payloads
+
+### Cadence DataConverter
+
+Cadence’s default `encoded.DataConverter` is **JSON-only**. Implement a custom
+converter that:
+
+1. For each argument implementing `proto.Message`, `proto.Marshal` /
+   `proto.Unmarshal`.
+2. Otherwise JSON (escape hatch only; interpreter control plane should not need
+   it after this phase).
+3. Defines an explicit multi-arg framing (Cadence packs args into one blob). Prefer
+   length-prefixed frames so mixed/future multi-arg calls stay unambiguous.
+   Prefer single-message args at call sites where practical.
+
+Wire the **same** converter into Cadence `client.Options` and interpreter
+`worker.Options` (and reset/query paths that decode payloads).
+
+### Call-site retarget
+
+Point interpreter + UnifiedClient start/signal/query/update/activity paths at the
+new `iwfpb` messages (Phase 4 will finish behavioral rewrite; Phase 2.5 unblocks
+correct encoding). Replace any remaining `json.Marshal` of control-plane snapshots
+that belong in history/query with proto marshal (CAN dump already proto from
+Phase 0).
+
+### Checkpoint
+
+```
+cd server
+go build ./service/common/...
+go build ./gen/iwfpb/...
+# client packages may still fail until interpreter (Phase 4) compiles
+```
+
+Stop for review after Phase 2.5 before Phase 3.
+
+### Tests
+
+- Round-trip of representative control-plane messages through Temporal and Cadence
+  converters is covered by Phase 5 integ (start flow → signal/query/update →
+  activity) on both backends; no dedicated unit suite unless framing edge cases
+  cannot be reached.
+- Phase 6 replay re-capture is required after binary encoding (old JSON histories
+  are invalid regardless).
+
+### Documentation
+
+- Plan (this section) + short note in `server/CONTRIBUTING.md` / `server/README.md`:
+  binary protobuf DataConverter on Temporal and Cadence; Web UI readability of
+  binary payloads is degraded by design.
+- [`docs/design/idl-renames.md`](../idl-renames.md): list the new internal
+  control-plane message names.
+
+### UI/UX
+
+- N/A: no in-repo web UI. (Temporal Web may show opaque binary payloads.)
 
 ---
 
@@ -750,6 +876,12 @@ determinism-sensitive and must have their own captured histories.
    preserving accumulated outputs without synthesizing an in-flight step result.
 10. **SDK scope** — SDK implementations and generated stubs are intentionally
     excluded and remain incompatible until a follow-up rewrite.
+11. **Control-plane / history encoding** — all interpreter control-plane payloads
+    (workflow/activity I/O, signals, queries, sync updates, enums formerly in
+    `service/interfaces.go`) live in `iwf.proto`. Temporal and Cadence both use
+    binary protobuf DataConverters (Temporal: Proto binary before ProtoJSON;
+    Cadence: custom proto-aware converter). API client and interpreter worker share
+    the same converter instance policy.
 
 ---
 
@@ -763,14 +895,16 @@ determinism-sensitive and must have their own captured histories.
   Stop COMPLETE; gRPC error details, metadata, connection lifecycle and message
   limits; `AttributeWrite(null)` persistence/index deletion; `LoadBlobs`.
   Success: `make -C server temporalIntegTests` and `cadenceIntegTests` green on the
-  full suite (tee logs).
+  full suite (tee logs). Binary DataConverter coverage is implicit: every Temporal
+  and Cadence integ path exercises start/signal/query/activity encoding.
 - **Replay (required):** After deleting old JSON, recapture a full baseline from real
   Temporal; `make -C server replayTests` green. Coverage =
   previously-represented scenarios + multi-value channel + both synchronous Update
-  handlers and CAN interaction.
+  handlers and CAN interaction. New baseline uses binary protobuf payloads.
 - **Unit:** N/A unless an edge cannot be reached via integ. Candidate: the atomic
-  multi-consume boundary math (`at_most` capping; ZeroToAll empty+`COMPLETED`) and
-  `Value`/`IndexConfig` encoding — add unit tests only if integ cannot hit them.
+  multi-consume boundary math (`at_most` capping; ZeroToAll empty+`COMPLETED`),
+  `Value`/`IndexConfig` encoding, and Cadence multi-arg length-prefix framing —
+  add unit tests only if integ cannot hit them.
 
 ## Documentation
 
@@ -778,13 +912,15 @@ determinism-sensitive and must have their own captured histories.
   gRPC port/message limit, plaintext worker target, metadata headers, server-only
   proto generation target, connection lifecycle, and graceful shutdown; note
   WaitForStepCompletion / WaitForAttribute are Temporal-only and SDK compatibility
-  is intentionally deferred.
+  is intentionally deferred; document binary protobuf DataConverter on Temporal and
+  Cadence (client + worker must match).
 - [`server/replayTests/README.md`](../../../server/replayTests/README.md): reset
-  baseline + Temporal CLI capture; fresh version scheme.
+  baseline + Temporal CLI capture; fresh version scheme; note binary payload
+  encoding.
 - [`docs/design/idl-renames.md`](../idl-renames.md): keep as source of truth; add
   `ChannelResult.value → values`, optional channel bounds, worker target rename,
-  wait target `oneof`, lock keys, and InternalService/CAN dump additions; add a
-  short server transport/scope note.
+  wait target `oneof`, lock keys, InternalService/CAN dump additions, and Phase 2.5
+  internal control-plane message names; add a short server transport/scope note.
 - [`docs/README.md`](../../README.md): link the gRPC server rewrite design and mark
   the SDK rewrite as a separate follow-up.
 - Product wiki (`docs/wiki/`) left for a later pass unless a page blocks contributors.

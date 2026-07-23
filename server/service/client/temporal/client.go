@@ -29,11 +29,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/superdurable/iwf/config"
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
 	uclient "github.com/superdurable/iwf/service/client"
 	"github.com/superdurable/iwf/service/common/mapper"
-	"github.com/superdurable/iwf/service/common/retry"
 	"github.com/superdurable/iwf/service/common/utils"
 	"github.com/superdurable/iwf/service/interpreter/temporal"
 	"go.temporal.io/api/common/v1"
@@ -152,7 +151,7 @@ func (t *temporalClient) GetApplicationErrorTypeAndDetails(err error) (string, s
 		if ok {
 			errDetails = errDetailsString
 		} else {
-			// All other types, e.g. iwfidl.StateCompletionOutput, try to Marshal the object to JSON
+			// All other types, e.g. iwfpb.StepCompletionOutput, try to Marshal the object to JSON
 			var err error
 			jsonBytes, err := json.Marshal(errDetailsPtr)
 			if err == nil {
@@ -181,17 +180,17 @@ func (t *temporalClient) StartInterpreterWorkflow(
 		WorkflowExecutionErrorWhenAlreadyStarted: true,
 	}
 
-	if options.WorkflowIDReusePolicy != nil {
-		workflowIdReusePolicy, err := mapToTemporalWorkflowIdReusePolicy(*options.WorkflowIDReusePolicy)
+	if options.IdReusePolicy != nil {
+		workflowIdReusePolicy, err := mapToTemporalWorkflowIdReusePolicy(*options.IdReusePolicy)
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 
 		workflowOptions.WorkflowIDReusePolicy = *workflowIdReusePolicy
 	}
 
 	if options.RetryPolicy != nil {
-		workflowOptions.RetryPolicy = retry.ConvertTemporalWorkflowRetryPolicy(options.RetryPolicy)
+		workflowOptions.RetryPolicy = mapToTemporalRetryPolicy(options.RetryPolicy)
 	}
 
 	if options.CronSchedule != nil && *options.CronSchedule != "" {
@@ -230,24 +229,6 @@ func (t *temporalClient) StartInterpreterWorkflow(
 	return run.GetRunID(), nil
 }
 
-func (t *temporalClient) StartWaitForStateCompletionWorkflow(
-	ctx context.Context, options uclient.StartWorkflowOptions,
-) (runId string, err error) {
-	workflowOptions := client.StartWorkflowOptions{
-		ID:                       options.ID,
-		WorkflowIDReusePolicy:    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY, // the workflow could be timeout, so we allow duplicate
-		TaskQueue:                options.TaskQueue,
-		WorkflowExecutionTimeout: options.WorkflowExecutionTimeout,
-	}
-
-	run, err := t.tClient.ExecuteWorkflow(ctx, workflowOptions, temporal.WaitforStateCompletionWorkflow)
-	if err != nil {
-		// because of WorkflowExecutionErrorWhenAlreadyStarted: false, we won't get WorkflowAlreadyStartedError as we do in Cadence
-		return "", err
-	}
-	return run.GetRunID(), nil
-}
-
 func (t *temporalClient) StartBlobStoreCleanupWorkflow(
 	ctx context.Context, taskQueue, workflowID, cronSchedule, storeId string,
 ) error {
@@ -274,23 +255,6 @@ func (t *temporalClient) StartBlobStoreCleanupWorkflow(
 		},
 	})
 	return err
-}
-
-func (t *temporalClient) SignalWithStartWaitForStateCompletionWorkflow(
-	ctx context.Context, options uclient.StartWorkflowOptions, stateCompletionOutput iwfidl.StateCompletionOutput,
-) error {
-	workflowOptions := client.StartWorkflowOptions{
-		ID:                       options.ID,
-		WorkflowIDReusePolicy:    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY, // the workflow could be timeout, so we allow duplicate
-		TaskQueue:                options.TaskQueue,
-		WorkflowExecutionTimeout: options.WorkflowExecutionTimeout,
-	}
-
-	_, err := t.tClient.SignalWithStartWorkflow(ctx, options.ID, service.StateCompletionSignalChannelName, stateCompletionOutput, workflowOptions, temporal.WaitforStateCompletionWorkflow)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (t *temporalClient) SignalWorkflow(
@@ -326,11 +290,11 @@ func (t *temporalClient) ListWorkflow(
 	if err != nil {
 		return nil, err
 	}
-	var executions []iwfidl.WorkflowSearchResponseEntry
+	var executions []*iwfpb.SearchFlowsResponseEntry
 	for _, exe := range resp.GetExecutions() {
-		executions = append(executions, iwfidl.WorkflowSearchResponseEntry{
-			WorkflowId:    exe.Execution.WorkflowId,
-			WorkflowRunId: exe.Execution.RunId,
+		executions = append(executions, &iwfpb.SearchFlowsResponseEntry{
+			FlowId: exe.Execution.WorkflowId,
+			RunId:  exe.Execution.RunId,
 		})
 	}
 	return &uclient.ListWorkflowExecutionsResponse{
@@ -367,7 +331,7 @@ func (t *temporalClient) QueryWorkflow(
 }
 
 func (t *temporalClient) DescribeWorkflowExecution(
-	ctx context.Context, workflowID, runID string, requestedSearchAttributes []iwfidl.SearchAttributeKeyAndType,
+	ctx context.Context, workflowID, runID string, indexedAttrTypes map[string]iwfpb.IndexType,
 ) (*uclient.DescribeWorkflowExecutionResponse, error) {
 	resp, err := t.tClient.DescribeWorkflowExecution(ctx, workflowID, runID)
 	if err != nil {
@@ -378,21 +342,24 @@ func (t *temporalClient) DescribeWorkflowExecution(
 		return nil, err
 	}
 
-	searchAttributes, err := mapper.MapTemporalToIwfSearchAttributes(resp.GetWorkflowExecutionInfo().GetSearchAttributes(), requestedSearchAttributes)
+	indexedAttributes, err := mapper.MapTemporalIndexedFieldsToValues(resp.GetWorkflowExecutionInfo().GetSearchAttributes(), indexedAttrTypes)
 	if err != nil {
 		return nil, err
 	}
 
 	memo, err := t.getMemoAndDecryptIfNeeded(resp.GetWorkflowExecutionInfo().GetMemo())
+	if err != nil {
+		return nil, err
+	}
 
 	return &uclient.DescribeWorkflowExecutionResponse{
-		RunId:                    resp.GetWorkflowExecutionInfo().GetExecution().GetRunId(),
-		FirstRunId:               resp.GetWorkflowExecutionInfo().GetFirstRunId(),
-		Status:                   status,
-		SearchAttributes:         searchAttributes,
-		Memos:                    memo,
-		WorkflowStartedTimestamp: utils.ToNanoSeconds(resp.GetWorkflowExecutionInfo().GetStartTime()),
-	}, err
+		RunId:                resp.GetWorkflowExecutionInfo().GetExecution().GetRunId(),
+		FirstRunId:           resp.GetWorkflowExecutionInfo().GetFirstRunId(),
+		Status:               status,
+		IndexedAttributes:    indexedAttributes,
+		Memos:                memo,
+		FlowStartedTimestamp: utils.ToNanoSeconds(resp.GetWorkflowExecutionInfo().GetStartTime()),
+	}, nil
 }
 
 func (t *temporalClient) encryptMemoIfNeeded(rawMemo map[string]interface{}) (map[string]interface{}, error) {
@@ -412,13 +379,14 @@ func (t *temporalClient) encryptMemoIfNeeded(rawMemo map[string]interface{}) (ma
 	return out, nil
 }
 
-func (t *temporalClient) getMemoAndDecryptIfNeeded(memo *common.Memo) (map[string]iwfidl.EncodedObject, error) {
+func (t *temporalClient) getMemoAndDecryptIfNeeded(memo *common.Memo) (map[string]*iwfpb.Value, error) {
 	if memo == nil || len(memo.GetFields()) == 0 {
 		return nil, nil
 	}
 
-	out := map[string]iwfidl.EncodedObject{}
+	out := map[string]*iwfpb.Value{}
 	for k, payload := range memo.GetFields() {
+		var value iwfpb.EncodedObject
 
 		if t.memoEncryption {
 			// Newer Temporal SDKs apply the configured DataConverter (including its
@@ -432,62 +400,87 @@ func (t *temporalClient) getMemoAndDecryptIfNeeded(memo *common.Memo) (map[strin
 				return nil, err
 			}
 
-			var value iwfidl.EncodedObject
 			err = t.dataConverter.FromPayload(&encryptedPayload, &value)
 			if err != nil {
 				return nil, err
 			}
-			out[k] = value
 		} else {
-			var value iwfidl.EncodedObject
 			err := converter.GetDefaultDataConverter().FromPayload(payload, &value)
 			if err != nil {
 				return nil, err
 			}
-			out[k] = value
 		}
+		out[k] = &iwfpb.Value{Kind: &iwfpb.Value_ObjValue{ObjValue: &value}}
 	}
 	return out, nil
 }
 
-func mapToTemporalWorkflowIdReusePolicy(workflowIdReusePolicy iwfidl.WorkflowIDReusePolicy) (*enums.WorkflowIdReusePolicy, error) {
+func mapToTemporalWorkflowIdReusePolicy(idReusePolicy iwfpb.IdReusePolicy) (*enums.WorkflowIdReusePolicy, error) {
 	var res enums.WorkflowIdReusePolicy
-	switch workflowIdReusePolicy {
-	case iwfidl.ALLOW_DUPLICATE:
+	switch idReusePolicy {
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_ALLOW_IF_NO_RUNNING:
 		res = enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE
 		return &res, nil
-	case iwfidl.ALLOW_DUPLICATE_FAILED_ONLY:
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_ALLOW_IF_PREVIOUS_EXISTS_ABNORMALLY:
 		res = enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY
 		return &res, nil
-	case iwfidl.REJECT_DUPLICATE:
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_DISALLOW_REUSE:
 		res = enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE
 		return &res, nil
-	case iwfidl.TERMINATE_IF_RUNNING:
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_ALLOW_TERMINATE_IF_RUNNING:
 		res = enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING
 		return &res, nil
 	default:
-		return nil, fmt.Errorf("unsupported workflow id reuse policy %s", workflowIdReusePolicy)
+		return nil, fmt.Errorf("unsupported workflow id reuse policy %s", idReusePolicy)
 	}
 }
 
-func mapToIwfWorkflowStatus(status enums.WorkflowExecutionStatus) (iwfidl.WorkflowStatus, error) {
+// mapToTemporalRetryPolicy fills unset (zero-value) fields with the same
+// defaults iwf has always used for flow retries.
+func mapToTemporalRetryPolicy(policy *iwfpb.FlowRetryPolicy) *realtemporal.RetryPolicy {
+	if policy == nil {
+		return nil
+	}
+
+	initialIntervalSeconds := policy.GetInitialIntervalSeconds()
+	if initialIntervalSeconds <= 0 {
+		initialIntervalSeconds = 1
+	}
+	backoffCoefficient := policy.GetBackoffCoefficient()
+	if backoffCoefficient <= 0 {
+		backoffCoefficient = 2
+	}
+	maximumIntervalSeconds := policy.GetMaximumIntervalSeconds()
+	if maximumIntervalSeconds <= 0 {
+		maximumIntervalSeconds = 100
+	}
+
+	return &realtemporal.RetryPolicy{
+		InitialInterval:    time.Second * time.Duration(initialIntervalSeconds),
+		MaximumInterval:    time.Second * time.Duration(maximumIntervalSeconds),
+		MaximumAttempts:    policy.GetMaximumAttempts(),
+		BackoffCoefficient: backoffCoefficient,
+	}
+}
+
+func mapToIwfWorkflowStatus(status enums.WorkflowExecutionStatus) (iwfpb.FlowStatus, error) {
 	switch status {
 	case enums.WORKFLOW_EXECUTION_STATUS_CANCELED:
-		return iwfidl.CANCELED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_CANCELED, nil
 	case enums.WORKFLOW_EXECUTION_STATUS_COMPLETED:
-		return iwfidl.COMPLETED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_COMPLETED, nil
 	case enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW:
-		return iwfidl.CONTINUED_AS_NEW, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_CONTINUED_AS_NEW, nil
 	case enums.WORKFLOW_EXECUTION_STATUS_FAILED:
-		return iwfidl.FAILED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_FAILED, nil
 	case enums.WORKFLOW_EXECUTION_STATUS_RUNNING:
-		return iwfidl.RUNNING, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_RUNNING, nil
 	case enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT:
-		return iwfidl.TIMEOUT, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_TIMEOUT, nil
 	case enums.WORKFLOW_EXECUTION_STATUS_TERMINATED:
-		return iwfidl.TERMINATED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_TERMINATED, nil
 	default:
-		return "", fmt.Errorf("not supported status %s", status)
+		return iwfpb.FlowStatus_FLOW_STATUS_UNSPECIFIED, fmt.Errorf("not supported status %s", status)
 	}
 }
 
@@ -514,16 +507,16 @@ func (t *temporalClient) SynchronousUpdateWorkflow(
 	if err != nil {
 		return err
 	}
-	return handle.Get(context.Background(), valuePtr)
+	return handle.Get(ctx, valuePtr)
 }
 
 func (t *temporalClient) ResetWorkflow(
-	ctx context.Context, request iwfidl.WorkflowResetRequest,
+	ctx context.Context, request *iwfpb.ResetFlowRequest,
 ) (runId string, err error) {
-	reqRunId := request.GetWorkflowRunId()
+	reqRunId := request.GetRunId()
 	if reqRunId == "" {
 		// set default runId to current
-		resp, err := t.tClient.DescribeWorkflowExecution(ctx, request.GetWorkflowId(), "")
+		resp, err := t.tClient.DescribeWorkflowExecution(ctx, request.GetFlowId(), "")
 		if err != nil {
 			return "", err
 		}
@@ -532,9 +525,9 @@ func (t *temporalClient) ResetWorkflow(
 
 	resetType := request.GetResetType()
 	resetBaseRunID, resetEventId, err := getResetEventIDByType(ctx, resetType,
-		t.namespace, request.GetWorkflowId(), reqRunId,
+		t.namespace, request.GetFlowId(), reqRunId,
 		t.tClient.WorkflowService(), t.dataConverter,
-		request.GetHistoryEventId(), request.GetHistoryEventTime(), request.GetStateId(), request.GetStateExecutionId())
+		request.GetHistoryEventId(), request.GetHistoryEventTime(), request.GetStepType(), request.GetStepExecutionId())
 
 	if err != nil {
 		return "", err
@@ -542,17 +535,17 @@ func (t *temporalClient) ResetWorkflow(
 
 	requestId := uuid.New().String()
 	var resetReapplyExcludeTypes []enums.ResetReapplyExcludeType
-	if request.GetSkipSignalReapply() {
+	if request.GetSkipChannelMessagesReapply() {
 		resetReapplyExcludeTypes = append(resetReapplyExcludeTypes, enums.RESET_REAPPLY_EXCLUDE_TYPE_SIGNAL)
 	}
-	if request.GetSkipUpdateReapply() {
+	if request.GetSkipLockingRpcReapply() {
 		resetReapplyExcludeTypes = append(resetReapplyExcludeTypes, enums.RESET_REAPPLY_EXCLUDE_TYPE_UPDATE)
 	}
 
 	resp, err := t.tClient.ResetWorkflowExecution(ctx, &workflowservice.ResetWorkflowExecutionRequest{
 		Namespace: t.namespace,
 		WorkflowExecution: &common.WorkflowExecution{
-			WorkflowId: request.WorkflowId,
+			WorkflowId: request.FlowId,
 			RunId:      resetBaseRunID,
 		},
 		Reason:                    request.GetReason(),

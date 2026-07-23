@@ -22,43 +22,154 @@ package blobstore
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 )
 
-func WriteDataObjectsToExternalStorage(ctx context.Context, dataObjects []iwfidl.KeyValue, workflowId string, threashold int, blobStore BlobStore, isExternalStorageEnabled bool) error {
-	if !isExternalStorageEnabled {
+// OffloadLargeAttributeWrites replaces oversized string/object Value arms with server-minted blob ids.
+func OffloadLargeAttributeWrites(
+	ctx context.Context,
+	writes []*iwfpb.AttributeWrite,
+	flowId string,
+	threshold int,
+	blobStore BlobStore,
+	enabled bool,
+) error {
+	if !enabled || threshold <= 0 {
 		return nil
 	}
-
-	for i := range dataObjects {
-		if dataObjects[i].Value != nil && dataObjects[i].Value.Data != nil &&
-			len(*dataObjects[i].Value.Data) > threashold {
-			// Save data to external storage
-			storeId, path, writeErr := blobStore.WriteObject(ctx, workflowId, *dataObjects[i].Value.Data)
-			if writeErr != nil {
-				return writeErr
-			}
-			dataObjects[i].Value.ExtStoreId = &storeId
-			dataObjects[i].Value.ExtPath = &path
-			dataObjects[i].Value.Data = nil // Clear data since it's now in external storage
+	for _, write := range writes {
+		if write == nil || write.GetValue() == nil {
+			continue
+		}
+		if err := offloadValue(ctx, write.Value, flowId, threshold, blobStore); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func LoadDataObjectsFromExternalStorage(ctx context.Context, dataObjects []iwfidl.KeyValue, blobStore BlobStore) error {
-	for i := range dataObjects {
-		if dataObjects[i].Value != nil && dataObjects[i].Value.ExtStoreId != nil && dataObjects[i].Value.ExtPath != nil {
-			data, err := blobStore.ReadObject(ctx, *dataObjects[i].Value.ExtStoreId, *dataObjects[i].Value.ExtPath)
-			if err != nil {
-				return err
-			}
+// OffloadLargeValue offloads a single Value when over threshold.
+func OffloadLargeValue(
+	ctx context.Context, value *iwfpb.Value, flowId string, threshold int, blobStore BlobStore, enabled bool,
+) error {
+	if !enabled || threshold <= 0 || value == nil {
+		return nil
+	}
+	return offloadValue(ctx, value, flowId, threshold, blobStore)
+}
 
-			dataObjects[i].Value.Data = &data
-			dataObjects[i].Value.ExtPath = nil
-			dataObjects[i].Value.ExtStoreId = nil
+func offloadValue(ctx context.Context, value *iwfpb.Value, flowId string, threshold int, blobStore BlobStore) error {
+	switch kind := value.GetKind().(type) {
+	case *iwfpb.Value_StringValue:
+		if len(kind.StringValue) <= threshold {
+			return nil
+		}
+		storeId, path, err := blobStore.WriteObject(ctx, flowId, kind.StringValue)
+		if err != nil {
+			return err
+		}
+		blobId := formatBlobId(storeId, path)
+		value.Kind = &iwfpb.Value_InternalBlobIdForStringValue{InternalBlobIdForStringValue: blobId}
+		return nil
+	case *iwfpb.Value_ObjValue:
+		if kind.ObjValue == nil || len(kind.ObjValue.GetPayload()) <= threshold {
+			return nil
+		}
+		storeId, path, err := blobStore.WriteObject(ctx, flowId, string(kind.ObjValue.GetPayload()))
+		if err != nil {
+			return err
+		}
+		// Preserve encoding alongside blob id by storing "storeId|path|encoding" is avoided;
+		// encoding stays only if we keep obj metadata — mint blob id and drop payload.
+		_ = kind.ObjValue.GetEncoding()
+		blobId := formatBlobId(storeId, path)
+		value.Kind = &iwfpb.Value_InternalBlobIdForObjValue{InternalBlobIdForObjValue: blobId}
+		return nil
+	default:
+		return nil
+	}
+}
+
+// HydrateValues replaces internal_blob_id_for_* arms with concrete string/object values.
+func HydrateValues(ctx context.Context, values []*iwfpb.Value, blobStore BlobStore) error {
+	for _, value := range values {
+		if err := HydrateValue(ctx, value, blobStore); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// HydrateAttributeWrites hydrates Value arms on AttributeWrites / KVs.
+func HydrateAttributeWrites(ctx context.Context, writes []*iwfpb.AttributeWrite, blobStore BlobStore) error {
+	for _, write := range writes {
+		if write == nil {
+			continue
+		}
+		if err := HydrateValue(ctx, write.GetValue(), blobStore); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// HydrateKVs hydrates Value arms on KV pairs.
+func HydrateKVs(ctx context.Context, kvs []*iwfpb.KV, blobStore BlobStore) error {
+	for _, kv := range kvs {
+		if kv == nil {
+			continue
+		}
+		if err := HydrateValue(ctx, kv.GetValue(), blobStore); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// HydrateValue hydrates a single Value in place.
+func HydrateValue(ctx context.Context, value *iwfpb.Value, blobStore BlobStore) error {
+	if value == nil {
+		return nil
+	}
+	switch kind := value.GetKind().(type) {
+	case *iwfpb.Value_InternalBlobIdForStringValue:
+		storeId, path, err := parseBlobId(kind.InternalBlobIdForStringValue)
+		if err != nil {
+			return err
+		}
+		data, err := blobStore.ReadObject(ctx, storeId, path)
+		if err != nil {
+			return err
+		}
+		value.Kind = &iwfpb.Value_StringValue{StringValue: data}
+		return nil
+	case *iwfpb.Value_InternalBlobIdForObjValue:
+		storeId, path, err := parseBlobId(kind.InternalBlobIdForObjValue)
+		if err != nil {
+			return err
+		}
+		data, err := blobStore.ReadObject(ctx, storeId, path)
+		if err != nil {
+			return err
+		}
+		value.Kind = &iwfpb.Value_ObjValue{ObjValue: &iwfpb.EncodedObject{Payload: []byte(data)}}
+		return nil
+	default:
+		return nil
+	}
+}
+
+func formatBlobId(storeId, path string) string {
+	return storeId + "|" + path
+}
+
+func parseBlobId(blobId string) (storeId, path string, err error) {
+	for i := 0; i < len(blobId); i++ {
+		if blobId[i] == '|' {
+			return blobId[:i], blobId[i+1:], nil
+		}
+	}
+	return "", "", fmt.Errorf("invalid blob id %q", blobId)
 }

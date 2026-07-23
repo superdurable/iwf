@@ -21,104 +21,90 @@
 package service
 
 import (
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 )
 
 type (
 	InterpreterWorkflowInput struct {
-		IwfWorkflowType string `json:"iwfWorkflowType,omitempty"`
+		FlowType string `json:"flowType,omitempty"`
 
-		IwfWorkerUrl string `json:"iwfWorkerUrl,omitempty"`
+		WorkerTarget string `json:"workerTarget,omitempty"`
 
-		StartStateId *string `json:"startStateId,omitempty"`
+		StartStepType string `json:"startStepType,omitempty"`
 
-		WaitForCompletionStateExecutionIds []string `json:"waitForCompletionStateExecutionIds,omitempty"`
-		WaitForCompletionStateIds          []string `json:"waitForCompletionStateIds,omitempty"`
+		WaitForCompletionStepExecutionIds []string `json:"waitForCompletionStepExecutionIds,omitempty"`
+		WaitForCompletionStepTypes        []string `json:"waitForCompletionStepTypes,omitempty"`
 
-		StateInput *iwfidl.EncodedObject `json:"stateInput,omitempty"`
+		StepInput *iwfpb.Value `json:"stepInput,omitempty"`
 
-		StateOptions *iwfidl.WorkflowStateOptions `json:"stateOptions,omitempty"`
+		StepOptions *iwfpb.StepOptions `json:"stepOptions,omitempty"`
 
-		InitSearchAttributes []iwfidl.SearchAttribute `json:"initSearchAttributes,omitempty"`
+		InitAttributes []*iwfpb.AttributeWrite `json:"initAttributes,omitempty"`
 
-		InitDataAttributes []iwfidl.KeyValue `json:"initDataAttributes,omitempty"`
+		Config *iwfpb.FlowConfig `json:"config,omitempty"`
 
-		UseMemoForDataAttributes bool `json:"useMemoForDataAttributes,omitempty"`
-
-		Config iwfidl.WorkflowConfig `json:"config,omitempty"`
-
-		// IsResumeFromContinueAsNew indicate this is input for continueAsNew
-		// when true, will ignore StartStateId, StateInput, StateOptions, InitSearchAttributes
+		// IsResumeFromContinueAsNew ignores StartStepType / StepInput / StepOptions / InitAttributes.
 		IsResumeFromContinueAsNew bool `json:"isResumeFromContinueAsNew,omitempty"`
 
 		ContinueAsNewInput *ContinueAsNewInput `json:"continueAsNewInput,omitempty"`
 	}
 
 	ContinueAsNewInput struct {
-		PreviousInternalRunId string `json:"previousInternalRunId"` // for loading from previous run
+		PreviousInternalRunId string `json:"previousInternalRunId"`
 	}
 
 	InterpreterWorkflowOutput struct {
-		StateCompletionOutputs []iwfidl.StateCompletionOutput `json:"stateCompletionOutputs,omitempty"`
-	}
-
-	WaitForStateCompletionWorkflowOutput struct {
-		StateCompletionOutput iwfidl.StateCompletionOutput `json:"stateCompletionOutput,omitempty"`
+		StepCompletionOutputs []*iwfpb.StepCompletionOutput `json:"stepCompletionOutputs,omitempty"`
 	}
 
 	BasicInfo struct {
-		IwfWorkflowType string `json:"iwfWorkflowType,omitempty"`
-
-		IwfWorkerUrl string `json:"iwfWorkerUrl,omitempty"`
+		FlowType     string `json:"flowType,omitempty"`
+		WorkerTarget string `json:"workerTarget,omitempty"`
 	}
 
-	StateStartActivityInput struct {
-		IwfWorkerUrl string
-		Request      iwfidl.WorkflowStateStartRequest
+	InvokeWaitForMethodActivityInput struct {
+		WorkerTarget string
+		Request      *iwfpb.InvokeWaitForMethodRequest
 	}
 
-	StateDecideActivityInput struct {
-		IwfWorkerUrl string
-		Request      iwfidl.WorkflowStateDecideRequest
+	InvokeExecuteMethodActivityInput struct {
+		WorkerTarget string
+		Request      *iwfpb.InvokeExecuteMethodRequest
 	}
 
-	GetDataAttributesQueryRequest struct {
-		Keys []string
+	GetAttributesQueryRequest struct {
+		Keys    []string
+		AllKeys bool
 	}
 
-	GetDataAttributesQueryResponse struct {
-		DataAttributes []iwfidl.KeyValue
+	GetAttributesQueryResponse struct {
+		Attributes []*iwfpb.KV
 	}
 
 	PrepareRpcQueryRequest struct {
-		DataObjectsLoadingPolicy       *iwfidl.PersistenceLoadingPolicy
-		CachedDataObjectsLoadingPolicy *iwfidl.PersistenceLoadingPolicy
-		SearchAttributesLoadingPolicy  *iwfidl.PersistenceLoadingPolicy
+		LockAttributeKeys []string
 	}
 
 	PrepareRpcQueryResponse struct {
-		DataObjects              []iwfidl.KeyValue
-		SearchAttributes         []iwfidl.SearchAttribute
-		WorkflowRunId            string
-		WorkflowStartedTimestamp int64
-		IwfWorkflowType          string
-		IwfWorkerUrl             string
-		SignalChannelInfo        map[string]iwfidl.ChannelInfo
-		InternalChannelInfo      map[string]iwfidl.ChannelInfo
+		Attributes           []*iwfpb.KV
+		RunId                string
+		FlowStartedTimestamp int64
+		FlowType             string
+		WorkerTarget         string
+		ChannelInfos         map[string]*iwfpb.ChannelInfo
 	}
 
 	ExecuteRpcSignalRequest struct {
-		RpcInput                    *iwfidl.EncodedObject                `json:"rpcInput,omitempty"`
-		RpcOutput                   *iwfidl.EncodedObject                `json:"rpcOutput,omitempty"`
-		UpsertDataObjects           []iwfidl.KeyValue                    `json:"upsertDataObjects,omitempty"`
-		UpsertSearchAttributes      []iwfidl.SearchAttribute             `json:"upsertSearchAttributes,omitempty"`
-		StateDecision               *iwfidl.StateDecision                `json:"stateDecision,omitempty"`
-		RecordEvents                []iwfidl.KeyValue                    `json:"recordEvents,omitempty"`
-		InterStateChannelPublishing []iwfidl.InterStateChannelPublishing `json:"interStateChannelPublishing,omitempty"`
+		RpcInput         *iwfpb.Value             `json:"rpcInput,omitempty"`
+		RpcOutput        *iwfpb.Value             `json:"rpcOutput,omitempty"`
+		UpsertAttributes []*iwfpb.AttributeWrite  `json:"upsertAttributes,omitempty"`
+		StepDecision     *iwfpb.StepDecision      `json:"stepDecision,omitempty"`
+		RecordEvents     []*iwfpb.KV              `json:"recordEvents,omitempty"`
+		PublishToChannel []*iwfpb.ChannelMessage  `json:"publishToChannel,omitempty"`
 	}
 
 	GetCurrentTimerInfosQueryResponse struct {
-		StateExecutionCurrentTimerInfos map[string][]*TimerInfo // key is stateExecutionId
+		StepExecutionCurrentTimerInfos map[string][]*TimerInfo // key is stepExecutionId
 	}
 
 	GetScheduledGreedyTimerTimesQueryResponse struct {
@@ -126,75 +112,45 @@ type (
 	}
 
 	TimerInfo struct {
-		CommandId                  *string
+		ConditionId                *string
 		FiringUnixTimestampSeconds int64
 		Status                     InternalTimerStatus
 	}
 
 	SkipTimerSignalRequest struct {
-		StateExecutionId string
-		CommandId        string
-		CommandIndex     int
+		StepExecutionId     string
+		TimerConditionId    string
+		TimerConditionIndex int
 	}
 
-	FailWorkflowSignalRequest struct {
+	FailFlowSignalRequest struct {
+		Reason string
+	}
+
+	CompleteFlowSignalRequest struct {
 		Reason string
 	}
 
 	InternalTimerStatus string
 
-	ContinueAsNewDumpResponse struct {
-		StatesToStartFromBeginning []iwfidl.StateMovement              // StatesToStartFromBeginning means they haven't started in the previous run
-		StateExecutionsToResume    map[string]StateExecutionResumeInfo // stateExeId to StateExecutionResumeInfo
-		InterStateChannelReceived  map[string][]*iwfidl.EncodedObject
-		SignalsReceived            map[string][]*iwfidl.EncodedObject
-		StateExecutionCounterInfo  StateExecutionCounterInfo
-		StateOutputs               []iwfidl.StateCompletionOutput
-		StaleSkipTimerSignals      []StaleSkipTimerSignal
-
-		DataObjects      []iwfidl.KeyValue
-		SearchAttributes []iwfidl.SearchAttribute
-	}
-
 	DebugDumpResponse struct {
-		Config                     iwfidl.WorkflowConfig
-		Snapshot                   ContinueAsNewDumpResponse
+		Config                     *iwfpb.FlowConfig
+		Snapshot                   *iwfpb.ContinueAsNewDump
 		FiringTimersUnixTimestamps []int64
-	}
-
-	StateExecutionCounterInfo struct {
-		StateIdStartedCount            map[string]int // for stateExecutionId
-		StateIdCurrentlyExecutingCount map[string]int // for sys search attribute ExecutingStateIds
-		TotalCurrentlyExecutingCount   int            // for "dead end"
-	}
-
-	StateExecutionResumeInfo struct {
-		StateExecutionId                string                          `json:"stateExecutionId"`
-		State                           iwfidl.StateMovement            `json:"state"`
-		StateExecutionCompletedCommands StateExecutionCompletedCommands `json:"stateExecutionCompletedCommands"`
-		CommandRequest                  iwfidl.CommandRequest           `json:"commandRequest"`
-		StateExecutionLocals            []iwfidl.KeyValue               `json:"stateExecutionLocals"`
-	}
-
-	StateExecutionCompletedCommands struct {
-		CompletedTimerCommands             map[int]InternalTimerStatus   `json:"completedTimerCommands"`
-		CompletedSignalCommands            map[int]*iwfidl.EncodedObject `json:"completedSignalCommands"`
-		CompletedInterStateChannelCommands map[int]*iwfidl.EncodedObject `json:"completedInterStateChannelCommands"`
-	}
-
-	StaleSkipTimerSignal struct {
-		StateExecutionId  string
-		TimerCommandId    string
-		TimerCommandIndex int
 	}
 )
 
-type StateExecutionStatus string
+type StepExecutionStatus string
 
-const FailureStateExecutionStatus StateExecutionStatus = "Failure"
-const WaitingCommandsStateExecutionStatus StateExecutionStatus = "WaitingCommands"   // this will put the state into a special pending queue for continueAsNew from waiting command
-const CompletedStateExecutionStatus StateExecutionStatus = "Completed"               // this will process as normal
-const ExecuteApiFailedAndProceed StateExecutionStatus = "ExecuteApiFailedAndProceed" // this will proceed to a different state
+const FailureStepExecutionStatus StepExecutionStatus = "Failure"
+const WaitingConditionsStepExecutionStatus StepExecutionStatus = "WaitingConditions"
+const CompletedStepExecutionStatus StepExecutionStatus = "Completed"
+const ExecuteApiFailedAndProceed StepExecutionStatus = "ExecuteApiFailedAndProceed"
+
+// Legacy aliases used until Phase 4 renames all interpreter call sites.
+const FailureStateExecutionStatus = FailureStepExecutionStatus
+const WaitingCommandsStateExecutionStatus = WaitingConditionsStepExecutionStatus
+const CompletedStateExecutionStatus = CompletedStepExecutionStatus
 
 const (
 	TimerPending InternalTimerStatus = "Pending"
@@ -202,19 +158,18 @@ const (
 	TimerSkipped InternalTimerStatus = "Skipped"
 )
 
-// ValidateTimerSkipRequest validates if the skip timer request is valid
-// return true if it's valid, along with the timer pointer
-// use timerIdx if timerId is not empty
+// ValidateTimerSkipRequest validates if the skip timer request is valid.
+// Prefer timerConditionId when non-empty; otherwise use timerIdx.
 func ValidateTimerSkipRequest(
-	stateExeTimerInfos map[string][]*TimerInfo, stateExeId, timerId string, timerIdx int,
+	stepExeTimerInfos map[string][]*TimerInfo, stepExeId, timerConditionId string, timerIdx int,
 ) (*TimerInfo, bool) {
-	timerInfos := stateExeTimerInfos[stateExeId]
+	timerInfos := stepExeTimerInfos[stepExeId]
 	if len(timerInfos) == 0 {
 		return nil, false
 	}
-	if timerId != "" {
+	if timerConditionId != "" {
 		for _, t := range timerInfos {
-			if t.CommandId != nil && *t.CommandId == timerId {
+			if t.ConditionId != nil && *t.ConditionId == timerConditionId {
 				return t, true
 			}
 		}

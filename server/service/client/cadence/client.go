@@ -32,16 +32,16 @@ import (
 	"github.com/superdurable/iwf/service/common/ptr"
 
 	"github.com/google/uuid"
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	uclient "github.com/superdurable/iwf/service/client"
 	"github.com/superdurable/iwf/service/common/mapper"
-	"github.com/superdurable/iwf/service/common/retry"
 	"github.com/superdurable/iwf/service/interpreter/cadence"
 	realcadence "go.uber.org/cadence"
 	"go.uber.org/cadence/.gen/go/cadence/workflowserviceclient"
 	"go.uber.org/cadence/.gen/go/shared"
 	"go.uber.org/cadence/client"
 	"go.uber.org/cadence/encoded"
+	"go.uber.org/cadence/workflow"
 )
 
 type cadenceClient struct {
@@ -124,7 +124,7 @@ func (t *cadenceClient) GetApplicationErrorTypeAndDetails(err error) (string, st
 		if ok {
 			errDetails = errDetailsString
 		} else {
-			// All other types, e.g. iwfidl.StateCompletionOutput, try to Marshal the object to JSON
+			// All other types, e.g. iwfpb.StepCompletionOutput, try to Marshal the object to JSON
 			var err error
 			jsonBytes, err := json.Marshal(errDetailsPtr)
 			if err == nil {
@@ -157,10 +157,6 @@ func (t *cadenceClient) Close() {
 func (t *cadenceClient) StartInterpreterWorkflow(
 	ctx context.Context, options uclient.StartWorkflowOptions, args ...interface{},
 ) (runId string, err error) {
-	_, ok := options.Memo[service.UseMemoForDataAttributesKey]
-	if ok {
-		return "", fmt.Errorf("using Memo is not supported with Cadence, see https://github.com/uber/cadence/issues/3729")
-	}
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                           options.ID,
 		TaskList:                     options.TaskQueue,
@@ -169,10 +165,10 @@ func (t *cadenceClient) StartInterpreterWorkflow(
 		Memo:                         options.Memo,
 	}
 
-	if options.WorkflowIDReusePolicy != nil {
-		workflowIdReusePolicy, err := mapToCadenceWorkflowIdReusePolicy(*options.WorkflowIDReusePolicy)
+	if options.IdReusePolicy != nil {
+		workflowIdReusePolicy, err := mapToCadenceWorkflowIdReusePolicy(*options.IdReusePolicy)
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 
 		workflowOptions.WorkflowIDReusePolicy = *workflowIdReusePolicy
@@ -183,7 +179,7 @@ func (t *cadenceClient) StartInterpreterWorkflow(
 	}
 
 	if options.RetryPolicy != nil {
-		workflowOptions.RetryPolicy = retry.ConvertCadenceWorkflowRetryPolicy(options.RetryPolicy)
+		workflowOptions.RetryPolicy = mapToCadenceRetryPolicy(options.RetryPolicy)
 	}
 
 	if options.WorkflowStartDelay != nil {
@@ -192,26 +188,6 @@ func (t *cadenceClient) StartInterpreterWorkflow(
 
 	run, err := t.cClient.StartWorkflow(ctx, workflowOptions, cadence.Interpreter, args...)
 	if err != nil {
-		return "", err
-	}
-	return run.RunID, nil
-}
-
-func (t *cadenceClient) StartWaitForStateCompletionWorkflow(
-	ctx context.Context, options uclient.StartWorkflowOptions,
-) (runId string, err error) {
-	workflowOptions := client.StartWorkflowOptions{
-		ID:                           options.ID,
-		TaskList:                     options.TaskQueue,
-		WorkflowIDReusePolicy:        client.WorkflowIDReusePolicyAllowDuplicateFailedOnly, // the workflow could be timeout, so we allow duplicate
-		ExecutionStartToCloseTimeout: options.WorkflowExecutionTimeout,
-	}
-	run, err := t.cClient.StartWorkflow(ctx, workflowOptions, cadence.WaitforStateCompletionWorkflow)
-	if err != nil {
-		if t.IsWorkflowAlreadyStartedError(err) {
-			// if the workflow is already started, we return the runId
-			return *err.(*shared.WorkflowExecutionAlreadyStartedError).RunId, nil
-		}
 		return "", err
 	}
 	return run.RunID, nil
@@ -231,23 +207,6 @@ func (t *cadenceClient) StartBlobStoreCleanupWorkflow(
 	_, err := t.cClient.StartWorkflow(ctx, workflowOptions, cadence.BlobStoreCleanup, storeId)
 
 	return err
-}
-
-func (t *cadenceClient) SignalWithStartWaitForStateCompletionWorkflow(
-	ctx context.Context, options uclient.StartWorkflowOptions, stateCompletionOutput iwfidl.StateCompletionOutput,
-) error {
-	workflowOptions := client.StartWorkflowOptions{
-		ID:                           options.ID,
-		TaskList:                     options.TaskQueue,
-		WorkflowIDReusePolicy:        client.WorkflowIDReusePolicyAllowDuplicateFailedOnly, // the workflow could be timeout, so we allow duplicate
-		ExecutionStartToCloseTimeout: options.WorkflowExecutionTimeout,
-	}
-
-	_, err := t.cClient.SignalWithStartWorkflow(ctx, options.ID, service.StateCompletionSignalChannelName, stateCompletionOutput, workflowOptions, cadence.WaitforStateCompletionWorkflow)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (t *cadenceClient) SignalWorkflow(
@@ -283,11 +242,11 @@ func (t *cadenceClient) ListWorkflow(
 	if err != nil {
 		return nil, err
 	}
-	var executions []iwfidl.WorkflowSearchResponseEntry
+	var executions []*iwfpb.SearchFlowsResponseEntry
 	for _, exe := range resp.GetExecutions() {
-		executions = append(executions, iwfidl.WorkflowSearchResponseEntry{
-			WorkflowId:    *exe.Execution.WorkflowId,
-			WorkflowRunId: *exe.Execution.RunId,
+		executions = append(executions, &iwfpb.SearchFlowsResponseEntry{
+			FlowId: *exe.Execution.WorkflowId,
+			RunId:  *exe.Execution.RunId,
 		})
 	}
 	return &uclient.ListWorkflowExecutionsResponse{
@@ -341,7 +300,7 @@ func queryWorkflowWithStrongConsistency(
 }
 
 func (t *cadenceClient) DescribeWorkflowExecution(
-	ctx context.Context, workflowID, runID string, requestedSearchAttributes []iwfidl.SearchAttributeKeyAndType,
+	ctx context.Context, workflowID, runID string, indexedAttrTypes map[string]iwfpb.IndexType,
 ) (*uclient.DescribeWorkflowExecutionResponse, error) {
 	resp, err := t.cClient.DescribeWorkflowExecution(ctx, workflowID, runID)
 	if err != nil {
@@ -351,79 +310,110 @@ func (t *cadenceClient) DescribeWorkflowExecution(
 	if err != nil {
 		return nil, err
 	}
-	searchAttributes, err := mapper.MapCadenceToIwfSearchAttributes(resp.GetWorkflowExecutionInfo().GetSearchAttributes(), requestedSearchAttributes)
+	indexedAttributes, err := mapper.MapCadenceIndexedFieldsToValues(resp.GetWorkflowExecutionInfo().GetSearchAttributes(), indexedAttrTypes)
 	if err != nil {
 		return nil, err
 	}
 
 	memo, err := t.decodeMemo(resp.GetWorkflowExecutionInfo().GetMemo())
+	if err != nil {
+		return nil, err
+	}
 
 	return &uclient.DescribeWorkflowExecutionResponse{
-		RunId:            resp.GetWorkflowExecutionInfo().GetExecution().GetRunId(),
-		FirstRunId:       "", // Cadence does not provide FirstRunId
-		Status:           status,
-		SearchAttributes: searchAttributes,
-		Memos:            memo,
+		RunId:             resp.GetWorkflowExecutionInfo().GetExecution().GetRunId(),
+		FirstRunId:        "", // Cadence does not provide FirstRunId
+		Status:            status,
+		IndexedAttributes: indexedAttributes,
+		Memos:             memo,
 	}, nil
 }
 
-func (t *cadenceClient) decodeMemo(memo *shared.Memo) (map[string]iwfidl.EncodedObject, error) {
+func (t *cadenceClient) decodeMemo(memo *shared.Memo) (map[string]*iwfpb.Value, error) {
 	if memo == nil || len(memo.GetFields()) == 0 {
 		return nil, nil
 	}
 
-	out := map[string]iwfidl.EncodedObject{}
+	out := map[string]*iwfpb.Value{}
 	for k, payload := range memo.GetFields() {
-		var value iwfidl.EncodedObject
+		var value iwfpb.EncodedObject
 		err := encoded.GetDefaultDataConverter().FromData(payload, &value)
 		if err != nil {
 			return nil, err
 		}
-		out[k] = value
+		out[k] = &iwfpb.Value{Kind: &iwfpb.Value_ObjValue{ObjValue: &value}}
 	}
 	return out, nil
 }
 
-func mapToCadenceWorkflowIdReusePolicy(workflowIdReusePolicy iwfidl.WorkflowIDReusePolicy) (*client.WorkflowIDReusePolicy, error) {
+func mapToCadenceWorkflowIdReusePolicy(idReusePolicy iwfpb.IdReusePolicy) (*client.WorkflowIDReusePolicy, error) {
 	var res client.WorkflowIDReusePolicy
-	switch workflowIdReusePolicy {
-	case iwfidl.ALLOW_DUPLICATE:
+	switch idReusePolicy {
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_ALLOW_IF_NO_RUNNING:
 		res = client.WorkflowIDReusePolicyAllowDuplicate
 		return &res, nil
-	case iwfidl.ALLOW_DUPLICATE_FAILED_ONLY:
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_ALLOW_IF_PREVIOUS_EXISTS_ABNORMALLY:
 		res = client.WorkflowIDReusePolicyAllowDuplicateFailedOnly
 		return &res, nil
-	case iwfidl.REJECT_DUPLICATE:
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_DISALLOW_REUSE:
 		res = client.WorkflowIDReusePolicyRejectDuplicate
 		return &res, nil
-	case iwfidl.TERMINATE_IF_RUNNING:
+	case iwfpb.IdReusePolicy_ID_REUSE_POLICY_ALLOW_TERMINATE_IF_RUNNING:
 		res = client.WorkflowIDReusePolicyTerminateIfRunning
 		return &res, nil
 	default:
-		return nil, fmt.Errorf("unsupported workflow id reuse policy %s", workflowIdReusePolicy)
+		return nil, fmt.Errorf("unsupported workflow id reuse policy %s", idReusePolicy)
 	}
 }
 
-func mapToIwfWorkflowStatus(status *shared.WorkflowExecutionCloseStatus) (iwfidl.WorkflowStatus, error) {
+// mapToCadenceRetryPolicy fills unset (zero-value) fields with the same
+// defaults iwf has always used for flow retries.
+func mapToCadenceRetryPolicy(policy *iwfpb.FlowRetryPolicy) *workflow.RetryPolicy {
+	if policy == nil {
+		return nil
+	}
+
+	initialIntervalSeconds := policy.GetInitialIntervalSeconds()
+	if initialIntervalSeconds <= 0 {
+		initialIntervalSeconds = 1
+	}
+	backoffCoefficient := policy.GetBackoffCoefficient()
+	if backoffCoefficient <= 0 {
+		backoffCoefficient = 2
+	}
+	maximumIntervalSeconds := policy.GetMaximumIntervalSeconds()
+	if maximumIntervalSeconds <= 0 {
+		maximumIntervalSeconds = 100
+	}
+
+	return &workflow.RetryPolicy{
+		InitialInterval:    time.Second * time.Duration(initialIntervalSeconds),
+		MaximumInterval:    time.Second * time.Duration(maximumIntervalSeconds),
+		MaximumAttempts:    policy.GetMaximumAttempts(),
+		BackoffCoefficient: float64(backoffCoefficient),
+	}
+}
+
+func mapToIwfWorkflowStatus(status *shared.WorkflowExecutionCloseStatus) (iwfpb.FlowStatus, error) {
 	if status == nil {
-		return iwfidl.RUNNING, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_RUNNING, nil
 	}
 
 	switch *status {
 	case shared.WorkflowExecutionCloseStatusCanceled:
-		return iwfidl.CANCELED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_CANCELED, nil
 	case shared.WorkflowExecutionCloseStatusContinuedAsNew:
-		return iwfidl.CONTINUED_AS_NEW, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_CONTINUED_AS_NEW, nil
 	case shared.WorkflowExecutionCloseStatusFailed:
-		return iwfidl.FAILED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_FAILED, nil
 	case shared.WorkflowExecutionCloseStatusTimedOut:
-		return iwfidl.TIMEOUT, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_TIMEOUT, nil
 	case shared.WorkflowExecutionCloseStatusTerminated:
-		return iwfidl.TERMINATED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_TERMINATED, nil
 	case shared.WorkflowExecutionCloseStatusCompleted:
-		return iwfidl.COMPLETED, nil
+		return iwfpb.FlowStatus_FLOW_STATUS_COMPLETED, nil
 	default:
-		return "", fmt.Errorf("not supported status %s", status)
+		return iwfpb.FlowStatus_FLOW_STATUS_UNSPECIFIED, fmt.Errorf("not supported status %s", status)
 	}
 }
 
@@ -441,13 +431,13 @@ func (t *cadenceClient) SynchronousUpdateWorkflow(
 }
 
 func (t *cadenceClient) ResetWorkflow(
-	ctx context.Context, request iwfidl.WorkflowResetRequest,
+	ctx context.Context, request *iwfpb.ResetFlowRequest,
 ) (newRunId string, err error) {
 
-	reqRunId := request.GetWorkflowRunId()
+	reqRunId := request.GetRunId()
 	if reqRunId == "" {
 		// set default runId to current
-		resp, err := t.cClient.DescribeWorkflowExecution(ctx, request.GetWorkflowId(), "")
+		resp, err := t.cClient.DescribeWorkflowExecution(ctx, request.GetFlowId(), "")
 		if err != nil {
 			return "", err
 		}
@@ -459,8 +449,8 @@ func (t *cadenceClient) ResetWorkflow(
 	defer cancelFn()
 
 	resetType := request.GetResetType()
-	resetBaseRunID, decisionFinishID, err := getResetIDsByType(ctx, resetType, t.domain, request.GetWorkflowId(),
-		reqRunId, t.serviceClient, t.converter, request.GetHistoryEventId(), request.GetHistoryEventTime(), request.GetStateId(), request.GetStateExecutionId())
+	resetBaseRunID, decisionFinishID, err := getResetIDsByType(ctx, resetType, t.domain, request.GetFlowId(),
+		reqRunId, t.serviceClient, t.converter, request.GetHistoryEventId(), request.GetHistoryEventTime(), request.GetStepType(), request.GetStepExecutionId())
 
 	if err != nil {
 		return "", err
@@ -470,13 +460,13 @@ func (t *cadenceClient) ResetWorkflow(
 	resetReq := &shared.ResetWorkflowExecutionRequest{
 		Domain: &t.domain,
 		WorkflowExecution: &shared.WorkflowExecution{
-			WorkflowId: &request.WorkflowId,
+			WorkflowId: &request.FlowId,
 			RunId:      &resetBaseRunID,
 		},
-		Reason:                request.Reason,
-		DecisionFinishEventId: iwfidl.PtrInt64(decisionFinishID),
+		Reason:                &request.Reason,
+		DecisionFinishEventId: ptr.Any(decisionFinishID),
 		RequestId:             &requestId,
-		SkipSignalReapply:     iwfidl.PtrBool(request.GetSkipSignalReapply()),
+		SkipSignalReapply:     ptr.Any(request.GetSkipChannelMessagesReapply()),
 	}
 
 	resp, err := t.serviceClient.ResetWorkflowExecution(ctx, resetReq)

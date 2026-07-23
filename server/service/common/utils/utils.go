@@ -22,11 +22,11 @@ package utils
 
 import (
 	"context"
-	"github.com/superdurable/iwf/gen/iwfidl"
-	"github.com/superdurable/iwf/service"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"net/http"
 	"time"
+
+	"github.com/superdurable/iwf/gen/iwfpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -63,7 +63,7 @@ func MergeMap(first map[string]interface{}, second map[string]interface{}) map[s
 	return out
 }
 
-func TrimRpcTimeoutSeconds(ctx context.Context, req iwfidl.WorkflowRpcRequest) int32 {
+func TrimRpcTimeoutSeconds(ctx context.Context, req *iwfpb.InvokeRPCRequest) int32 {
 	secondsRemaining := int32(defaultMaxApiTimeoutSeconds)
 	ddl, ok := ctx.Deadline()
 	if ok {
@@ -72,7 +72,7 @@ func TrimRpcTimeoutSeconds(ctx context.Context, req iwfidl.WorkflowRpcRequest) i
 			secondsRemaining = int32(timeRemaining.Seconds())
 		}
 	}
-	if req.TimeoutSeconds == nil && req.GetTimeoutSeconds() > 0 && req.GetTimeoutSeconds() < secondsRemaining {
+	if req != nil && req.GetTimeoutSeconds() > 0 && req.GetTimeoutSeconds() < secondsRemaining {
 		secondsRemaining = req.GetTimeoutSeconds()
 	}
 	return secondsRemaining
@@ -112,12 +112,4 @@ func CheckHttpError(err error, httpResp *http.Response) bool {
 
 func ToNanoSeconds(e *timestamppb.Timestamp) int64 {
 	return e.GetSeconds()*1000*1000*1000 + int64(e.GetNanos())
-}
-
-func GetWorkflowIdForWaitForStateExecution(parentId string, stateExeId *string, waitForKey *string, stateId *string) string {
-	if waitForKey != nil && *waitForKey != "" {
-		return service.IwfSystemConstPrefix + parentId + "_" + *stateId + "_" + *waitForKey
-	} else {
-		return service.IwfSystemConstPrefix + parentId + "_" + *stateExeId
-	}
 }

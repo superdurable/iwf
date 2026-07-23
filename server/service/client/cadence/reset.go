@@ -23,8 +23,9 @@ package cadence
 import (
 	"context"
 	"fmt"
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/superdurable/iwf/service/common/timeparser"
 	"go.uber.org/cadence/.gen/go/cadence/workflowserviceclient"
 	"go.uber.org/cadence/.gen/go/shared"
@@ -34,24 +35,24 @@ import (
 
 func getResetIDsByType(
 	ctx context.Context,
-	resetType iwfidl.WorkflowResetType,
+	resetType iwfpb.FlowResetType,
 	domain, wid, rid string,
 	frontendClient workflowserviceclient.Interface, converter encoded.DataConverter,
-	historyEventId int32, earliestHistoryTimeStr string, stateId, stateExecutionId string,
+	historyEventId int32, earliestHistoryTimeStr string, stepType, stepExecutionId string,
 ) (resetBaseRunID string, decisionFinishID int64, err error) {
 	// default to the same runID
 	resetBaseRunID = rid
 
 	switch resetType {
-	case iwfidl.HISTORY_EVENT_ID:
+	case iwfpb.FlowResetType_FLOW_RESET_TYPE_HISTORY_EVENT_ID:
 		decisionFinishID = int64(historyEventId)
 		return
-	case iwfidl.BEGINNING:
+	case iwfpb.FlowResetType_FLOW_RESET_TYPE_BEGINNING:
 		decisionFinishID, err = getFirstDecisionTaskByType(ctx, domain, wid, rid, frontendClient, shared.EventTypeDecisionTaskCompleted)
 		if err != nil {
 			return
 		}
-	case iwfidl.HISTORY_EVENT_TIME:
+	case iwfpb.FlowResetType_FLOW_RESET_TYPE_HISTORY_EVENT_TIME:
 		var earliestTimeUnixNano int64
 		earliestTimeUnixNano, err = timeparser.ParseTime(earliestHistoryTimeStr)
 		if err != nil {
@@ -61,8 +62,8 @@ func getResetIDsByType(
 		if err != nil {
 			return
 		}
-	case iwfidl.STATE_ID, iwfidl.STATE_EXECUTION_ID:
-		decisionFinishID, err = getDecisionEventIDByStateOrStateExecutionId(ctx, domain, wid, rid, stateId, stateExecutionId, frontendClient, converter)
+	case iwfpb.FlowResetType_FLOW_RESET_TYPE_STEP_TYPE, iwfpb.FlowResetType_FLOW_RESET_TYPE_STEP_EXECUTION_ID:
+		decisionFinishID, err = getDecisionEventIDByStepTypeOrStepExecutionId(ctx, domain, wid, rid, stepType, stepExecutionId, frontendClient, converter)
 		if err != nil {
 			return
 		}
@@ -87,7 +88,7 @@ func getFirstDecisionTaskByType(
 			WorkflowId: &workflowID,
 			RunId:      &runID,
 		},
-		MaximumPageSize: iwfidl.PtrInt32(1000),
+		MaximumPageSize: ptr.Any(int32(1000)),
 		NextPageToken:   nil,
 	}
 
@@ -129,7 +130,7 @@ func getEarliestDecisionID(
 			WorkflowId: &wid,
 			RunId:      &rid,
 		},
-		MaximumPageSize: iwfidl.PtrInt32(1000),
+		MaximumPageSize: ptr.Any(int32(1000)),
 		NextPageToken:   nil,
 	}
 
@@ -160,10 +161,12 @@ OuterLoop:
 	return
 }
 
-func getDecisionEventIDByStateOrStateExecutionId(
+// getDecisionEventIDByStepTypeOrStepExecutionId scans the invoke-method activities
+// (both wait-for and execute) whose request shapes share step_type/context fields.
+func getDecisionEventIDByStepTypeOrStepExecutionId(
 	ctx context.Context,
 	domain string, wid string,
-	rid string, stateId, stateExecutionId string,
+	rid string, stepType, stepExecutionId string,
 	frontendClient workflowserviceclient.Interface,
 	converter encoded.DataConverter,
 ) (decisionFinishID int64, err error) {
@@ -173,7 +176,7 @@ func getDecisionEventIDByStateOrStateExecutionId(
 			WorkflowId: &wid,
 			RunId:      &rid,
 		},
-		MaximumPageSize: iwfidl.PtrInt32(1000),
+		MaximumPageSize: ptr.Any(int32(1000)),
 		NextPageToken:   nil,
 	}
 
@@ -190,14 +193,14 @@ func getDecisionEventIDByStateOrStateExecutionId(
 			//TODO: Add check for local activity. (IWF-403)
 			if e.GetEventType() == shared.EventTypeActivityTaskScheduled {
 				typeName := e.GetActivityTaskScheduledEventAttributes().GetActivityType().GetName()
-				if strings.Contains(typeName, "StateApiExecute") || strings.Contains(typeName, "StateApiWaitUntil") {
+				if strings.Contains(typeName, "InvokeExecuteMethod") || strings.Contains(typeName, "InvokeWaitForMethod") {
 					var backendType service.BackendType
-					var input service.StateStartActivityInput
+					var input service.InvokeExecuteMethodActivityInput
 					err = converter.FromData(e.GetActivityTaskScheduledEventAttributes().Input, &backendType, &input)
 					if err != nil {
 						return 0, composeErrorWithMessage("GetWorkflowExecutionHistory failed", err)
 					}
-					if input.Request.WorkflowStateId == stateId || input.Request.Context.GetStateExecutionId() == stateExecutionId {
+					if input.Request.GetStepType() == stepType || input.Request.GetContext().GetStepExecutionId() == stepExecutionId {
 						if decisionFinishID == 0 {
 							return 0, composeErrorWithMessage("GetWorkflowExecutionHistory failed", fmt.Errorf("invalid history or something goes very wrong"))
 						}

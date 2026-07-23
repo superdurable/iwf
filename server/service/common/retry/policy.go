@@ -21,107 +21,108 @@
 package retry
 
 import (
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"time"
+
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"go.temporal.io/sdk/temporal"
 	"go.uber.org/cadence/workflow"
-	"time"
 )
 
-func ConvertCadenceWorkflowRetryPolicy(policy *iwfidl.WorkflowRetryPolicy) *workflow.RetryPolicy {
+func ConvertCadenceWorkflowRetryPolicy(policy *iwfpb.FlowRetryPolicy) *workflow.RetryPolicy {
 	if policy == nil {
 		return nil
 	}
-	fillWorkflowRetryPolicyDefault(policy)
+	initial, maxInterval, maxAttempts, backoff := flowRetryDefaults(policy)
 
 	return &workflow.RetryPolicy{
-		InitialInterval:    time.Second * time.Duration(policy.GetInitialIntervalSeconds()),
-		MaximumInterval:    time.Second * time.Duration(policy.GetMaximumIntervalSeconds()),
-		MaximumAttempts:    policy.GetMaximumAttempts(),
-		BackoffCoefficient: float64(policy.GetBackoffCoefficient()),
+		InitialInterval:    time.Second * time.Duration(initial),
+		MaximumInterval:    time.Second * time.Duration(maxInterval),
+		MaximumAttempts:    maxAttempts,
+		BackoffCoefficient: float64(backoff),
 	}
 }
 
-func ConvertCadenceActivityRetryPolicy(policy *iwfidl.RetryPolicy) *workflow.RetryPolicy {
+func ConvertCadenceActivityRetryPolicy(policy *iwfpb.RetryPolicy) *workflow.RetryPolicy {
 	if policy == nil {
 		return nil
 	}
-	fillActivityRetryPolicyDefault(policy)
+	initial, maxInterval, maxAttempts, backoff, totalDuration := activityRetryDefaults(policy)
 
-	// in Cadence, ExpirationInterval is the timeout include all retries
 	expirationInterval := time.Duration(0)
-	if policy.GetMaximumAttemptsDurationSeconds() > 0 {
-		expirationInterval = time.Second * time.Duration(policy.GetMaximumAttemptsDurationSeconds())
+	if totalDuration > 0 {
+		expirationInterval = time.Second * time.Duration(totalDuration)
 	} else {
-		// unlimited to match Temporal
 		expirationInterval = time.Hour * 24 * 365 * 1
 	}
 
 	return &workflow.RetryPolicy{
-		InitialInterval:    time.Second * time.Duration(policy.GetInitialIntervalSeconds()),
-		MaximumInterval:    time.Second * time.Duration(policy.GetMaximumIntervalSeconds()),
-		MaximumAttempts:    policy.GetMaximumAttempts(),
-		BackoffCoefficient: float64(policy.GetBackoffCoefficient()),
+		InitialInterval:    time.Second * time.Duration(initial),
+		MaximumInterval:    time.Second * time.Duration(maxInterval),
+		MaximumAttempts:    maxAttempts,
+		BackoffCoefficient: float64(backoff),
 		ExpirationInterval: expirationInterval,
 	}
 }
 
-func ConvertTemporalWorkflowRetryPolicy(policy *iwfidl.WorkflowRetryPolicy) *temporal.RetryPolicy {
+func ConvertTemporalWorkflowRetryPolicy(policy *iwfpb.FlowRetryPolicy) *temporal.RetryPolicy {
 	if policy == nil {
 		return nil
 	}
-	fillWorkflowRetryPolicyDefault(policy)
+	initial, maxInterval, maxAttempts, backoff := flowRetryDefaults(policy)
 
 	return &temporal.RetryPolicy{
-		InitialInterval:    time.Second * time.Duration(policy.GetInitialIntervalSeconds()),
-		MaximumInterval:    time.Second * time.Duration(policy.GetMaximumIntervalSeconds()),
-		MaximumAttempts:    policy.GetMaximumAttempts(),
-		BackoffCoefficient: float64(policy.GetBackoffCoefficient()),
+		InitialInterval:    time.Second * time.Duration(initial),
+		MaximumInterval:    time.Second * time.Duration(maxInterval),
+		MaximumAttempts:    maxAttempts,
+		BackoffCoefficient: float64(backoff),
 	}
 }
 
-func ConvertTemporalActivityRetryPolicy(policy *iwfidl.RetryPolicy) *temporal.RetryPolicy {
+func ConvertTemporalActivityRetryPolicy(policy *iwfpb.RetryPolicy) *temporal.RetryPolicy {
 	if policy == nil {
 		return nil
 	}
-	fillActivityRetryPolicyDefault(policy)
+	initial, maxInterval, maxAttempts, backoff, _ := activityRetryDefaults(policy)
 
 	return &temporal.RetryPolicy{
-		InitialInterval:    time.Second * time.Duration(policy.GetInitialIntervalSeconds()),
-		MaximumInterval:    time.Second * time.Duration(policy.GetMaximumIntervalSeconds()),
-		MaximumAttempts:    policy.GetMaximumAttempts(),
-		BackoffCoefficient: float64(policy.GetBackoffCoefficient()),
+		InitialInterval:    time.Second * time.Duration(initial),
+		MaximumInterval:    time.Second * time.Duration(maxInterval),
+		MaximumAttempts:    maxAttempts,
+		BackoffCoefficient: float64(backoff),
 	}
 }
 
-func fillActivityRetryPolicyDefault(policy *iwfidl.RetryPolicy) {
-	if policy.InitialIntervalSeconds == nil {
-		policy.InitialIntervalSeconds = iwfidl.PtrInt32(1)
+func flowRetryDefaults(policy *iwfpb.FlowRetryPolicy) (initial, maxInterval, maxAttempts int32, backoff float32) {
+	initial = policy.GetInitialIntervalSeconds()
+	if initial == 0 {
+		initial = 1
 	}
-	if policy.BackoffCoefficient == nil {
-		policy.BackoffCoefficient = iwfidl.PtrFloat32(2)
+	backoff = policy.GetBackoffCoefficient()
+	if backoff == 0 {
+		backoff = 2
 	}
-	if policy.MaximumIntervalSeconds == nil {
-		policy.MaximumIntervalSeconds = iwfidl.PtrInt32(100)
+	maxInterval = policy.GetMaximumIntervalSeconds()
+	if maxInterval == 0 {
+		maxInterval = 100
 	}
-	if policy.MaximumAttempts == nil {
-		policy.MaximumAttempts = iwfidl.PtrInt32(0)
-	}
-	if policy.MaximumAttemptsDurationSeconds == nil {
-		policy.MaximumAttemptsDurationSeconds = iwfidl.PtrInt32(0)
-	}
+	maxAttempts = policy.GetMaximumAttempts()
+	return
 }
 
-func fillWorkflowRetryPolicyDefault(policy *iwfidl.WorkflowRetryPolicy) {
-	if policy.InitialIntervalSeconds == nil {
-		policy.InitialIntervalSeconds = iwfidl.PtrInt32(1)
+func activityRetryDefaults(policy *iwfpb.RetryPolicy) (initial, maxInterval, maxAttempts int32, backoff float32, totalDuration int32) {
+	initial = policy.GetInitialIntervalSeconds()
+	if initial == 0 {
+		initial = 1
 	}
-	if policy.BackoffCoefficient == nil {
-		policy.BackoffCoefficient = iwfidl.PtrFloat32(2)
+	backoff = policy.GetBackoffCoefficient()
+	if backoff == 0 {
+		backoff = 2
 	}
-	if policy.MaximumIntervalSeconds == nil {
-		policy.MaximumIntervalSeconds = iwfidl.PtrInt32(100)
+	maxInterval = policy.GetMaximumIntervalSeconds()
+	if maxInterval == 0 {
+		maxInterval = 100
 	}
-	if policy.MaximumAttempts == nil {
-		policy.MaximumAttempts = iwfidl.PtrInt32(0)
-	}
+	maxAttempts = policy.GetMaximumAttempts()
+	totalDuration = policy.GetTotalDurationSeconds()
+	return
 }

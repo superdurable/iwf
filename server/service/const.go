@@ -31,18 +31,15 @@ const (
 
 	TaskQueue = "Interpreter_DEFAULT"
 
-	StateStartApi        = "/api/v1/workflowState/start"
-	StateDecideApi       = "/api/v1/workflowState/decide"
-	WorkflowWorkerRpcApi = "/api/v1/workflowWorker/rpc"
-
-	GetDataAttributesWorkflowQueryType   = "GetDataAttributes"
-	GetSearchAttributesWorkflowQueryType = "GetSearchAttributes"
-	GetCurrentTimerInfosQueryType        = "GetCurrentTimerInfos"
-	ContinueAsNewDumpByPageQueryType     = "ContinueAsNewDumpByPage"
-	DebugDumpQueryType                   = "DebugNewDump"
-	PrepareRpcQueryType                  = "PrepareRpcQueryType"
+	GetAttributesWorkflowQueryType   = "GetAttributes"
+	GetCurrentTimerInfosQueryType    = "GetCurrentTimerInfos"
+	ContinueAsNewDumpByPageQueryType = "ContinueAsNewDumpByPage"
+	DebugDumpQueryType               = "DebugNewDump"
+	PrepareRpcQueryType              = "PrepareRpcQueryType"
 
 	ExecuteOptimisticLockingRpcUpdateType = "ExecuteOptimisticLockingRpcUpdate"
+	WaitForStepCompletionUpdateType       = "WaitForStepCompletion"
+	WaitForAttributeUpdateType            = "WaitForAttribute"
 
 	SearchAttributeGlobalVersion     = "IwfGlobalWorkflowVersion"
 	SearchAttributeExecutingStateIds = "IwfExecutingStateIds"
@@ -55,33 +52,41 @@ const (
 
 	SkipTimerSignalChannelName            = IwfSystemConstPrefix + "SkipTimerChannel"
 	FailWorkflowSignalChannelName         = IwfSystemConstPrefix + "FailWorkflowChannel"
+	CompleteFlowSignalChannelName         = IwfSystemConstPrefix + "CompleteFlowChannel"
 	UpdateConfigSignalChannelName         = IwfSystemConstPrefix + "UpdateWorkflowConfig"
 	ExecuteRpcSignalChannelName           = IwfSystemConstPrefix + "ExecuteRpc"
-	StateCompletionSignalChannelName      = IwfSystemConstPrefix + "StateCompletion"
 	TriggerContinueAsNewSignalChannelName = IwfSystemConstPrefix + "TriggerContinueAsNew"
 
-	WorkerUrlMemoKey            = IwfSystemConstPrefix + "WorkerUrl"
-	UseMemoForDataAttributesKey = IwfSystemConstPrefix + "UseMemoForDataAttributes"
-	WorkflowRequestId           = IwfSystemConstPrefix + "WorkflowRequestId"
+	WorkerTargetMemoKey = IwfSystemConstPrefix + "WorkerTarget"
+	WorkflowRequestId   = IwfSystemConstPrefix + "WorkflowRequestId"
 )
 
 var ValidIwfSystemSignalNames = map[string]bool{
 	SkipTimerSignalChannelName:    true,
 	FailWorkflowSignalChannelName: true,
+	CompleteFlowSignalChannelName: true,
 	UpdateConfigSignalChannelName: true,
 	ExecuteRpcSignalChannelName:   true,
 }
 
 const (
-	GracefulCompletingWorkflowStateId = "_SYS_GRACEFUL_COMPLETING_WORKFLOW"
-	ForceCompletingWorkflowStateId    = "_SYS_FORCE_COMPLETING_WORKFLOW"
-	ForceFailingWorkflowStateId       = "_SYS_FORCE_FAILING_WORKFLOW"
-	DeadEndWorkflowStateId            = "_SYS_DEAD_END"
+	GracefulCompletingFlowStepType = "_SYS_GRACEFUL_COMPLETING_FLOW"
+	ForceCompletingFlowStepType    = "_SYS_FORCE_COMPLETING_FLOW"
+	ForceFailingFlowStepType       = "_SYS_FORCE_FAILING_FLOW"
+	DeadEndFlowStepType            = "_SYS_DEAD_END"
+)
+
+// Legacy closing IDs kept until Phase 4 renames interpreter call sites.
+const (
+	GracefulCompletingWorkflowStateId = GracefulCompletingFlowStepType
+	ForceCompletingWorkflowStateId    = ForceCompletingFlowStepType
+	ForceFailingWorkflowStateId       = ForceFailingFlowStepType
+	DeadEndWorkflowStateId            = DeadEndFlowStepType
 )
 
 var ValidClosingWorkflowStateId = map[string]bool{
-	GracefulCompletingWorkflowStateId: true,
-	ForceCompletingWorkflowStateId:    true,
-	ForceFailingWorkflowStateId:       true,
-	DeadEndWorkflowStateId:            true,
+	GracefulCompletingFlowStepType: true,
+	ForceCompletingFlowStepType:    true,
+	ForceFailingFlowStepType:       true,
+	DeadEndFlowStepType:            true,
 }

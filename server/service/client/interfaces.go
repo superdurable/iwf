@@ -22,10 +22,10 @@ package uclient
 
 import (
 	"context"
-	"github.com/superdurable/iwf/service"
 	"time"
 
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
+	"github.com/superdurable/iwf/service"
 )
 
 type UnifiedClient interface {
@@ -34,29 +34,25 @@ type UnifiedClient interface {
 	StartInterpreterWorkflow(
 		ctx context.Context, options StartWorkflowOptions, args ...interface{},
 	) (runId string, err error)
-	StartWaitForStateCompletionWorkflow(ctx context.Context, options StartWorkflowOptions) (runId string, err error)
 	StartBlobStoreCleanupWorkflow(
 		ctx context.Context, taskQueue, workflowID, cronSchedule, storeId string,
 	) error
 	SignalWorkflow(ctx context.Context, workflowID string, runID string, signalName string, arg interface{}) error
-	SignalWithStartWaitForStateCompletionWorkflow(
-		ctx context.Context, options StartWorkflowOptions, stateCompletionOutput iwfidl.StateCompletionOutput,
-	) error
 	CancelWorkflow(ctx context.Context, workflowID string, runID string) error
 	TerminateWorkflow(ctx context.Context, workflowID string, runID string, reason string) error
 	ListWorkflow(ctx context.Context, request *ListWorkflowExecutionsRequest) (*ListWorkflowExecutionsResponse, error)
 	QueryWorkflow(
 		ctx context.Context, valuePtr interface{}, workflowID string, runID string, queryType string,
 		args ...interface{},
-	) error // TODO it doesn't return error correctly... the error is nil when query handler is not implemented
+	) error
 	DescribeWorkflowExecution(
-		ctx context.Context, workflowID, runID string, requestedSearchAttributes []iwfidl.SearchAttributeKeyAndType,
+		ctx context.Context, workflowID, runID string, indexedAttrTypes map[string]iwfpb.IndexType,
 	) (*DescribeWorkflowExecutionResponse, error)
 	GetWorkflowResult(ctx context.Context, valuePtr interface{}, workflowID string, runID string) error
 	SynchronousUpdateWorkflow(
 		ctx context.Context, valuePtr interface{}, workflowID, runID, updateType string, input interface{},
 	) error
-	ResetWorkflow(ctx context.Context, request iwfidl.WorkflowResetRequest) (runId string, err error)
+	ResetWorkflow(ctx context.Context, request *iwfpb.ResetFlowRequest) (runId string, err error)
 	GetBackendType() (backendType service.BackendType)
 	GetApiService() interface{}
 }
@@ -76,13 +72,13 @@ type StartWorkflowOptions struct {
 	ID                       string
 	TaskQueue                string
 	WorkflowExecutionTimeout time.Duration
-	WorkflowIDReusePolicy    *iwfidl.WorkflowIDReusePolicy
+	IdReusePolicy            *iwfpb.IdReusePolicy
 	CronSchedule             *string
-	RetryPolicy              *iwfidl.WorkflowRetryPolicy
-	DataAttributes           map[string]interface{}
-	SearchAttributes         map[string]interface{}
-	Memo                     map[string]interface{}
-	WorkflowStartDelay       *time.Duration
+	RetryPolicy              *iwfpb.FlowRetryPolicy
+	// SearchAttributes are Temporal/Cadence indexed fields (already encoded as backend values).
+	SearchAttributes map[string]interface{}
+	Memo             map[string]interface{}
+	WorkflowStartDelay *time.Duration
 }
 
 type ListWorkflowExecutionsRequest struct {
@@ -92,15 +88,15 @@ type ListWorkflowExecutionsRequest struct {
 }
 
 type ListWorkflowExecutionsResponse struct {
-	Executions    []iwfidl.WorkflowSearchResponseEntry
+	Executions    []*iwfpb.SearchFlowsResponseEntry
 	NextPageToken []byte
 }
 
 type DescribeWorkflowExecutionResponse struct {
-	Status                   iwfidl.WorkflowStatus
-	RunId                    string
-	FirstRunId               string
-	SearchAttributes         map[string]iwfidl.SearchAttribute
-	Memos                    map[string]iwfidl.EncodedObject
-	WorkflowStartedTimestamp int64
+	Status                 iwfpb.FlowStatus
+	RunId                  string
+	FirstRunId             string
+	IndexedAttributes      map[string]*iwfpb.Value
+	Memos                  map[string]*iwfpb.Value
+	FlowStartedTimestamp   int64
 }

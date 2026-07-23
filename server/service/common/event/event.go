@@ -20,10 +20,18 @@
 
 package event
 
-import "github.com/superdurable/iwf/gen/iwfidl"
+// Event is a lightweight server-side observability hook payload (not an IDL type).
+type Event struct {
+	FlowId          string
+	RunId           string
+	FlowType        string
+	StepType        string
+	StepExecutionId string
+	EventType       string
+}
 
-// The implementation must be lightweight, reliable and fast (less than 1s)
-type HandleEventFunc func(event iwfidl.IwfEvent)
+// HandleEventFunc must be lightweight, reliable, and fast (<1s).
+type HandleEventFunc func(event Event)
 
 var Handle HandleEventFunc = DefaultHandleEventFunc
 
@@ -31,6 +39,6 @@ func SetHandleEventFunc(handler HandleEventFunc) {
 	Handle = handler
 }
 
-func DefaultHandleEventFunc(event iwfidl.IwfEvent) {
+func DefaultHandleEventFunc(event Event) {
 	// Noop by default
 }
