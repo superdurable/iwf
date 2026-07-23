@@ -68,7 +68,7 @@ services:
     entrypoint: sh -c "/etc/temporal/init.sh"
   iwf-server:
     container_name: iwf-server
-    image: iworkflowio/iwf-server:latest #NOTE: you can change to version tag like v1.0.0-RC6
+    image: ${IWF_SERVER_IMAGE:-superdurable/iwf-server:latest}
     environment:
     # Replace localhost/127.0.0.1 worker URLs so the container can reach the host worker.
     # host.docker.internal works on Docker Desktop and on Linux with extra_hosts below.
