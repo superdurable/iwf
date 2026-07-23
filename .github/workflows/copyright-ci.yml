@@ -1,0 +1,44 @@
+name: Copyright
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "sdk-go/**"
+      - "sdk-java/**"
+      - "sdk-python/**"
+      - "samples-go/**"
+      - "samples-java/**"
+      - "samples-python/**"
+      - "protos/**"
+      - "script/licenseheaders/**"
+      - "Makefile"
+      - ".github/workflows/copyright-ci.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "sdk-go/**"
+      - "sdk-java/**"
+      - "sdk-python/**"
+      - "samples-go/**"
+      - "samples-java/**"
+      - "samples-python/**"
+      - "protos/**"
+      - "script/licenseheaders/**"
+      - "Makefile"
+      - ".github/workflows/copyright-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  copyright-check:
+    name: License headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Verify license headers
+        run: make copyright-check

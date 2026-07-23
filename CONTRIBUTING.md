@@ -76,11 +76,12 @@ make copyright-replace # rewrite to Super Durable per-directory templates (destr
 ```
 
 Skip generated trees (`**/gen/**`, `*.pb.go`, `*_pb.go`, `*.gen.*`). Prefer
-`make copyright` over hand-copying when adding files.
+`make copyright` over hand-copying when adding files. CI runs
+`make copyright-check` via [`.github/workflows/copyright-ci.yml`](.github/workflows/copyright-ci.yml).
 
 ## CI
 
-Root workflows under [`.github/workflows/`](.github/workflows/) run path-filtered jobs for server and each SDK/samples tree. Prefer fixing those over re-adding nested `*/.github/workflows` duplicates.
+Root workflows under [`.github/workflows/`](.github/workflows/) run path-filtered jobs for server and each SDK/samples tree, plus the copyright check. Prefer fixing those over re-adding nested `*/.github/workflows` duplicates.
 
 ## Releases (monorepo tags)
 
