@@ -6,7 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.10.0
-	github.com/superdurable/iwf/sdk-go v1.6.0
+	github.com/superdurable/iwf/sdk-go v0.0.1
 	github.com/urfave/cli v1.22.10
 )
 
@@ -43,5 +43,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/superdurable/iwf/sdk-go => ../sdk-go

@@ -1,0 +1,29 @@
+name: Publish Python SDK to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish iwf-sdk
+    runs-on: ubuntu-latest
+    # Monorepo: only publish on sdk-python-v* release tags, or manual dispatch.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'sdk-python-v')
+    defaults:
+      run:
+        working-directory: sdk-python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Configure PyPI token
+        run: poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+      - name: Build and publish
+        run: poetry publish --build

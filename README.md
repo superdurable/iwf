@@ -44,6 +44,10 @@ docker pull iworkflowio/iwf-server:latest && docker compose -f ./docker-compose/
 
 See [server/README.md](server/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
+## Releases
+
+Versions are per-component. Tag with a prefix (for example `server-v1.0.0`, `sdk-python-v0.12.0`, `sdk-java-v2.11.1`, `sdk-go/v1.2.3`). Details: [CONTRIBUTING.md — Releases](CONTRIBUTING.md#releases-monorepo-tags).
+
 ## Licensing
 
 Multiple licenses apply by directory. See root [LICENSE](LICENSE) and each package's own LICENSE file.

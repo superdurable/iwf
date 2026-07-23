@@ -10,13 +10,19 @@ services:
       - cluster.routing.allocation.disk.watermark.high=256mb
       - cluster.routing.allocation.disk.watermark.flood_stage=128mb
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
       - xpack.security.enabled=false
     image: elasticsearch:${ELASTICSEARCH_VERSION}
     networks:
       - temporal-network
     expose:
       - 9200
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
   postgresql:
     container_name: temporal-postgresql-iwf
     environment:
@@ -27,11 +33,18 @@ services:
       - temporal-network
     expose:
       - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
   temporal:
     container_name: temporal-iwf
     depends_on:
-      - postgresql
-      - elasticsearch
+      postgresql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -68,7 +81,7 @@ services:
     entrypoint: sh -c "/etc/temporal/init.sh"
   iwf-server:
     container_name: iwf-server
-    image: iworkflowio/iwf-server:latest #NOTE: you can change to version tag like v1.0.0-RC6
+    image: ${IWF_SERVER_IMAGE:-superdurable/iwf-server:latest}
     environment:
       - AUTO_FIX_WORKER_URL=172.17.0.1 # this will let iwf-server automatically replace all iwfWorkerUrls of "localhost" or "127.0.0.1" with "172.17.0.1"
     networks:

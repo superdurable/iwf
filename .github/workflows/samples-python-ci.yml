@@ -1,7 +1,7 @@
 name: Python samples CI
 
-# Disabled on push/PR until the Python SDK is published under the superdurable
-# package name. Re-enable path filters after release.
+# Disabled on push/PR until the Python SDK is published as iwf-sdk on PyPI.
+# Re-enable path filters after release.
 on:
   workflow_dispatch:
 

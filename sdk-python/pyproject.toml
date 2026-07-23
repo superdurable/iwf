@@ -1,10 +1,12 @@
 [tool.poetry]
-name = "iwf-python-sdk"
+name = "iwf-sdk"
 version = "0.12.0"
-description = ""
+description = "Python SDK for the iWF workflow engine"
 authors = ["Indeed Engineering"]
 readme = "README.md"
 packages = [{include = "iwf"}]
+repository = "https://github.com/superdurable/iwf"
+homepage = "https://github.com/superdurable/iwf/tree/main/sdk-python"
 
 [tool.poetry.dependencies]
 python = "^3.9"
