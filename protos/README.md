@@ -1,10 +1,29 @@
-# iwf-idl
-interface definition/ API schema between iWF SDKs and [iWF server](https://github.com/superdurable/iwf)
+# iWF IDL (`protos/`)
 
-There are two idl files: iwf.yaml and iwf-sdk.yaml:
+Protobuf + gRPC interface between iWF SDKs and the iWF server.
 
-* iwf.yaml is for iwf-server
-* iwf-sdk.yaml is for SDKs
-* iwf-sdk.yaml is a subset of iwf.yaml.
+- Source: [`iwf.proto`](iwf.proto)
+- Rename catalog: [`../docs/design/idl-renames.md`](../docs/design/idl-renames.md)
+- License: MIT ([`LICENSE`](LICENSE))
 
-This is because iwf-server needs to be backward compatible but some of the old schema doesn't need in SDK anymore
+## Services
+
+- **FlowService** — hosted by the server; SDKs call these RPCs
+- **WorkerService** — hosted by the worker; the server calls `WaitFor`, `Execute`, and `WorkerRpc`
+
+## Codegen
+
+Regenerate checked-in stubs into server and SDK trees:
+
+```bash
+make -C protos proto
+```
+
+| Output | Replaces |
+|--------|----------|
+| `server/gen/iwfpb/` | `server/gen/iwfidl/` |
+| `sdk-go/gen/iwfpb/` | `sdk-go/gen/iwfidl/` |
+| `sdk-java/src/main/java/io/superdurable/gen/` | OpenAPI `build/generated` |
+| `sdk-python/iwf/iwfpb/` | `sdk-python/iwf/iwf_api/` |
+
+`make -C server idl-code-gen` and `make -C sdk-go idl-code-gen` delegate to `make -C protos proto`.
