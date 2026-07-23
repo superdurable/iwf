@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "iwf-sdk"
-version = "0.12.0"
+version = "0.0.1"
 description = "Python SDK for the iWF workflow engine"
 authors = ["Indeed Engineering"]
 readme = "README.md"

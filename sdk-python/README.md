@@ -4,7 +4,7 @@
 Python SDK for [iWF workflow engine](https://github.com/superdurable/iwf)
 
 ```
-pip install iwf-sdk==0.12.0
+pip install iwf-sdk==0.0.1
 ```
 
 See [samples](../samples-python) for use case examples.
@@ -113,7 +113,7 @@ This project is governed by the [Contributor Covenant v 1.4.1](CODE_OF_CONDUCT.m
 ## Publishing to PyPI
 
 1. Bump `version` in `pyproject.toml` (and the `pip install` line above).
-2. Create a GitHub Release with tag `sdk-python-vX.Y.Z` (for example `sdk-python-v0.12.0`), or run the **Publish Python SDK to PyPI** workflow manually.
+2. Create a GitHub Release with tag `sdk-python-vX.Y.Z` (for example `sdk-python-v0.0.1`), or run the **Publish Python SDK to PyPI** workflow manually.
 3. CI runs `poetry publish --build` using the `PYPI_TOKEN` repository secret.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md#releases-monorepo-tags) for monorepo tag conventions.
