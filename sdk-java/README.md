@@ -1,10 +1,10 @@
-# iwf-java-sdk
-[![Coverage Status](https://codecov.io/github/superdurable/iwf-java-sdk/coverage.svg?branch=main)](https://app.codecov.io/gh/superdurable/iwf-java-sdk/branch/main)
-[![Build status](https://github.com/superdurable/iwf-java-sdk/actions/workflows/ci-integ-test.yml/badge.svg?branch=main)](https://github.com/superdurable/iwf-java-sdk/actions/workflows/ci-integ-test.yml)
+# iwf-sdk (Java)
 
 Java SDK for [iWF workflow engine](https://github.com/superdurable/iwf)
 
-See [samples](https://github.com/superdurable/iwf-java-samples) for how to use this SDK to build your workflow.
+See [samples](../samples-java) for how to use this SDK to build your workflow.
+
+Maven coordinates: `io.superdurable:iwf-sdk` (namespace for domain [superdurable.io](https://superdurable.io)).
 
 ## Requirements
 
@@ -12,41 +12,36 @@ See [samples](https://github.com/superdurable/iwf-java-samples) for how to use t
 
 ## How to use
 
-Here is
-the [link to all the versions on Maven](https://repo1.maven.org/maven2/io/iworkflow/iwf-java-sdk/) available to use. It gets replicated from [staging repo](https://s01.oss.sonatype.org/content/repositories/releases/io/iworkflow/iwf-java-sdk/) after 30-60 minutes.
-
-Also the [Java docs for the latest version](https://www.javadoc.io/doc/io.iworkflow/iwf-java-sdk/latest/index.html).
-For the latest version, [MVN Repository](https://mvnrepository.com/artifact/io.iworkflow/iwf-java-sdk) website may have
-1~2 days delay to show up.
+After publish, artifacts appear on
+[Maven Central](https://repo1.maven.org/maven2/io/superdurable/iwf-sdk/)
+(and on [MVN Repository](https://mvnrepository.com/artifact/io.superdurable/iwf-sdk) with some delay).
+Javadoc: [javadoc.io](https://www.javadoc.io/doc/io.superdurable/iwf-sdk/latest/index.html).
 
 ### Gradle
 
 ```gradle
-// https://mvnrepository.com/artifact/io.iworkflow/iwf-java-sdk
-implementation 'io.iworkflow:iwf-java-sdk:2.5.+'
+implementation 'io.superdurable:iwf-sdk:0.0.2'
 ```
 
 ### Maven
 
-```
-<!-- https://mvnrepository.com/artifact/io.iworkflow/iwf-java-sdk -->
+```xml
 <dependency>
-    <groupId>io.iworkflow</groupId>
-    <artifactId>iwf-java-sdk</artifactId>
-    <version>2.5.+</version>
-    <type>pom</type>
+    <groupId>io.superdurable</groupId>
+    <artifactId>iwf-sdk</artifactId>
+    <version>0.0.2</version>
 </dependency>
-
 ```
+
 
 ## Concepts
 
 To implement a workflow, the two most core interfaces are
 
-* [Workflow interface](https://github.com/superdurable/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/ObjectWorkflow.java)
+* [Workflow interface](src/main/java/io/iworkflow/core/ObjectWorkflow.java)
   defines the workflow definition
 
-* [WorkflowState interface](https://github.com/superdurable/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/WorkflowState.java)
+* [WorkflowState interface](src/main/java/io/iworkflow/core/WorkflowState.java)
   defines the workflow states for workflow definitions
 
 A workflow can contain any number of WorkflowStates.

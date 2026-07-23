@@ -125,7 +125,7 @@ sourceSets.main.java.srcDirs += "$buildDir/generated/src/main/java"
 // Custom task to unpublish from local Maven repository
 // Usage: ./gradlew unpublishFromMavenLocal
 task unpublishFromMavenLocal(type: Delete) {
-    def groupPath = "io/iworkflow/iwf-java-sdk"
+    def groupPath = "io/superdurable/iwf-sdk"
     def version = project.version
     def m2Repo = "${System.getProperty('user.home')}/.m2/repository"
     delete "$m2Repo/$groupPath/$version"
@@ -134,14 +134,21 @@ task unpublishFromMavenLocal(type: Delete) {
     }
 }
 
+// Maven coordinates: io.superdurable:iwf-sdk (reverse-DNS of superdurable.io)
+group = "io.superdurable"
+version = "0.0.2"
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
+            groupId = project.group
+            artifactId = 'iwf-sdk'
+            version = project.version
             from(components.java)
 
             pom {
-                name = "iwf-java-sdk"
-                description = "iwf java sdk core"
+                name = "iwf-sdk"
+                description = "iWF Java SDK"
                 url = 'https://github.com/superdurable/iwf'
 
                 scm {
@@ -170,19 +177,29 @@ publishing {
 }
 
 signing {
+    // CI: ORG_GRADLE_PROJECT_signingKey (+ optional signingPassword)
+    // Local: signing.keyId / signing.password / signing.secretKeyRingFile in ~/.gradle/gradle.properties
+    def signingKey = findProperty("signingKey")
+    def signingPassword = findProperty("signingPassword") ?: ""
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKey.toString(), signingPassword.toString())
+    }
+    required {
+        gradle.taskGraph.allTasks.any {
+            it.name.contains("publishToSonatype") || it.name.contains("PublishToSonatype")
+        }
+    }
     sign publishing.publications.mavenJava
 }
-
-group = "io.iworkflow"
-version = "2.11.1"
 
 nexusPublishing {
     repositories {
         sonatype {
             nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
             snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
-//             username = project.property('myNexusUsername')
-//             password = project.property('myNexusPassword')
+            // Prefer project properties (set via ORG_GRADLE_PROJECT_* in CI):
+            username = project.findProperty('mavenCentralUsername') ?: System.getenv('ORG_GRADLE_PROJECT_mavenCentralUsername')
+            password = project.findProperty('mavenCentralPassword') ?: System.getenv('ORG_GRADLE_PROJECT_mavenCentralPassword')
         }
     }
 }

@@ -72,14 +72,14 @@ Each component has its own version and tag prefix. Create a GitHub Release for t
 |-----------|------------|---------|-------------------|
 | Server / Docker | `server-vX.Y.Z` | `server-v1.0.0` | Docker Hub `iwf-server:v1.0.0` and `iwf-server-lite:v1.0.0` |
 | Python SDK | `sdk-python-vX.Y.Z` | `sdk-python-v0.12.0` | PyPI [`iwf-sdk`](https://pypi.org/project/iwf-sdk/) (version from `sdk-python/pyproject.toml`) |
-| Java SDK | `sdk-java-vX.Y.Z` | `sdk-java-v2.11.1` | Maven Central (version from `sdk-java/build.gradle`; publish via Gradle when credentials are set) |
+| Java SDK | `sdk-java-vX.Y.Z` | `sdk-java-v0.0.2` | Maven Central `io.superdurable:iwf-sdk` via [`.github/workflows/sdk-java-publish.yml`](.github/workflows/sdk-java-publish.yml) (version from `sdk-java/build.gradle`) |
 | Go SDK | `sdk-go/vX.Y.Z` | `sdk-go/v1.2.3` | Go module tag for `github.com/superdurable/iwf/sdk-go` |
 
 Notes:
 
 - Bump the component’s own version file before tagging (`pyproject.toml`, `build.gradle`, etc.).
 - Go uses a path-style tag (`sdk-go/v…`) so `go get` resolves the subdirectory module.
-- Python and Docker release workflows also support **workflow_dispatch** for manual runs.
+- Python, Java, and Docker release workflows also support **workflow_dispatch** for manual runs.
 
 ## Package-specific guides
 
