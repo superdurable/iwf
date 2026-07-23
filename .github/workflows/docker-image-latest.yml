@@ -1,8 +1,11 @@
 name: Push Docker images (main)
 
-# Requires DOCKERHUB_USERNAME / DOCKERHUB_TOKEN repo secrets.
-# Manual-only until secrets are configured (auto-push was failing login).
 on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/docker-image-latest.yml"
   workflow_dispatch:
 
 jobs:
@@ -25,12 +28,12 @@ jobs:
           context: ./server
           push: true
           platforms: linux/arm64,linux/amd64
-          tags: iworkflowio/iwf-server:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/iwf-server:latest
       - name: Build and push lite
         uses: docker/build-push-action@v5
         with:
           context: ./server
           push: true
           platforms: linux/arm64,linux/amd64
-          tags: iworkflowio/iwf-server-lite:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/iwf-server-lite:latest
           file: server/lite/Dockerfile
