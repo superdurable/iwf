@@ -110,7 +110,7 @@ func (b trialState) WaitUntil(ctx iwf.WorkflowContext, input iwf.Object, persist
 	b.svc.SendEmail(customer.Email, "welcome email", "hello content")
 
 	return iwf.AllCommandsCompletedRequest(
-		iwf.NewTimerCommand("", time.Now().Add(customer.Subscription.TrialPeriod)),
+		iwf.NewTimerCommandByDuration("", customer.Subscription.TrialPeriod),
 	), nil
 }
 
@@ -147,7 +147,7 @@ func (b chargeCurrentBillState) WaitUntil(ctx iwf.WorkflowContext, input iwf.Obj
 	persistence.SetDataAttribute(keyBillingPeriodNum, periodNum+1)
 
 	return iwf.AllCommandsCompletedRequest(
-		iwf.NewTimerCommand("", time.Now().Add(customer.Subscription.BillingPeriod)),
+		iwf.NewTimerCommandByDuration("", customer.Subscription.BillingPeriod),
 	), nil
 }
 

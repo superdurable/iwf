@@ -1,14 +1,15 @@
 package subscription
 
 import (
-	"github.com/golang/mock/gomock"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/superdurable/iwf-golang-samples/workflows/service"
 	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
 	"github.com/superdurable/iwf/sdk-go/iwf"
 	"github.com/superdurable/iwf/sdk-go/iwftest"
-	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
+	"go.uber.org/mock/gomock"
 )
 
 // mockgen -source=workflows/subscription/my_service.go -destination=workflows/subscription/my_service_mock.go --package=subscription
@@ -77,9 +78,8 @@ func TestTrialState_WaitUntil(t *testing.T) {
 	mockPersistence.EXPECT().GetDataAttribute(keyCustomer, gomock.Any()).SetArg(1, testCustomer)
 	cmdReq, err := state.WaitUntil(mockWfCtx, emptyObj, mockPersistence, mockCommunication)
 	assert.Nil(t, err)
-	firingTime := cmdReq.Commands[0].TimerCommand.FiringUnixTimestampSeconds
 	assert.Equal(t, iwf.AllCommandsCompletedRequest(
-		iwf.NewTimerCommand("", time.Unix(firingTime, 0)),
+		iwf.NewTimerCommandByDuration("", testCustomer.Subscription.TrialPeriod),
 	), cmdReq)
 }
 
@@ -108,8 +108,9 @@ func TestChargeCurrentBillStateStart_waitForDuration(t *testing.T) {
 
 	cmdReq, err := state.WaitUntil(mockWfCtx, emptyObj, mockPersistence, mockCommunication)
 	assert.Nil(t, err)
-	cmd := cmdReq.Commands[0]
-	assert.Equal(t, iwf.AllCommandsCompletedRequest(iwf.NewTimerCommand("", time.Unix(cmd.TimerCommand.FiringUnixTimestampSeconds, 0))), cmdReq)
+	assert.Equal(t, iwf.AllCommandsCompletedRequest(
+		iwf.NewTimerCommandByDuration("", testCustomer.Subscription.BillingPeriod),
+	), cmdReq)
 }
 
 func TestChargeCurrentBillStateStart_subscriptionOver(t *testing.T) {
