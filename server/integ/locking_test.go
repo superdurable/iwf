@@ -84,8 +84,7 @@ func doTestLockingWorkflow(t *testing.T, backendType service.BackendType, config
 	defer closeFunc1()
 
 	_, closeFunc2 := startIwfServiceByConfig(IwfServiceTestConfig{
-		BackendType:                      backendType,
-		DisableFailAtMemoIncompatibility: true,
+		BackendType: backendType,
 	})
 	defer closeFunc2()
 

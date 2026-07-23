@@ -4,9 +4,6 @@ log:
   levelKey: "level"
 api:
   port: 8801
-  waitForStateCompletionMigration:
-    signalWithStartOn: old
-    waitForOn: old
   queryWorkflowFailedRetryPolicy:
     initialIntervalSeconds: 1
     maximumAttempts: 5

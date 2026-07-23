@@ -26,7 +26,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/uber-go/tally/v4/prometheus"
 	temporalWorker "go.temporal.io/sdk/worker"
 	cadenceWorker "go.uber.org/cadence/worker"
@@ -42,30 +42,39 @@ const (
 	StorageTypeS3 = "s3"
 )
 
+const (
+	// DefaultApiPort is the default FlowService/InternalService gRPC bind port.
+	DefaultApiPort = 8801
+	// DefaultMaxWaitSeconds caps WaitForFlow / WaitForStepCompletion / WaitForAttribute when MaxWaitSeconds is 0.
+	DefaultMaxWaitSeconds int64 = 60
+	// DefaultGrpcMaxMessageBytes is 16 MiB; must exceed a CAN dump page plus protobuf overhead.
+	DefaultGrpcMaxMessageBytes = 16 * 1024 * 1024
+	// DefaultWorkerConnectionIdleTimeout is how long an idle WorkerService conn may sit unused before eviction.
+	DefaultWorkerConnectionIdleTimeout = 10 * time.Minute
+	// DefaultMaxWorkerConnections caps the WorkerService dial pool; positive required at runtime.
+	DefaultMaxWorkerConnections = 1000
+)
+
 type (
 	Config struct {
-		// Log is the logging config
+		// Log is process logging (stdout/stderr/file, level, encoding).
 		Log Logger `yaml:"log"`
-		// Api is the API config
+		// Api is the public FlowService and internal InternalService gRPC server config.
 		Api ApiConfig `yaml:"api"`
-		// Interpreter is the service behind, either Cadence or Temporal is required
+		// Interpreter selects Temporal or Cadence and worker activity settings. Exactly one of Temporal/Cadence must be set.
 		Interpreter Interpreter `yaml:"interpreter"`
-		// ExternalStorage is the external storage config
+		// ExternalStorage offloads large Value payloads (string/object) above ThresholdInBytes.
 		ExternalStorage ExternalStorageConfig `yaml:"externalStorage"`
 	}
 
 	ExternalStorageConfig struct {
+		// Enabled turns external blob offload on or off. Default false.
 		Enabled bool `yaml:"enabled"`
-		// ThresholdInBytes is the size threshold of encodedObject
-		// that will be stored by external storage(picking the current active one)
+		// ThresholdInBytes is the payload size that triggers writing a blob id onto Value instead of inline data. Default 0 (never offload when Enabled is false).
 		ThresholdInBytes int `yaml:"thresholdInBytes"`
-		// SupportedStorages is the list of supported storage
-		// Only one can be active, meaning the one that will be used for writing.
-		// The non-active ones are for read only.
+		// SupportedStorages lists blob backends. Exactly one may have Status active for writes; others are read-only.
 		SupportedStorages []BlobStorageConfig `yaml:"supportedStorages"`
-		// MinAgeForCleanupCheckInDays is for checking whether the objects can be deleted.
-		// if objects' createdTime > now-config value, we will stop checking.
-		// This can be the configured retention in temporal namespace/Cadence domain
+		// MinAgeForCleanupCheckInDays stops cleanup scans for objects newer than now minus this many days. Align with Temporal/Cadence retention. Default 0 means no age gate when unset by operator.
 		MinAgeForCleanupCheckInDays int `yaml:"minAgeForCleanupCheckInDays"`
 	}
 
@@ -73,131 +82,127 @@ type (
 	StorageType   string
 
 	BlobStorageConfig struct {
-		// Status means whether this storage is active for writing.
-		// Only one of the supported storages can be active
+		// Status is "active" (writable) or "inactive" (read-only). Only one active store is allowed.
 		Status StorageStatus
-		// StorageId is the id of the external storage, it's used to identify the external storage in the EncodedObject that is stored in the workflow history
+		// StorageId identifies this backend inside blob ids persisted on Value.
 		StorageId string `yaml:"storageId"`
-		// StorageType is the type of the external storage, currently only s3 is supported
+		// StorageType selects the driver; currently only "s3".
 		StorageType StorageType `yaml:"storageType"`
-		// S3Endpoint is the endpoint of s3 service
+		// S3Endpoint is the S3 API base URL (e.g. http://localhost:9000 for MinIO).
 		S3Endpoint string `yaml:"s3Endpoint"`
-		// S3Bucket is the bucket name of the S3 storage
+		// S3Bucket is the bucket name for object storage.
 		S3Bucket string `yaml:"s3Bucket"`
-		// S3Region is the region of the S3 storage
+		// S3Region is the AWS/S3 region string.
 		S3Region string `yaml:"s3Region"`
-		// S3AccessKey is the access key of the S3 storage
+		// S3AccessKey is the access key id for S3 auth.
 		S3AccessKey string `yaml:"s3AccessKey"`
-		// S3SecretKey is the secret key of the S3 storage
+		// S3SecretKey is the secret access key for S3 auth.
 		S3SecretKey string `yaml:"s3SecretKey"`
-		// CleanupCronSchedule is the cron schedule to run the cleanup workflow
-		// The format is the standard cron "0 0 * * *" (see https://crontab.guru/every-day)
-		// If empty, the cleanup workflow will not be started
+		// CleanupCronSchedule is a standard cron for the blob cleanup workflow. Empty disables cleanup.
 		CleanupCronSchedule string `yaml:"cleanupCronSchedule"`
 	}
 
 	ApiConfig struct {
-		// Port is the port on which the API service will bind to
-		Port           int   `yaml:"port"`
+		// Port is the TCP port for FlowService and InternalService (plaintext gRPC). Default 8801. Bind is 0.0.0.0:Port; SDKs/integ and the interpreter CAN activity dial this port.
+		Port int `yaml:"port"`
+		// MaxWaitSeconds caps WaitForFlow, WaitForStepCompletion, and WaitForAttribute. Zero uses DefaultMaxWaitSeconds (60). Positive values are the cap. Negatives are invalid.
 		MaxWaitSeconds int64 `yaml:"maxWaitSeconds"`
-		// omitRpcInputOutputInHistory is the flag to omit rpc input/output in history
-		// the input/output is only for debugging purpose but could be too expensive to store
+		// GrpcMaxMessageBytes is MaxRecv/MaxSend for FlowService, InternalService, and WorkerService clients. Default 16 MiB. Must be positive and larger than continue-as-new page size plus overhead.
+		GrpcMaxMessageBytes int `yaml:"grpcMaxMessageBytes"`
+		// OmitRpcInputOutputInHistory omits RPC input/output from Temporal/Cadence history when true. Default nil/false keeps I/O for debugging.
 		OmitRpcInputOutputInHistory *bool `yaml:"omitRpcInputOutputInHistory"`
-		// WaitForStateCompletionMigration is used to control workflowId of the WaitForStateCompletion system/internal workflows
-		WaitForStateCompletionMigration WaitForStateCompletionMigration `yaml:"waitForStateCompletionMigration"`
-		QueryWorkflowFailedRetryPolicy  QueryWorkflowFailedRetryPolicy  `yaml:"queryWorkflowFailedRetryPolicy"`
+		// QueryWorkflowFailedRetryPolicy retries failed Describe/Query calls against the backend.
+		QueryWorkflowFailedRetryPolicy QueryWorkflowFailedRetryPolicy `yaml:"queryWorkflowFailedRetryPolicy"`
 	}
 
 	QueryWorkflowFailedRetryPolicy struct {
-		// defaults to 1
+		// InitialIntervalSeconds is the first backoff between query retries. Default 1.
 		InitialIntervalSeconds int `yaml:"initialIntervalSeconds"`
-		// defaults to 5
+		// MaximumAttempts is the max attempts including the first. Default 5.
 		MaximumAttempts int `yaml:"maximumAttempts"`
 	}
 
-	WaitForStateCompletionMigration struct {
-		// expected values: old/both/new; defaults to 'old'
-		SignalWithStartOn string `yaml:"signalWithStartOn"`
-		// expected values: old/new; defaults to 'old'
-		WaitForOn string `yaml:"waitForOn"`
-	}
-
 	Interpreter struct {
-		// Temporal config is the config to connect to Temporal
+		// Temporal connects the interpreter to a Temporal cluster. Mutually exclusive with Cadence.
 		Temporal *TemporalConfig `yaml:"temporal"`
-		// Cadence config is the config to connect to Cadence
-		Cadence                   *CadenceConfig            `yaml:"cadence"`
-		DefaultWorkflowConfig     *iwfidl.WorkflowConfig    `json:"defaultWorkflowConfig"`
+		// Cadence connects the interpreter to a Cadence cluster. Mutually exclusive with Temporal.
+		Cadence *CadenceConfig `yaml:"cadence"`
+		// DefaultWorkflowConfig is the default FlowConfig applied when StartFlow omits an override. Nil uses package DefaultWorkflowConfig.
+		DefaultWorkflowConfig *iwfpb.FlowConfig `yaml:"defaultWorkflowConfig"`
+		// InterpreterActivityConfig tunes worker→API and worker→WorkerService dialing.
 		InterpreterActivityConfig InterpreterActivityConfig `yaml:"interpreterActivityConfig"`
-		VerboseDebug              bool
-		FailAtMemoIncompatibility bool
-		// LogLocalActivityThresholdBytes enables warn-level logging of local activity inputs/outputs when the
-		// serialized payload size meets or exceeds this value. Set to 0 (default) to disable.
+		// VerboseDebug enables extra interpreter debug logs. Default false.
+		VerboseDebug bool `yaml:"verboseDebug"`
+		// LogLocalActivityThresholdBytes logs local-activity I/O at warn when serialized size >= this. Zero disables. Default 0.
 		LogLocalActivityThresholdBytes int `yaml:"logLocalActivityThresholdBytes"`
 	}
 
 	TemporalConfig struct {
-		// HostPort to connect to, default to localhost:7233
+		// HostPort is the Temporal frontend address. Default localhost:7233. Client dials this gRPC endpoint.
 		HostPort string `yaml:"hostPort"`
-		// API key to connect to Temporal Cloud, default to empty
+		// CloudAPIKey authenticates to Temporal Cloud. Empty means no cloud credentials.
 		CloudAPIKey string `yaml:"cloudAPIKey"`
-		// Namespace to connect to, default to default
+		// Namespace is the Temporal namespace. Default "default".
 		Namespace string `yaml:"namespace"`
-		// Prometheus is configuring the metric exposer
-		Prometheus    *prometheus.Configuration `yaml:"prometheus"`
+		// Prometheus configures the Temporal SDK metrics exposer. Nil disables.
+		Prometheus *prometheus.Configuration `yaml:"prometheus"`
+		// WorkerOptions are passed to the Temporal worker. Nil uses SDK defaults.
 		WorkerOptions *temporalWorker.Options
 	}
 
 	CadenceConfig struct {
-		// HostPort to connect to, default to 127.0.0.1:7833
+		// HostPort is the Cadence frontend address. Default 127.0.0.1:7833.
 		HostPort string `yaml:"hostPort"`
-		// Domain to connect to, default to default
-		Domain        string `yaml:"domain"`
+		// Domain is the Cadence domain. Default "default".
+		Domain string `yaml:"domain"`
+		// WorkerOptions are passed to the Cadence worker. Nil uses SDK defaults.
 		WorkerOptions *cadenceWorker.Options
 	}
 
 	InterpreterActivityConfig struct {
-		// ApiServiceAddress is the address that core engine workflow talks to API service
-		// It's used in DumpWorkflowInternal activity for continueAsNew
-		// default is http://localhost:ApiConfig.Port
-		ApiServiceAddress                  string                              `json:"serviceAddress"`
-		DumpWorkflowInternalActivityConfig *DumpWorkflowInternalActivityConfig `json:"dumpWorkflowInternalActivityConfig"`
-		DefaultHeaders                     map[string]string                   `json:"defaultHeaders"`
+		// InternalServiceTarget is the plaintext gRPC dial target for InternalService (CAN dump). Empty defaults to localhost:<Api.Port>. YAML key internalServiceTarget.
+		InternalServiceTarget string `yaml:"internalServiceTarget"`
+		// DumpWorkflowInternalActivityConfig tunes the CAN dump activity timeouts/retries. Nil uses activity defaults.
+		DumpWorkflowInternalActivityConfig *DumpWorkflowInternalActivityConfig `yaml:"dumpWorkflowInternalActivityConfig"`
+		// DefaultHeaders are forwarded as outgoing gRPC metadata on WorkerService calls. Empty means none.
+		DefaultHeaders map[string]string `yaml:"defaultHeaders"`
+		// WorkerConnectionIdleTimeout evicts idle, unreferenced WorkerService connections. Zero uses DefaultWorkerConnectionIdleTimeout (10m).
+		WorkerConnectionIdleTimeout time.Duration `yaml:"workerConnectionIdleTimeout"`
+		// MaxWorkerConnections caps the WorkerService connection pool. Zero uses DefaultMaxWorkerConnections (1000). Must be positive after defaults.
+		MaxWorkerConnections int `yaml:"maxWorkerConnections"`
 	}
 
 	DumpWorkflowInternalActivityConfig struct {
-		StartToCloseTimeout time.Duration
-		RetryPolicy         *iwfidl.RetryPolicy
+		// StartToCloseTimeout is the activity start-to-close timeout. Zero uses the activity registration default.
+		StartToCloseTimeout time.Duration `yaml:"startToCloseTimeout"`
+		// RetryPolicy is the activity retry policy. Nil uses the registration default.
+		RetryPolicy *iwfpb.RetryPolicy `yaml:"retryPolicy"`
 	}
 
-	// Logger contains the config items for logger
 	Logger struct {
-		// Stdout is true then the output needs to goto standard out
-		// By default this is false and output will go to standard error
+		// Stdout sends logs to stdout when true; otherwise stderr (unless OutputFile is set). Default false.
 		Stdout bool `yaml:"stdout"`
-		// Level is the desired log level
+		// Level is the zap log level string (debug/info/warn/error). Default depends on NewZapLogger.
 		Level string `yaml:"level"`
-		// OutputFile is the path to the log output file
-		// Stdout must be false, otherwise Stdout will take precedence
+		// OutputFile writes logs to this path when non-empty and Stdout is false.
 		OutputFile string `yaml:"outputFile"`
-		// LevelKey is the desired log level, defaults to "level"
+		// LevelKey is the JSON field name for level. Default "level".
 		LevelKey string `yaml:"levelKey"`
-		// Encoding decides the format, supports "console" and "json".
-		// "json" will print the log in JSON format(better for machine), while "console" will print in plain-text format(more human friendly)
-		// Default is "json"
+		// Encoding is "json" or "console". Default "json".
 		Encoding string `yaml:"encoding"`
 	}
 )
 
-var DefaultWorkflowConfig = &iwfidl.WorkflowConfig{
-	ContinueAsNewThreshold: iwfidl.PtrInt32(100),
+// DefaultWorkflowConfig is used when Interpreter.DefaultWorkflowConfig is nil.
+var DefaultWorkflowConfig = &iwfpb.FlowConfig{
+	ContinueAsNewThreshold: 100,
 }
 
-// NewConfig returns a new decoded Config struct
+// NewConfig returns a new decoded Config struct.
 func NewConfig(configPath string) (*Config, error) {
 	log.Printf("Loading configFile=%v\n", configPath)
 
-	config := &Config{}
+	cfg := &Config{}
 
 	file, err := os.Open(configPath)
 	if err != nil {
@@ -207,34 +212,59 @@ func NewConfig(configPath string) (*Config, error) {
 
 	d := yaml.NewDecoder(file)
 
-	if err := d.Decode(&config); err != nil {
+	if err := d.Decode(&cfg); err != nil {
 		return nil, err
 	}
 
-	return config, nil
+	return cfg, nil
 }
 
-func (c Config) GetApiServiceAddressWithDefault() string {
-	if c.Interpreter.InterpreterActivityConfig.ApiServiceAddress != "" {
-		return c.Interpreter.InterpreterActivityConfig.ApiServiceAddress
+// GetInternalServiceTargetWithDefault returns the plaintext gRPC dial target for InternalService.
+func (c Config) GetInternalServiceTargetWithDefault() string {
+	if c.Interpreter.InterpreterActivityConfig.InternalServiceTarget != "" {
+		return c.Interpreter.InterpreterActivityConfig.InternalServiceTarget
 	}
-	return fmt.Sprintf("http://localhost:%v", c.Api.Port)
-}
-
-func (c Config) GetSignalWithStartOnWithDefault() string {
-	if c.Api.WaitForStateCompletionMigration.SignalWithStartOn != "" {
-		return c.Api.WaitForStateCompletionMigration.SignalWithStartOn
+	port := c.Api.Port
+	if port == 0 {
+		port = DefaultApiPort
 	}
-	return "old"
+	return fmt.Sprintf("localhost:%v", port)
 }
 
-func (c Config) GetWaitForOnWithDefault() string {
-	if c.Api.WaitForStateCompletionMigration.WaitForOn != "" {
-		return c.Api.WaitForStateCompletionMigration.WaitForOn
+// EffectiveMaxWaitSeconds returns the wait cap: DefaultMaxWaitSeconds when MaxWaitSeconds is 0.
+// Callers must reject negative MaxWaitSeconds before invoking this.
+func (c ApiConfig) EffectiveMaxWaitSeconds() int64 {
+	if c.MaxWaitSeconds == 0 {
+		return DefaultMaxWaitSeconds
 	}
-	return "old"
+	return c.MaxWaitSeconds
 }
 
+// EffectiveGrpcMaxMessageBytes returns GrpcMaxMessageBytes or DefaultGrpcMaxMessageBytes.
+func (c ApiConfig) EffectiveGrpcMaxMessageBytes() int {
+	if c.GrpcMaxMessageBytes <= 0 {
+		return DefaultGrpcMaxMessageBytes
+	}
+	return c.GrpcMaxMessageBytes
+}
+
+// EffectiveWorkerConnectionIdleTimeout returns the idle eviction timeout for WorkerService conns.
+func (c InterpreterActivityConfig) EffectiveWorkerConnectionIdleTimeout() time.Duration {
+	if c.WorkerConnectionIdleTimeout <= 0 {
+		return DefaultWorkerConnectionIdleTimeout
+	}
+	return c.WorkerConnectionIdleTimeout
+}
+
+// EffectiveMaxWorkerConnections returns the WorkerService pool size cap.
+func (c InterpreterActivityConfig) EffectiveMaxWorkerConnections() int {
+	if c.MaxWorkerConnections <= 0 {
+		return DefaultMaxWorkerConnections
+	}
+	return c.MaxWorkerConnections
+}
+
+// QueryWorkflowFailedRetryPolicyWithDefaults fills zero fields with defaults (1s / 5 attempts).
 func QueryWorkflowFailedRetryPolicyWithDefaults(retryPolicy *QueryWorkflowFailedRetryPolicy) QueryWorkflowFailedRetryPolicy {
 	var rp QueryWorkflowFailedRetryPolicy
 

@@ -29,13 +29,6 @@ const (
 
 	DefaultContinueAsNewPageSizeInBytes = 1024 * 1024
 
-	// below are special unofficial code for special use case
-
-	// HttpStatusCodeSpecial4xxError1 is for poll timeout, RPC worker execution error
-	HttpStatusCodeSpecial4xxError1 = 420
-	// HttpStatusCodeSpecial4xxError2 is for RPC acquire locking failure
-	HttpStatusCodeSpecial4xxError2 = 450
-
 	TaskQueue = "Interpreter_DEFAULT"
 
 	StateStartApi        = "/api/v1/workflowState/start"

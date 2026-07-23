@@ -578,7 +578,7 @@ func DumpWorkflowInternal(
 	logger.Info("DumpWorkflowInternalActivity", "input", log.ToJsonAndTruncateForLogging(req))
 
 	sharedCfg := env.GetSharedConfig()
-	apiAddress := sharedCfg.GetApiServiceAddressWithDefault()
+	apiAddress := sharedCfg.GetInternalServiceTargetWithDefault()
 
 	apiClient := iwfidl.NewAPIClient(&iwfidl.Configuration{
 		DefaultHeader: sharedCfg.Interpreter.InterpreterActivityConfig.DefaultHeaders,

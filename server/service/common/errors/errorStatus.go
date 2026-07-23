@@ -21,37 +21,86 @@
 package errors
 
 import (
-	"github.com/superdurable/iwf/gen/iwfidl"
-	"github.com/superdurable/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
+// ErrorAndStatus is an API-layer failure carrying ErrorSubStatus and a gRPC code.
 type ErrorAndStatus struct {
-	StatusCode int
-	Error      iwfidl.ErrorResponse
+	Code  codes.Code
+	Error *iwfpb.ErrorResponse
 }
 
-func NewErrorAndStatus(statusCode int, subStatus iwfidl.ErrorSubStatus, details string) *ErrorAndStatus {
+// NewErrorAndStatus builds an ErrorAndStatus without worker-origin details.
+func NewErrorAndStatus(code codes.Code, subStatus iwfpb.ErrorSubStatus, details string) *ErrorAndStatus {
 	return &ErrorAndStatus{
-		StatusCode: statusCode,
-		Error: iwfidl.ErrorResponse{
-			SubStatus: ptr.Any(subStatus),
-			Detail:    iwfidl.PtrString(details),
+		Code: code,
+		Error: &iwfpb.ErrorResponse{
+			SubStatus: subStatus,
+			Detail:    details,
 		},
 	}
 }
 
+// NewErrorAndStatusWithWorkerError attaches original WorkerService failure fields.
 func NewErrorAndStatusWithWorkerError(
-	statusCode int, subStatus iwfidl.ErrorSubStatus, details string,
+	code codes.Code, subStatus iwfpb.ErrorSubStatus, details string,
 	originalWorkerDetails string, originalWorkerErrType string, originalWorkerStatus int32,
 ) *ErrorAndStatus {
 	return &ErrorAndStatus{
-		StatusCode: statusCode,
-		Error: iwfidl.ErrorResponse{
-			SubStatus:                 ptr.Any(subStatus),
-			Detail:                    iwfidl.PtrString(details),
-			OriginalWorkerErrorDetail: &originalWorkerDetails,
-			OriginalWorkerErrorStatus: &originalWorkerStatus,
-			OriginalWorkerErrorType:   &originalWorkerErrType,
+		Code: code,
+		Error: &iwfpb.ErrorResponse{
+			SubStatus:                 subStatus,
+			Detail:                    details,
+			OriginalWorkerErrorDetail: originalWorkerDetails,
+			OriginalWorkerErrorType:   originalWorkerErrType,
+			OriginalWorkerErrorStatus: originalWorkerStatus,
 		},
 	}
+}
+
+// ToGRPCStatus converts ErrorAndStatus into a gRPC status with ErrorResponse details.
+func (e *ErrorAndStatus) ToGRPCStatus() error {
+	if e == nil {
+		return nil
+	}
+	st := status.New(e.Code, e.Error.GetDetail())
+	if e.Error != nil {
+		withDetails, err := st.WithDetails(e.Error)
+		if err == nil {
+			return withDetails.Err()
+		}
+	}
+	return st.Err()
+}
+
+// InvalidArgument is a convenience for bad client/worker input.
+func InvalidArgument(subStatus iwfpb.ErrorSubStatus, details string) *ErrorAndStatus {
+	return NewErrorAndStatus(codes.InvalidArgument, subStatus, details)
+}
+
+// NotFound is a convenience for missing flows/runs.
+func NotFound(details string) *ErrorAndStatus {
+	return NewErrorAndStatus(codes.NotFound, iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_FLOW_NOT_EXISTS, details)
+}
+
+// AlreadyExists is a convenience for duplicate flow starts.
+func AlreadyExists(details string) *ErrorAndStatus {
+	return NewErrorAndStatus(codes.AlreadyExists, iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_FLOW_ALREADY_STARTED, details)
+}
+
+// AbortedLockFailure is returned when RPC attribute lock acquisition fails.
+func AbortedLockFailure(details string) *ErrorAndStatus {
+	return NewErrorAndStatus(codes.Aborted, iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_WORKER_API_ERROR, details)
+}
+
+// DeadlineExceededLongPoll is returned when a wait RPC hits its effective deadline.
+func DeadlineExceededLongPoll(details string) *ErrorAndStatus {
+	return NewErrorAndStatus(codes.DeadlineExceeded, iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_LONG_POLL_TIME_OUT, details)
+}
+
+// Internal is a convenience for unexpected failures.
+func Internal(details string) *ErrorAndStatus {
+	return NewErrorAndStatus(codes.Internal, iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_UNCATEGORIZED, details)
 }

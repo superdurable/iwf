@@ -22,11 +22,12 @@ package log
 
 import (
 	"fmt"
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"runtime/debug"
+
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service/common/errors"
 	"github.com/superdurable/iwf/service/common/log/tag"
-	"net/http"
-	"runtime/debug"
+	"google.golang.org/grpc/codes"
 )
 
 // CapturePanic is used to capture panic, it will log the panic and also return the error through pointer.
@@ -48,7 +49,11 @@ func CapturePanic(errPanic interface{}, logger Logger, retError **errors.ErrorAn
 		logger.Error("Panic is captured", tag.SysStackTrace(st), tag.Error(err))
 
 		if retError != nil {
-			*retError = errors.NewErrorAndStatus(http.StatusInternalServerError, iwfidl.UNCATEGORIZED_SUB_STATUS, err.Error())
+			*retError = errors.NewErrorAndStatus(
+				codes.Internal,
+				iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_UNCATEGORIZED,
+				err.Error(),
+			)
 		}
 	}
 }

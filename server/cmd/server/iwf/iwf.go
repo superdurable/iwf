@@ -217,11 +217,17 @@ func launchTemporalService(
 	)
 	switch svcName {
 	case serviceAPI:
-		svc := api.NewService(
-			config, unifiedClient, logger.WithTags(tag.Service(svcName)),
+		svc := api.NewServer(
+			&config.Api,
+			&config.ExternalStorage,
+			api.BackendTypeFunc(func() string { return string(unifiedClient.GetBackendType()) }),
+			logger.WithTags(tag.Service(svcName)),
 			blobStore,
+			func(ctx context.Context) error {
+				return nil
+			},
 		)
-		rawLog.Fatal(svc.Run(fmt.Sprintf(":%v", config.Api.Port)))
+		rawLog.Fatal(svc.Run())
 	case serviceInterpreter:
 		interpreter := temporal.NewInterpreterWorker(config, temporalClient, isvc.TaskQueue, false, nil, unifiedClient, blobStore)
 		interpreter.Start()
@@ -249,11 +255,17 @@ func launchCadenceService(
 	)
 	switch svcName {
 	case serviceAPI:
-		svc := api.NewService(
-			config, unifiedClient, logger.WithTags(tag.Service(svcName)),
+		svc := api.NewServer(
+			&config.Api,
+			&config.ExternalStorage,
+			api.BackendTypeFunc(func() string { return string(unifiedClient.GetBackendType()) }),
+			logger.WithTags(tag.Service(svcName)),
 			blobStore,
+			func(ctx context.Context) error {
+				return nil
+			},
 		)
-		rawLog.Fatal(svc.Run(fmt.Sprintf(":%v", config.Api.Port)))
+		rawLog.Fatal(svc.Run())
 	case serviceInterpreter:
 		interpreter := cadence.NewInterpreterWorker(config, service, domain, isvc.TaskQueue, closeFunc, unifiedClient, blobStore)
 		interpreter.Start()

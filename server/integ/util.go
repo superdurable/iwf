@@ -95,11 +95,10 @@ func doStartWorkflowWorker(handler common.WorkflowHandler, t *testing.T, router 
 }
 
 type IwfServiceTestConfig struct {
-	BackendType                      service.BackendType
-	MemoEncryption                   bool
-	DisableFailAtMemoIncompatibility bool // default to false so that we will fail at test
-	DefaultHeaders                   map[string]string
-	S3TestThreshold                  int
+	BackendType    service.BackendType
+	MemoEncryption bool
+	DefaultHeaders map[string]string
+	S3TestThreshold int
 }
 
 func startIwfService(backendType service.BackendType) (closeFunc func()) {
@@ -151,14 +150,17 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 		globalBlobStore = blobstore.NewBlobStore(s3Client, testNamespace, testCfg.ExternalStorage, logger, client.MetricsNopHandler)
 
 		uclient = temporalapi.NewTemporalClient(temporalClient, testNamespace, dataConverter, config.MemoEncryption, &testCfg.Api.QueryWorkflowFailedRetryPolicy)
-		iwfService := api.NewService(testCfg, uclient, logger, globalBlobStore)
-		iwfServer := &http.Server{
-			Addr:    ":" + testIwfServerPort,
-			Handler: iwfService,
-		}
+		iwfGrpc := api.NewServer(
+			&testCfg.Api,
+			&testCfg.ExternalStorage,
+			api.BackendTypeFunc(func() string { return string(uclient.GetBackendType()) }),
+			logger,
+			globalBlobStore,
+			func(ctx context.Context) error { return nil },
+		)
 		go func() {
-			if err := iwfServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("listen: %s\n", err)
+			if err := iwfGrpc.Run(); err != nil {
+				log.Fatalf("iwf gRPC listen: %s\n", err)
 			}
 		}()
 
@@ -170,7 +172,7 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 			interpreter.Start()
 		}
 		return uclient, func() {
-			iwfServer.Close()
+			iwfGrpc.GracefulStop(2 * time.Second)
 			interpreter.Close()
 		}
 	} else if config.BackendType == service.BackendTypeCadence {
@@ -191,14 +193,17 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 		globalBlobStore = blobstore.NewBlobStore(s3Client, iwf.DefaultCadenceDomain, testCfg.ExternalStorage, logger, client.MetricsNopHandler)
 
 		uclient = cadenceapi.NewCadenceClient(iwf.DefaultCadenceDomain, cadenceClient, serviceClient, encoded.GetDefaultDataConverter(), closeFunc, &testCfg.Api.QueryWorkflowFailedRetryPolicy)
-		iwfService := api.NewService(testCfg, uclient, logger, globalBlobStore)
-		iwfServer := &http.Server{
-			Addr:    ":" + testIwfServerPort,
-			Handler: iwfService,
-		}
+		iwfGrpc := api.NewServer(
+			&testCfg.Api,
+			&testCfg.ExternalStorage,
+			api.BackendTypeFunc(func() string { return string(uclient.GetBackendType()) }),
+			logger,
+			globalBlobStore,
+			func(ctx context.Context) error { return nil },
+		)
 		go func() {
-			if err := iwfServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("listen: %s\n", err)
+			if err := iwfGrpc.Run(); err != nil {
+				log.Fatalf("iwf gRPC listen: %s\n", err)
 			}
 		}()
 
@@ -210,7 +215,7 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 			interpreter.Start()
 		}
 		return uclient, func() {
-			iwfServer.Close()
+			iwfGrpc.GracefulStop(2 * time.Second)
 			interpreter.Close()
 		}
 	} else {

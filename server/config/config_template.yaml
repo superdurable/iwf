@@ -2,9 +2,6 @@
 # You can use volume mount to override this config path(/iwf/config/config_template.yaml), e.g. for production
 api:
   port: 8801
-  waitForStateCompletionMigration:
-    signalWithStartOn: old
-    waitForOn: old
   queryWorkflowFailedRetryPolicy:
     initialIntervalSeconds: 1
     maximumAttempts: 5
