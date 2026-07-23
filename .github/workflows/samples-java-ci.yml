@@ -15,8 +15,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build + smoke
+  unit:
+    name: Build + unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: samples-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "17"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build and unit tests
+        run: ./gradlew test --tests 'io.iworkflow.workflow.*' --refresh-dependencies
+      - name: Verify published SDK coordinate
+        run: |
+          ./gradlew dependencyInsight --dependency iwf-sdk --configuration compileClasspath | tee /tmp/iwf-sdk-insight.txt
+          grep -q 'io.superdurable:iwf-sdk:0.0.2' /tmp/iwf-sdk-insight.txt
+
+  integ:
+    name: Integration tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,8 +46,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Start iWF environment
         working-directory: sdk-java
+        env:
+          IWF_SERVER_IMAGE: superdurable/iwf-server:latest
         run: |
-          docker compose -f script/docker-compose.yml pull iwf-server
+          docker pull "$IWF_SERVER_IMAGE"
           docker compose -f script/docker-compose.yml up -d
       - name: Wait for iWF server
         working-directory: ${{ github.workspace }}
@@ -76,28 +99,8 @@ jobs:
           java-version: "17"
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-      - name: Build and unit tests
-        run: ./gradlew build --refresh-dependencies
-      - name: Verify published SDK coordinate
-        run: |
-          ./gradlew dependencyInsight --dependency iwf-sdk --configuration compileClasspath | tee /tmp/iwf-sdk-insight.txt
-          grep -q 'io.superdurable:iwf-sdk:0.0.2' /tmp/iwf-sdk-insight.txt
-      - name: Smoke signup workflow
-        run: |
-          ./gradlew bootRun &
-          APP_PID=$!
-          trap 'kill $APP_PID 2>/dev/null || true' EXIT
-          for i in $(seq 1 60); do
-            if curl -fsS "http://127.0.0.1:8803/signup/submit?username=ci-user-$GITHUB_RUN_ID&email=ci@example.com" >/dev/null 2>&1; then
-              echo "signup submit ok"
-              curl -fsS "http://127.0.0.1:8803/signup/verify?username=ci-user-$GITHUB_RUN_ID"
-              echo
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Timed out waiting for samples app"
-          exit 1
+      - name: Integration tests
+        run: ./gradlew test --tests 'io.iworkflow.integ.*' --info
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
