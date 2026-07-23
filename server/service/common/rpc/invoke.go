@@ -22,128 +22,153 @@ package rpc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	"io"
-	"net/http"
-
 	"github.com/superdurable/iwf/config"
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/common/blobstore"
 	"github.com/superdurable/iwf/service/common/errors"
-	"github.com/superdurable/iwf/service/common/urlautofix"
 	"github.com/superdurable/iwf/service/common/utils"
+	"github.com/superdurable/iwf/service/common/workerclient"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
+// InvokeWorkerRpc calls WorkerService.InvokeWorkerRPC using the shared worker pool.
 func InvokeWorkerRpc(
-	ctx context.Context, rpcPrep *service.PrepareRpcQueryResponse, req iwfidl.WorkflowRpcRequest, apiMaxSeconds int64, blobStore blobstore.BlobStore, externalStorageConfig config.ExternalStorageConfig,
-) (*iwfidl.WorkflowWorkerRpcResponse, *errors.ErrorAndStatus) {
-	iwfWorkerBaseUrl := urlautofix.FixWorkerUrl(rpcPrep.IwfWorkerUrl)
-	// invoke worker rpc
-	apiClient := iwfidl.NewAPIClient(&iwfidl.Configuration{
-		Servers: []iwfidl.ServerConfiguration{
-			{
-				URL: iwfWorkerBaseUrl,
-			},
-		},
-	})
-
-	err := blobstore.LoadDataObjectsFromExternalStorage(ctx, rpcPrep.DataObjects, blobStore)
-	if err != nil {
-		return nil, handleWorkerRpcResponseError(err, nil)
+	ctx context.Context,
+	pool *workerclient.Pool,
+	rpcPrep *iwfpb.PrepareRpcQueryResponse,
+	req *iwfpb.InvokeRPCRequest,
+	apiMaxSeconds int64,
+	blobStore blobstore.BlobStore,
+	externalStorageConfig config.ExternalStorageConfig,
+) (*iwfpb.InvokeWorkerRPCResponse, *errors.ErrorAndStatus) {
+	if pool == nil {
+		return nil, errors.Internal("worker client pool is nil")
+	}
+	if rpcPrep == nil || req == nil {
+		return nil, errors.InvalidArgument(iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_UNCATEGORIZED, "rpc prep and request are required")
 	}
 
-	rpcCtx, cancel := utils.TrimContextByTimeoutWithCappedDDL(ctx, req.TimeoutSeconds, apiMaxSeconds)
+	if err := blobstore.HydrateKVs(ctx, rpcPrep.GetAttributes(), blobStore); err != nil {
+		return nil, handleWorkerRpcError(err)
+	}
+	if err := blobstore.HydrateValue(ctx, req.GetInput(), blobStore); err != nil {
+		return nil, handleWorkerRpcError(err)
+	}
+
+	timeoutSeconds := req.GetTimeoutSeconds()
+	var timeoutPtr *int32
+	if timeoutSeconds > 0 {
+		timeoutPtr = &timeoutSeconds
+	}
+	rpcCtx, cancel := utils.TrimContextByTimeoutWithCappedDDL(ctx, timeoutPtr, apiMaxSeconds)
 	defer cancel()
-	workerReq := apiClient.DefaultApi.ApiV1WorkflowWorkerRpcPost(rpcCtx)
 
-	// creating empty maps for signalChannelInfos & internalChannelInfos instead of passing in nils
-	// using nil causes problems when converting to map model defined with OpenAPI
-	var signalChannelInfos map[string]iwfidl.ChannelInfo
-	if rpcPrep.SignalChannelInfo == nil {
-		signalChannelInfos = make(map[string]iwfidl.ChannelInfo)
-	} else {
-		signalChannelInfos = rpcPrep.SignalChannelInfo
+	client, callCtx, release, err := pool.Acquire(rpcCtx, rpcPrep.GetWorkerTarget())
+	if err != nil {
+		return nil, handleWorkerRpcError(err)
+	}
+	defer release()
+
+	channelInfos := rpcPrep.GetChannelInfos()
+	if channelInfos == nil {
+		channelInfos = map[string]*iwfpb.ChannelInfo{}
 	}
 
-	var internalChannelInfos map[string]iwfidl.ChannelInfo
-	if rpcPrep.InternalChannelInfo == nil {
-		internalChannelInfos = make(map[string]iwfidl.ChannelInfo)
-	} else {
-		internalChannelInfos = rpcPrep.InternalChannelInfo
-	}
-
-	workerRequest := iwfidl.WorkflowWorkerRpcRequest{
-		Context: iwfidl.Context{
-			WorkflowId:               req.WorkflowId,
-			WorkflowRunId:            rpcPrep.WorkflowRunId,
-			WorkflowStartedTimestamp: rpcPrep.WorkflowStartedTimestamp,
+	workerReq := &iwfpb.InvokeWorkerRPCRequest{
+		Context: &iwfpb.Context{
+			FlowId:               req.GetFlowId(),
+			RunId:                rpcPrep.GetRunId(),
+			FlowStartedTimestamp: rpcPrep.GetFlowStartedTimestamp(),
 		},
-		WorkflowType:         rpcPrep.IwfWorkflowType,
-		RpcName:              req.RpcName,
-		Input:                req.Input,
-		SearchAttributes:     rpcPrep.SearchAttributes,
-		DataAttributes:       rpcPrep.DataObjects,
-		SignalChannelInfos:   &signalChannelInfos,
-		InternalChannelInfos: &internalChannelInfos,
-	}
-	resp, httpResp, err := workerReq.WorkflowWorkerRpcRequest(workerRequest).Execute()
-	if utils.CheckHttpError(err, httpResp) {
-		return nil, handleWorkerRpcResponseError(err, httpResp)
-	}
-	decision := resp.GetStateDecision()
-	if decision.HasConditionalClose() {
-		return nil, handleWorkerRpcResponseError(fmt.Errorf("closing workflow in RPC is not supported yet"), nil)
+		FlowType:     rpcPrep.GetFlowType(),
+		RpcName:      req.GetRpcName(),
+		Input:        req.GetInput(),
+		Attributes:   rpcPrep.GetAttributes(),
+		ChannelInfos: channelInfos,
 	}
 
-	if resp.UpsertDataAttributes != nil {
-		err = blobstore.WriteDataObjectsToExternalStorage(ctx, resp.UpsertDataAttributes, req.WorkflowId, externalStorageConfig.ThresholdInBytes, blobStore, externalStorageConfig.Enabled)
-		if err != nil {
-			return nil, handleWorkerRpcResponseError(err, nil)
-		}
+	resp, err := client.InvokeWorkerRPC(callCtx, workerReq)
+	if err != nil {
+		return nil, handleWorkerRpcError(err)
 	}
 
-	for _, st := range decision.GetNextStates() {
-		if service.ValidClosingWorkflowStateId[st.GetStateId()] {
-			// TODO this need more work in workflow to support
-			return nil, handleWorkerRpcResponseError(fmt.Errorf("closing workflow in RPC is not supported yet"), nil)
-		}
+	if err := validateWorkerRpcResponse(resp); err != nil {
+		return nil, handleWorkerRpcError(err)
 	}
+
+	if err := blobstore.OffloadLargeAttributeWrites(
+		ctx, resp.GetUpsertAttributes(), req.GetFlowId(),
+		externalStorageConfig.ThresholdInBytes, blobStore, externalStorageConfig.Enabled,
+	); err != nil {
+		return nil, handleWorkerRpcError(err)
+	}
+	if err := blobstore.OffloadLargeValue(
+		ctx, resp.GetOutput(), req.GetFlowId(),
+		externalStorageConfig.ThresholdInBytes, blobStore, externalStorageConfig.Enabled,
+	); err != nil {
+		return nil, handleWorkerRpcError(err)
+	}
+
 	return resp, nil
 }
 
-func handleWorkerRpcResponseError(err error, httpResp *http.Response) *errors.ErrorAndStatus {
-	detailedMessage := err.Error()
-	if err != nil {
-		detailedMessage = err.Error()
+func validateWorkerRpcResponse(resp *iwfpb.InvokeWorkerRPCResponse) error {
+	if resp == nil {
+		return fmt.Errorf("nil InvokeWorkerRPCResponse")
 	}
+	if err := workerclient.RejectWorkerBlobIDs(resp.GetOutput()); err != nil {
+		return err
+	}
+	if err := workerclient.RejectWorkerAttributeWriteBlobIDs(resp.GetUpsertAttributes()); err != nil {
+		return err
+	}
+	if err := workerclient.RejectWorkerKVBlobIDs(resp.GetRecordEvents()); err != nil {
+		return err
+	}
+	decision := resp.GetStepDecision()
+	if decision == nil {
+		return nil
+	}
+	if decision.GetConditionalClose() != nil {
+		return fmt.Errorf("closing flow in RPC is not supported yet")
+	}
+	for _, step := range decision.GetNextSteps() {
+		if step != nil && service.ValidClosingWorkflowStateId[step.GetStepType()] {
+			return fmt.Errorf("closing flow in RPC is not supported yet")
+		}
+	}
+	return nil
+}
 
-	var originalStatusCode int
-	var workerError iwfidl.WorkerErrorResponse
-	if httpResp != nil {
-		originalStatusCode = httpResp.StatusCode
-		body, err := io.ReadAll(httpResp.Body)
-		if err != nil {
-			detailedMessage = "cannot read body from http response"
-		} else {
-			err := json.Unmarshal(body, &workerError)
-			if err != nil {
-				detailedMessage = "unable to decode worker response body to WorkerErrorResponse: body" + string(body)
-			} else {
-				detailedMessage = fmt.Sprintf("worker API error, status:%v, errorType:%v", originalStatusCode, workerError.GetErrorType())
+func handleWorkerRpcError(err error) *errors.ErrorAndStatus {
+	if err == nil {
+		return nil
+	}
+	st, ok := status.FromError(err)
+	detail := err.Error()
+	var workerDetail, workerType string
+	var workerStatus int32
+	if ok {
+		workerStatus = int32(st.Code())
+		detail = fmt.Sprintf("worker API error, code:%v, msg:%v", st.Code(), st.Message())
+		for _, d := range st.Details() {
+			if we, ok := d.(*iwfpb.WorkerErrorResponse); ok {
+				workerDetail = we.GetDetail()
+				workerType = we.GetErrorType()
+				detail = fmt.Sprintf("worker API error, code:%v, errorType:%v", st.Code(), workerType)
 			}
 		}
-
 	}
-
 	return errors.NewErrorAndStatusWithWorkerError(
-		service.HttpStatusCodeSpecial4xxError1,
-		iwfidl.WORKER_API_ERROR,
-		detailedMessage,
-		workerError.GetDetail(),
-		workerError.GetErrorType(),
-		int32(originalStatusCode),
+		codes.Aborted,
+		iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_WORKER_API_ERROR,
+		detail,
+		workerDetail,
+		workerType,
+		workerStatus,
 	)
 }

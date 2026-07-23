@@ -18,37 +18,32 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package urlautofix
+package interpreter
 
 import (
-	"os"
-	"strings"
+	"log"
+
+	"github.com/superdurable/iwf/config"
+	"github.com/superdurable/iwf/service/common/workerclient"
 )
 
-type FixWorkerUrlFunc func(url string) string
-
-var workerUrlFixer FixWorkerUrlFunc = DefaultFixWorkerUrlFunc
-
-func SetWorkerUrlFixer(fixer FixWorkerUrlFunc) {
-	workerUrlFixer = fixer
-}
-
-func FixWorkerUrl(url string) string {
-	return workerUrlFixer(url)
-}
-
-func DefaultFixWorkerUrlFunc(url string) string {
-	autofixUrl := os.Getenv("AUTO_FIX_WORKER_URL")
-	if autofixUrl != "" {
-		url = strings.Replace(url, "localhost", autofixUrl, 1)
-		url = strings.Replace(url, "127.0.0.1", autofixUrl, 1)
+// NewWorkerClients builds the WorkerService pool and InternalService client from config.
+func NewWorkerClients(cfg config.Config) (*workerclient.Pool, *workerclient.Internal) {
+	actCfg := cfg.Interpreter.InterpreterActivityConfig
+	poolCfg := workerclient.Config{
+		IdleTimeout:     actCfg.EffectiveWorkerConnectionIdleTimeout(),
+		MaxConnections:  actCfg.EffectiveMaxWorkerConnections(),
+		MaxMessageBytes: cfg.Api.EffectiveGrpcMaxMessageBytes(),
+		DefaultHeaders:  actCfg.DefaultHeaders,
 	}
-	autofixPortEnv := os.Getenv("AUTO_FIX_WORKER_PORT_FROM_ENV")
-	if autofixPortEnv != "" {
-		envVal := os.Getenv(autofixPortEnv)
-		url = strings.Replace(url, "$"+autofixPortEnv+"$", envVal, 1)
+	pool, err := workerclient.NewPool(poolCfg, nil)
+	if err != nil {
+		log.Fatalln("Unable to create worker client pool", err)
 	}
-	url = strings.TrimRight(url, "/")
-
-	return url
+	internal, err := workerclient.NewInternal(cfg.GetInternalServiceTargetWithDefault(), poolCfg, nil)
+	if err != nil {
+		pool.Close()
+		log.Fatalln("Unable to create internal service client", err)
+	}
+	return pool, internal
 }

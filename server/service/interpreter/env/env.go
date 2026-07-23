@@ -24,6 +24,7 @@ import (
 	"github.com/superdurable/iwf/config"
 	uclient "github.com/superdurable/iwf/service/client"
 	"github.com/superdurable/iwf/service/common/blobstore"
+	"github.com/superdurable/iwf/service/common/workerclient"
 	"go.temporal.io/sdk/converter"
 )
 
@@ -43,6 +44,10 @@ var taskQueue string
 
 var blobStore blobstore.BlobStore
 
+var workerPool *workerclient.Pool
+
+var internalClient *workerclient.Internal
+
 func SetSharedEnv(
 	config config.Config,
 	memoEncryption bool,
@@ -50,6 +55,8 @@ func SetSharedEnv(
 	client uclient.UnifiedClient,
 	queue string,
 	store blobstore.BlobStore,
+	pool *workerclient.Pool,
+	internal *workerclient.Internal,
 ) {
 	sharedConfig = config
 	temporalDataConverter = temporalMemoEncryptionDataConverter
@@ -57,6 +64,8 @@ func SetSharedEnv(
 	unifiedClient = client
 	taskQueue = queue
 	blobStore = store
+	workerPool = pool
+	internalClient = internal
 }
 
 func GetUnifiedClient() uclient.UnifiedClient {
@@ -77,4 +86,12 @@ func CheckAndGetTemporalMemoEncryptionDataConverter() (converter.DataConverter, 
 
 func GetBlobStore() blobstore.BlobStore {
 	return blobStore
+}
+
+func GetWorkerPool() *workerclient.Pool {
+	return workerPool
+}
+
+func GetInternalClient() *workerclient.Internal {
+	return internalClient
 }

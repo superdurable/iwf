@@ -22,478 +22,494 @@ package interpreter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"slices"
 	"time"
 
-	"github.com/superdurable/iwf/service/common/blobstore"
-
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
-	"github.com/superdurable/iwf/service/common/compatibility"
+	"github.com/superdurable/iwf/service/common/blobstore"
 	"github.com/superdurable/iwf/service/common/event"
 	"github.com/superdurable/iwf/service/common/log"
-	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/superdurable/iwf/service/common/rpc"
-	"github.com/superdurable/iwf/service/common/urlautofix"
+	"github.com/superdurable/iwf/service/common/workerclient"
 	"github.com/superdurable/iwf/service/interpreter/env"
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
-// StateStart is Deprecated, will be removed in next release
-func StateStart(
-	ctx context.Context, backendType service.BackendType, input service.StateStartActivityInput, searchAttributes []iwfidl.SearchAttribute,
-) (*iwfidl.WorkflowStateStartResponse, error) {
-	return StateApiWaitUntil(ctx, backendType, input, searchAttributes)
-}
+const (
+	errTypeWorkerAPIFail  = "WorkerAPIFailure"
+	errTypeServerInternal = "ServerInternalError"
+)
 
-func StateApiWaitUntil(
-	ctx context.Context, backendType service.BackendType, input service.StateStartActivityInput, searchAttributes []iwfidl.SearchAttribute,
-) (*iwfidl.WorkflowStateStartResponse, error) {
-	stateApiWaitUntilStartTime := time.Now().UnixMilli()
+// InvokeWaitForMethod calls WorkerService.InvokeWaitForMethod.
+func InvokeWaitForMethod(
+	ctx context.Context, input *iwfpb.InvokeWaitForMethodActivityInput,
+) (*iwfpb.InvokeWaitForMethodActivityOutput, error) {
+	startMs := time.Now().UnixMilli()
+	backendType := backendTypeFromProto(input.GetBackendType())
 	provider := interfaces.GetActivityProviderByType(backendType)
 	logger := provider.GetLogger(ctx)
-	logger.Info("StateWaitUntilActivity", "input", log.ToJsonAndTruncateForLogging(input))
-	iwfWorkerBaseUrl := urlautofix.FixWorkerUrl(input.IwfWorkerUrl)
-
-	sharedCfg := env.GetSharedConfig()
-	apiClient := iwfidl.NewAPIClient(&iwfidl.Configuration{
-		DefaultHeader: sharedCfg.Interpreter.InterpreterActivityConfig.DefaultHeaders,
-		Servers: []iwfidl.ServerConfiguration{
-			{
-				URL: iwfWorkerBaseUrl,
-			},
-		},
-	})
+	logger.Info("InvokeWaitForMethodActivity", "input", log.ToJsonAndTruncateForLogging(input))
 
 	activityInfo := provider.GetActivityInfo(ctx)
-	attempt := activityInfo.Attempt
-	scheduledTs := activityInfo.ScheduledTime.Unix()
-	input.Request.Context.Attempt = &attempt
-	input.Request.Context.FirstAttemptTimestamp = &scheduledTs
-
-	var err error
-	if input.Request.StateInput != nil && input.Request.StateInput.ExtStoreId != nil {
-		_, err = loadStateInputFromExternalStorage(ctx, input.Request.StateInput)
-		if err != nil {
-			if activityInfo.IsLocalActivity {
-				reqBytes, _ := json.Marshal(input.Request)
-				if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-					logger.Warn("StateApiWaitUntil local activity return on error",
-						"workflowId", activityInfo.WorkflowExecution.ID,
-						"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-						"payloadSize", len(reqBytes))
-				}
-			}
-			return nil, err
-		}
+	req := input.GetRequest()
+	if req == nil {
+		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, "nil InvokeWaitForMethodRequest")
 	}
+	if req.Context == nil {
+		req.Context = &iwfpb.Context{}
+	}
+	req.Context.Attempt = activityInfo.Attempt
+	req.Context.FirstAttemptTimestamp = activityInfo.ScheduledTime.Unix()
 
-	// Load data attributes from external storage
-	err = blobstore.LoadDataObjectsFromExternalStorage(ctx, input.Request.DataObjects, env.GetBlobStore())
-	if err != nil {
-		if activityInfo.IsLocalActivity {
-			reqBytes, _ := json.Marshal(input.Request)
-			if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-				logger.Warn("StateApiWaitUntil local activity return on error",
-					"workflowId", activityInfo.WorkflowExecution.ID,
-					"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-					"payloadSize", len(reqBytes))
-			}
-		}
+	if err := hydrateWorkerRequestValues(ctx, req.GetStepInput(), req.GetAttributes()); err != nil {
+		logLocalActivityWarn(logger, activityInfo, "InvokeWaitForMethod", req.GetContext().GetStepExecutionId(), err)
 		return nil, err
 	}
 
-	req := apiClient.DefaultApi.ApiV1WorkflowStateStartPost(ctx)
-	resp, httpResp, err := req.WorkflowStateStartRequest(input.Request).Execute()
-	printDebugMsg(logger, err, iwfWorkerBaseUrl)
-	if checkHttpError(err, httpResp) {
-		stateStartErr := composeHttpError(
-			activityInfo.IsLocalActivity,
-			provider, err, httpResp, string(iwfidl.STATE_API_FAIL_ERROR_TYPE))
-		errType, errDetails := env.GetUnifiedClient().GetApplicationErrorTypeAndDetails(stateStartErr)
-
-		event.Handle(iwfidl.IwfEvent{
-			EventType:          iwfidl.STATE_WAIT_UNTIL_ATTEMPT_FAIL_EVENT,
-			WorkflowType:       input.Request.WorkflowType,
-			WorkflowId:         activityInfo.WorkflowExecution.ID,
-			WorkflowRunId:      activityInfo.WorkflowExecution.RunID,
-			StateId:            ptr.Any(input.Request.WorkflowStateId),
-			StateExecutionId:   ptr.Any(input.Request.Context.GetStateExecutionId()),
-			StartTimestampInMs: ptr.Any(stateApiWaitUntilStartTime),
-			EndTimestampInMs:   ptr.Any(time.Now().UnixMilli()),
-			SearchAttributes:   searchAttributes,
-			Error: &iwfidl.IwfEventError{
-				Type:    &errType,
-				Details: &errDetails,
-			},
-		})
-		if activityInfo.IsLocalActivity {
-			reqBytes, _ := json.Marshal(input.Request)
-			if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-				logger.Warn("StateApiWaitUntil local activity return on error",
-					"workflowId", activityInfo.WorkflowExecution.ID,
-					"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-					"payloadSize", len(reqBytes))
-			}
-		}
-		return nil, stateStartErr
-	}
-
-	if err := checkCommandRequestFromWaitUntilResponse(resp); err != nil {
-		stateStartErr := composeStartApiRespError(provider, err, resp)
-		errType, errDetails := env.GetUnifiedClient().GetApplicationErrorTypeAndDetails(stateStartErr)
-
-		event.Handle(iwfidl.IwfEvent{
-			EventType:          iwfidl.STATE_WAIT_UNTIL_ATTEMPT_FAIL_EVENT,
-			WorkflowType:       input.Request.WorkflowType,
-			WorkflowId:         activityInfo.WorkflowExecution.ID,
-			WorkflowRunId:      activityInfo.WorkflowExecution.RunID,
-			StateId:            ptr.Any(input.Request.WorkflowStateId),
-			StateExecutionId:   ptr.Any(input.Request.Context.GetStateExecutionId()),
-			StartTimestampInMs: ptr.Any(stateApiWaitUntilStartTime),
-			EndTimestampInMs:   ptr.Any(time.Now().UnixMilli()),
-			SearchAttributes:   searchAttributes,
-			Error: &iwfidl.IwfEventError{
-				Type:    &errType,
-				Details: &errDetails,
-			},
-		})
-		if activityInfo.IsLocalActivity {
-			reqBytes, _ := json.Marshal(input.Request)
-			if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-				logger.Warn("StateApiWaitUntil local activity return on error",
-					"workflowId", activityInfo.WorkflowExecution.ID,
-					"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-					"payloadSize", len(reqBytes))
-			}
-		}
-		return nil, stateStartErr
-	}
-
-	// Before returning successful results, check if it's local activity then compose some info for debug purpose
-	// This is because local activity doesn't record input into the history.
-	// But there are some small info that are important to record
-	if activityInfo.IsLocalActivity {
-		resp.LocalActivityInput = composeInputForDebug(input.Request.Context.GetStateExecutionId())
-	}
-
-	if env.GetSharedConfig().ExternalStorage.Enabled && env.GetBlobStore() != nil {
-		err = blobstore.WriteDataObjectsToExternalStorage(ctx, resp.UpsertDataObjects, activityInfo.WorkflowExecution.ID, env.GetSharedConfig().ExternalStorage.ThresholdInBytes, env.GetBlobStore(), env.GetSharedConfig().ExternalStorage.Enabled)
-		if err != nil {
-			if activityInfo.IsLocalActivity {
-				reqBytes, _ := json.Marshal(input.Request)
-				if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-					logger.Warn("StateApiWaitUntil local activity return on error",
-						"workflowId", activityInfo.WorkflowExecution.ID,
-						"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-						"payloadSize", len(reqBytes))
-				}
-			}
-			return nil, err
-		}
-	}
-
-	event.Handle(iwfidl.IwfEvent{
-		EventType:          iwfidl.STATE_WAIT_UNTIL_ATTEMPT_SUCC_EVENT,
-		WorkflowType:       input.Request.WorkflowType,
-		WorkflowId:         activityInfo.WorkflowExecution.ID,
-		WorkflowRunId:      activityInfo.WorkflowExecution.RunID,
-		StateId:            ptr.Any(input.Request.WorkflowStateId),
-		StateExecutionId:   ptr.Any(input.Request.Context.GetStateExecutionId()),
-		StartTimestampInMs: ptr.Any(stateApiWaitUntilStartTime),
-		EndTimestampInMs:   ptr.Any(time.Now().UnixMilli()),
-		SearchAttributes:   searchAttributes,
-	})
-	if activityInfo.IsLocalActivity {
-		respBytes, _ := json.Marshal(resp)
-		if threshold := sharedCfg.Interpreter.LogLocalActivityThresholdBytes; threshold > 0 && len(respBytes) >= threshold {
-			logger.Warn("StateApiWaitUntil local activity return on success",
-				"workflowId", activityInfo.WorkflowExecution.ID,
-				"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-				"payloadSize", len(respBytes))
-		}
-	}
-	return resp, nil
-}
-
-// StateDecide is deprecated. Will be removed in next release
-func StateDecide(
-	ctx context.Context,
-	backendType service.BackendType,
-	input service.StateDecideActivityInput,
-) (*iwfidl.WorkflowStateDecideResponse, error) {
-	return StateApiExecute(ctx, backendType, input)
-}
-
-func StateApiExecute(
-	ctx context.Context,
-	backendType service.BackendType,
-	input service.StateDecideActivityInput,
-) (*iwfidl.WorkflowStateDecideResponse, error) {
-	stateApiExecuteStartTime := time.Now().UnixMilli()
-	provider := interfaces.GetActivityProviderByType(backendType)
-	logger := provider.GetLogger(ctx)
-	logger.Info("StateExecuteActivity", "input", log.ToJsonAndTruncateForLogging(input))
-
-	iwfWorkerBaseUrl := urlautofix.FixWorkerUrl(input.IwfWorkerUrl)
-	sharedCfg := env.GetSharedConfig()
-	apiClient := iwfidl.NewAPIClient(&iwfidl.Configuration{
-		DefaultHeader: sharedCfg.Interpreter.InterpreterActivityConfig.DefaultHeaders,
-		Servers: []iwfidl.ServerConfiguration{
-			{
-				URL: iwfWorkerBaseUrl,
-			},
-		},
-	})
-
-	activityInfo := provider.GetActivityInfo(ctx)
-	attempt := activityInfo.Attempt
-	scheduledTs := activityInfo.ScheduledTime.Unix()
-	input.Request.Context.Attempt = &attempt
-	input.Request.Context.FirstAttemptTimestamp = &scheduledTs
-
-	var wholeStateInputCopy *iwfidl.EncodedObject
-	var err error
-	if input.Request.StateInput != nil && input.Request.StateInput.ExtStoreId != nil {
-		wholeStateInputCopy, err = loadStateInputFromExternalStorage(ctx, input.Request.StateInput)
-		if err != nil {
-			if activityInfo.IsLocalActivity {
-				reqBytes, _ := json.Marshal(input.Request)
-				if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-					logger.Warn("StateApiExecute local activity return on error",
-						"workflowId", activityInfo.WorkflowExecution.ID,
-						"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-						"payloadSize", len(reqBytes))
-				}
-			}
-			return nil, err
-		}
-	}
-
-	// Load data attributes from external storage
-	err = blobstore.LoadDataObjectsFromExternalStorage(ctx, input.Request.DataObjects, env.GetBlobStore())
+	client, callCtx, release, err := env.GetWorkerPool().Acquire(ctx, input.GetWorkerTarget())
 	if err != nil {
-		if activityInfo.IsLocalActivity {
-			reqBytes, _ := json.Marshal(input.Request)
-			if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-				logger.Warn("StateApiExecute local activity return on error",
-					"workflowId", activityInfo.WorkflowExecution.ID,
-					"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-					"payloadSize", len(reqBytes))
-			}
-		}
+		return nil, composeWorkerDialError(provider, activityInfo.IsLocalActivity, err)
+	}
+	defer release()
+
+	resp, err := client.InvokeWaitForMethod(callCtx, req)
+	printDebugMsg(logger, err, input.GetWorkerTarget())
+	if err != nil {
+		appErr := composeGRPCError(activityInfo.IsLocalActivity, provider, err, errTypeWorkerAPIFail)
+		emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_FAIL", startMs, appErr)
+		logLocalActivityWarn(logger, activityInfo, "InvokeWaitForMethod", req.GetContext().GetStepExecutionId(), appErr)
+		return nil, appErr
+	}
+	if err := validateWaitingCondition(resp.GetWaitingCondition()); err != nil {
+		appErr := provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
+		emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_FAIL", startMs, appErr)
+		return nil, appErr
+	}
+	if err := validateWorkerWaitForResponse(resp); err != nil {
+		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
+	}
+
+	if activityInfo.IsLocalActivity {
+		resp.LocalActivityInput = composeInputForDebug(req.GetContext().GetStepExecutionId())
+	}
+	if err := offloadWorkerAttributeWrites(ctx, resp.GetUpsertAttributes(), activityInfo.WorkflowExecution.ID); err != nil {
 		return nil, err
 	}
 
-	// workflowImpl is only passing StateWaitUntilFailed, not StateStartApiSucceeded, to save the history from storing duplicate data
-	// So we need to construct the other for backward compatibility(to old SDK that is still using StateStartApiSucceeded)
-	if input.Request.CommandResults != nil {
-		if input.Request.CommandResults.StateWaitUntilFailed == nil {
-			input.Request.CommandResults.StateStartApiSucceeded = iwfidl.PtrBool(true)
-			input.Request.CommandResults.StateWaitUntilFailed = iwfidl.PtrBool(false)
-		} else {
-			input.Request.CommandResults.StateStartApiSucceeded = iwfidl.PtrBool(!*input.Request.CommandResults.StateWaitUntilFailed)
-		}
+	emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_SUCC", startMs, nil)
+	return &iwfpb.InvokeWaitForMethodActivityOutput{Response: resp}, nil
+}
+
+// InvokeExecuteMethod calls WorkerService.InvokeExecuteMethod.
+func InvokeExecuteMethod(
+	ctx context.Context, input *iwfpb.InvokeExecuteMethodActivityInput,
+) (*iwfpb.InvokeExecuteMethodActivityOutput, error) {
+	startMs := time.Now().UnixMilli()
+	backendType := backendTypeFromProto(input.GetBackendType())
+	provider := interfaces.GetActivityProviderByType(backendType)
+	logger := provider.GetLogger(ctx)
+	logger.Info("InvokeExecuteMethodActivity", "input", log.ToJsonAndTruncateForLogging(input))
+
+	activityInfo := provider.GetActivityInfo(ctx)
+	req := input.GetRequest()
+	if req == nil {
+		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, "nil InvokeExecuteMethodRequest")
+	}
+	if req.Context == nil {
+		req.Context = &iwfpb.Context{}
+	}
+	req.Context.Attempt = activityInfo.Attempt
+	req.Context.FirstAttemptTimestamp = activityInfo.ScheduledTime.Unix()
+
+	stepInputCopy := cloneValue(req.GetStepInput())
+	if err := hydrateWorkerRequestValues(ctx, req.GetStepInput(), req.GetAttributes()); err != nil {
+		logLocalActivityWarn(logger, activityInfo, "InvokeExecuteMethod", req.GetContext().GetStepExecutionId(), err)
+		return nil, err
+	}
+	if err := blobstore.HydrateKVs(ctx, req.GetStepExeLocals(), env.GetBlobStore()); err != nil {
+		return nil, err
 	}
 
-	req := apiClient.DefaultApi.ApiV1WorkflowStateDecidePost(ctx)
-	resp, httpResp, err := req.WorkflowStateDecideRequest(input.Request).Execute()
-	printDebugMsg(logger, err, iwfWorkerBaseUrl)
-	if checkHttpError(err, httpResp) {
-		stateApiExecuteErr := composeHttpError(
-			activityInfo.IsLocalActivity,
-			provider, err, httpResp, string(iwfidl.STATE_API_FAIL_ERROR_TYPE))
+	client, callCtx, release, err := env.GetWorkerPool().Acquire(ctx, input.GetWorkerTarget())
+	if err != nil {
+		return nil, composeWorkerDialError(provider, activityInfo.IsLocalActivity, err)
+	}
+	defer release()
 
-		errType, errDetails := env.GetUnifiedClient().GetApplicationErrorTypeAndDetails(stateApiExecuteErr)
-
-		event.Handle(iwfidl.IwfEvent{
-			EventType:          iwfidl.STATE_EXECUTE_ATTEMPT_FAIL_EVENT,
-			WorkflowType:       input.Request.WorkflowType,
-			WorkflowId:         activityInfo.WorkflowExecution.ID,
-			WorkflowRunId:      activityInfo.WorkflowExecution.RunID,
-			StateId:            ptr.Any(input.Request.WorkflowStateId),
-			StateExecutionId:   input.Request.Context.StateExecutionId,
-			StartTimestampInMs: ptr.Any(stateApiExecuteStartTime),
-			EndTimestampInMs:   ptr.Any(time.Now().UnixMilli()),
-			SearchAttributes:   input.Request.SearchAttributes,
-			Error: &iwfidl.IwfEventError{
-				Type:    &errType,
-				Details: &errDetails,
-			},
-		})
-		if activityInfo.IsLocalActivity {
-			reqBytes, _ := json.Marshal(input.Request)
-			if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-				logger.Warn("StateApiExecute local activity return on error",
-					"workflowId", activityInfo.WorkflowExecution.ID,
-					"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-					"payloadSize", len(reqBytes))
-			}
-		}
-		return nil, stateApiExecuteErr
+	resp, err := client.InvokeExecuteMethod(callCtx, req)
+	printDebugMsg(logger, err, input.GetWorkerTarget())
+	if err != nil {
+		appErr := composeGRPCError(activityInfo.IsLocalActivity, provider, err, errTypeWorkerAPIFail)
+		emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_FAIL", startMs, appErr)
+		logLocalActivityWarn(logger, activityInfo, "InvokeExecuteMethod", req.GetContext().GetStepExecutionId(), appErr)
+		return nil, appErr
+	}
+	if err := validateStepDecision(resp.GetStepDecision()); err != nil {
+		appErr := provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
+		emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_FAIL", startMs, appErr)
+		return nil, appErr
+	}
+	if err := validateWorkerExecuteResponse(resp); err != nil {
+		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
 	}
 
-	if err = checkStateDecisionFromResponse(resp); err != nil {
-		stateApiExecuteErr := composeExecuteApiRespError(provider, err, resp)
-		errType, errDetails := env.GetUnifiedClient().GetApplicationErrorTypeAndDetails(stateApiExecuteErr)
-
-		event.Handle(iwfidl.IwfEvent{
-			EventType:          iwfidl.STATE_EXECUTE_ATTEMPT_FAIL_EVENT,
-			WorkflowType:       input.Request.WorkflowType,
-			WorkflowId:         activityInfo.WorkflowExecution.ID,
-			WorkflowRunId:      activityInfo.WorkflowExecution.RunID,
-			StateId:            ptr.Any(input.Request.WorkflowStateId),
-			StateExecutionId:   input.Request.Context.StateExecutionId,
-			StartTimestampInMs: ptr.Any(stateApiExecuteStartTime),
-			EndTimestampInMs:   ptr.Any(time.Now().UnixMilli()),
-			SearchAttributes:   input.Request.SearchAttributes,
-			Error: &iwfidl.IwfEventError{
-				Type:    &errType,
-				Details: &errDetails,
-			},
-		})
-		if activityInfo.IsLocalActivity {
-			reqBytes, _ := json.Marshal(input.Request)
-			if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-				logger.Warn("StateApiExecute local activity return on error",
-					"workflowId", activityInfo.WorkflowExecution.ID,
-					"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-					"payloadSize", len(reqBytes))
-			}
-		}
-		return nil, stateApiExecuteErr
-	}
-
-	// Before returning successful results, check if it's local activity then compose some info for debug purpose
-	// This is because local activity doesn't record input into the history.
-	// But there are some small info that are important to record
 	if activityInfo.IsLocalActivity {
-		resp.LocalActivityInput = composeInputForDebug(input.Request.Context.GetStateExecutionId())
+		resp.LocalActivityInput = composeInputForDebug(req.GetContext().GetStepExecutionId())
+	}
+	if err := offloadNextStepInputs(ctx, resp.GetStepDecision(), stepInputCopy, activityInfo.WorkflowExecution.ID); err != nil {
+		return nil, err
+	}
+	if err := offloadWorkerAttributeWrites(ctx, resp.GetUpsertAttributes(), activityInfo.WorkflowExecution.ID); err != nil {
+		return nil, err
 	}
 
-	// Externalize only when enabled and blob store is available (nil when e.g. STAGING_LEVEL was empty at worker start).
-	if env.GetSharedConfig().ExternalStorage.Enabled && env.GetBlobStore() != nil {
-		resp.StateDecision.NextStates, err = writeNextStateInputsToExternalStorage(ctx, resp.StateDecision.NextStates, wholeStateInputCopy, activityInfo.WorkflowExecution.ID)
-		if err != nil {
-			if activityInfo.IsLocalActivity {
-				reqBytes, _ := json.Marshal(input.Request)
-				if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-					logger.Warn("StateApiExecute local activity return on error",
-						"workflowId", activityInfo.WorkflowExecution.ID,
-						"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-						"payloadSize", len(reqBytes))
-				}
-			}
-			return nil, err
-		}
-		err = blobstore.WriteDataObjectsToExternalStorage(ctx, resp.UpsertDataObjects, activityInfo.WorkflowExecution.ID, env.GetSharedConfig().ExternalStorage.ThresholdInBytes, env.GetBlobStore(), env.GetSharedConfig().ExternalStorage.Enabled)
-		if err != nil {
-			if activityInfo.IsLocalActivity {
-				reqBytes, _ := json.Marshal(input.Request)
-				if sharedCfg.Interpreter.LogLocalActivityThresholdBytes > 0 {
-					logger.Warn("StateApiExecute local activity return on error",
-						"workflowId", activityInfo.WorkflowExecution.ID,
-						"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-						"payloadSize", len(reqBytes))
-				}
-			}
-			return nil, err
+	emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_SUCC", startMs, nil)
+	return &iwfpb.InvokeExecuteMethodActivityOutput{Response: resp}, nil
+}
+
+// DumpFlowForContinueAsNew pages ContinueAsNewDump via InternalService.
+func DumpFlowForContinueAsNew(
+	ctx context.Context, input *iwfpb.DumpFlowForContinueAsNewActivityInput,
+) (*iwfpb.DumpFlowForContinueAsNewActivityOutput, error) {
+	backendType := backendTypeFromProto(input.GetBackendType())
+	provider := interfaces.GetActivityProviderByType(backendType)
+	logger := provider.GetLogger(ctx)
+	logger.Info("DumpFlowForContinueAsNewActivity", "input", log.ToJsonAndTruncateForLogging(input))
+
+	internal := env.GetInternalClient()
+	if internal == nil {
+		return nil, provider.NewApplicationError(errTypeServerInternal, "internal client is nil")
+	}
+	client, callCtx, err := internal.Client(ctx)
+	if err != nil {
+		return nil, provider.NewApplicationError(errTypeServerInternal, err.Error())
+	}
+	resp, err := client.DumpFlowForContinueAsNew(callCtx, input.GetRequest())
+	if err != nil {
+		return nil, composeGRPCError(provider.GetActivityInfo(ctx).IsLocalActivity, provider, err, errTypeServerInternal)
+	}
+	return &iwfpb.DumpFlowForContinueAsNewActivityOutput{Response: resp}, nil
+}
+
+// InvokeWorkerRpcActivity wraps rpc.InvokeWorkerRpc for the activity worker.
+func InvokeWorkerRpcActivity(
+	ctx context.Context, input *iwfpb.InvokeWorkerRPCActivityInput,
+) (*iwfpb.InvokeWorkerRPCActivityOutput, error) {
+	backendType := backendTypeFromProto(input.GetBackendType())
+	provider := interfaces.GetActivityProviderByType(backendType)
+	logger := provider.GetLogger(ctx)
+	logger.Info("InvokeWorkerRpcActivity", "input", log.ToJsonAndTruncateForLogging(input))
+	activityInfo := provider.GetActivityInfo(ctx)
+	sharedCfg := env.GetSharedConfig()
+
+	resp, statusErr := rpc.InvokeWorkerRpc(
+		ctx,
+		env.GetWorkerPool(),
+		input.GetRpcPrep(),
+		input.GetRequest(),
+		sharedCfg.Api.EffectiveMaxWaitSeconds(),
+		env.GetBlobStore(),
+		sharedCfg.ExternalStorage,
+	)
+	out := &iwfpb.InvokeWorkerRPCActivityOutput{Response: resp}
+	if statusErr != nil {
+		out.Error = &iwfpb.InterpreterError{
+			GrpcCode: int32(statusErr.Code),
+			Error:    statusErr.Error,
 		}
 	}
-
-	event.Handle(iwfidl.IwfEvent{
-		EventType:          iwfidl.STATE_EXECUTE_ATTEMPT_SUCC_EVENT,
-		WorkflowType:       input.Request.WorkflowType,
-		WorkflowId:         activityInfo.WorkflowExecution.ID,
-		WorkflowRunId:      activityInfo.WorkflowExecution.RunID,
-		StateId:            ptr.Any(input.Request.WorkflowStateId),
-		StateExecutionId:   input.Request.Context.StateExecutionId,
-		StartTimestampInMs: ptr.Any(stateApiExecuteStartTime),
-		EndTimestampInMs:   ptr.Any(time.Now().UnixMilli()),
-		SearchAttributes:   input.Request.SearchAttributes,
-	})
 	if activityInfo.IsLocalActivity {
-		respBytes, _ := json.Marshal(resp)
-		if threshold := sharedCfg.Interpreter.LogLocalActivityThresholdBytes; threshold > 0 && len(respBytes) >= threshold {
-			logger.Warn("StateApiExecute local activity return on success",
+		payload := log.ToJsonAndTruncateForLogging(out)
+		if threshold := sharedCfg.Interpreter.LogLocalActivityThresholdBytes; threshold > 0 && len(payload) >= threshold {
+			logger.Warn("InvokeWorkerRpc local activity return",
 				"workflowId", activityInfo.WorkflowExecution.ID,
-				"stateExecutionId", input.Request.Context.GetStateExecutionId(),
-				"payloadSize", len(respBytes))
+				"payloadSize", len(payload))
 		}
 	}
-	return resp, nil
+	return out, nil
 }
 
-func composeInputForDebug(stateExeId string) *string {
-	// NOTE: only use the stateExecutionId for now, but we can add more later if needed
-	return iwfidl.PtrString(fmt.Sprintf("stateExeId: %s", stateExeId))
+// CleanupBlobStore deletes blob objects for flows that no longer exist in the backend.
+func CleanupBlobStore(
+	ctx context.Context, input *iwfpb.CleanupBlobStoreActivityInput,
+) (*iwfpb.CleanupBlobStoreActivityOutput, error) {
+	store := env.GetBlobStore()
+	backendType := backendTypeFromProto(input.GetBackendType())
+	provider := interfaces.GetActivityProviderByType(backendType)
+	logger := provider.GetLogger(ctx)
+	logger.Info("CleanupBlobStore started")
+	client := env.GetUnifiedClient()
+
+	var continueToken *string
+	var totalDeleted int32
+	for {
+		listOutput, err := store.ListWorkflowPaths(ctx, blobstore.ListObjectPathsInput{
+			StoreId:           input.GetStoreId(),
+			ContinuationToken: continueToken,
+		})
+		if err != nil {
+			return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, err
+		}
+		continueToken = listOutput.ContinuationToken
+		for _, workflowPath := range listOutput.WorkflowPaths {
+			_, valid := blobstore.ExtractYyyymmddToUnixSeconds(workflowPath)
+			if !valid {
+				logger.Info("CleanupBlobStore skipped workflow path", "path", workflowPath)
+				continue
+			}
+			flowId := blobstore.MustExtractWorkflowId(workflowPath)
+			_, err := client.DescribeWorkflowExecution(ctx, flowId, "", nil)
+			if client.IsNotFoundError(err) {
+				if err := store.DeleteWorkflowObjects(ctx, input.GetStoreId(), workflowPath); err != nil {
+					logger.Error("CleanupBlobStore failed to delete workflow objects", "workflowPath", workflowPath, "error", err)
+					return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, err
+				}
+				totalDeleted++
+				logger.Info("CleanupBlobStore deleted workflow objects", "workflowPath", workflowPath)
+			} else if err != nil {
+				logger.Error("CleanupBlobStore failed to describe workflow", "workflowPath", workflowPath, "error", err)
+				return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, err
+			}
+			provider.RecordHeartbeat(ctx)
+		}
+		if continueToken == nil {
+			break
+		}
+	}
+	logger.Info("CleanupBlobStore completed", "totalDeleted", totalDeleted)
+	return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, nil
 }
 
-func checkStateDecisionFromResponse(resp *iwfidl.WorkflowStateDecideResponse) error {
-	if resp == nil || resp.StateDecision == nil || len(resp.StateDecision.NextStates) == 0 {
-		return fmt.Errorf("empty state decision is no longer supported. If it's from old SDKs then upgrade the SDK to newer versions")
+func backendTypeFromProto(t iwfpb.BackendType) service.BackendType {
+	switch t {
+	case iwfpb.BackendType_BACKEND_TYPE_CADENCE:
+		return service.BackendTypeCadence
+	case iwfpb.BackendType_BACKEND_TYPE_TEMPORAL:
+		return service.BackendTypeTemporal
+	default:
+		panic(fmt.Sprintf("unspecified backend type %v", t))
+	}
+}
+
+func hydrateWorkerRequestValues(ctx context.Context, stepInput *iwfpb.Value, attrs []*iwfpb.KV) error {
+	if err := blobstore.HydrateValue(ctx, stepInput, env.GetBlobStore()); err != nil {
+		return err
+	}
+	return blobstore.HydrateKVs(ctx, attrs, env.GetBlobStore())
+}
+
+func offloadWorkerAttributeWrites(ctx context.Context, writes []*iwfpb.AttributeWrite, flowId string) error {
+	cfg := env.GetSharedConfig()
+	if !cfg.ExternalStorage.Enabled || env.GetBlobStore() == nil {
+		return nil
+	}
+	return blobstore.OffloadLargeAttributeWrites(
+		ctx, writes, flowId, cfg.ExternalStorage.ThresholdInBytes, env.GetBlobStore(), true,
+	)
+}
+
+func offloadNextStepInputs(
+	ctx context.Context, decision *iwfpb.StepDecision, previousInput *iwfpb.Value, flowId string,
+) error {
+	cfg := env.GetSharedConfig()
+	if decision == nil || !cfg.ExternalStorage.Enabled || env.GetBlobStore() == nil {
+		return nil
+	}
+	for _, step := range decision.GetNextSteps() {
+		if step == nil || step.GetStepInput() == nil {
+			continue
+		}
+		if err := maybeReuseOrOffloadStepInput(ctx, step.StepInput, previousInput, flowId); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func printDebugMsg(logger interfaces.UnifiedLogger, err error, url string) {
-	debugMode := os.Getenv(service.EnvNameDebugMode)
-	if debugMode != "" {
-		logger.Info("check error at http request", err, url)
-	}
-}
-
-func composeStartApiRespError(provider interfaces.ActivityProvider, err error, resp *iwfidl.WorkflowStateStartResponse) error {
-	respStr, _ := resp.MarshalJSON()
-	return provider.NewApplicationError(string(iwfidl.STATE_API_FAIL_ERROR_TYPE),
-		fmt.Sprintf("err msg: %v, response: %v", err, string(respStr)))
-}
-
-func composeExecuteApiRespError(provider interfaces.ActivityProvider, err error, resp *iwfidl.WorkflowStateDecideResponse) error {
-	respStr, _ := resp.MarshalJSON()
-	return provider.NewApplicationError(string(iwfidl.STATE_API_FAIL_ERROR_TYPE),
-		fmt.Sprintf("err msg: %v, response: %v", err, string(respStr)))
-}
-
-func checkHttpError(err error, httpResp *http.Response) bool {
-	if err != nil || (httpResp != nil && httpResp.StatusCode != http.StatusOK) {
-		return true
-	}
-	return false
-}
-
-func composeHttpError(
-	isLocalActivity bool, provider interfaces.ActivityProvider, err error, httpResp *http.Response, errType string,
+func maybeReuseOrOffloadStepInput(
+	ctx context.Context, next *iwfpb.Value, previous *iwfpb.Value, flowId string,
 ) error {
-	responseBody := "None"
-	var statusCode int
-	if httpResp != nil {
-		body, err := io.ReadAll(httpResp.Body)
-		if err != nil {
-			responseBody = "cannot read body from http response"
-		} else {
-			responseBody = string(body)
+	cfg := env.GetSharedConfig()
+	threshold := cfg.ExternalStorage.ThresholdInBytes
+	if next == nil {
+		return nil
+	}
+	// Reuse prior blob id when the concrete payload still matches the hydrated previous value.
+	if previous != nil {
+		switch prev := previous.GetKind().(type) {
+		case *iwfpb.Value_InternalBlobIdForStringValue:
+			if s, ok := next.GetKind().(*iwfpb.Value_StringValue); ok && len(s.StringValue) > threshold {
+				// Cannot reuse without comparing to hydrated bytes; fall through to offload.
+				_ = prev
+			}
 		}
-		statusCode = httpResp.StatusCode
 	}
-	errMsg := err.Error()
-	var trimmedResponseBody, trimmedErrMsg string
-	if isLocalActivity {
-		trimmedErrMsg = trimText(errMsg, 5)
-		trimmedResponseBody = trimText(responseBody, 50)
-		errType = "1st-attempt-failure"
-	} else {
-		trimmedErrMsg = trimText(errMsg, 50)
-		trimmedResponseBody = trimText(responseBody, 500)
-	}
+	return blobstore.OffloadLargeValue(ctx, next, flowId, threshold, env.GetBlobStore(), true)
+}
 
-	return provider.NewApplicationError(errType,
-		fmt.Sprintf("statusCode: %v, responseBody: %v, errMsg: %v", statusCode, trimmedResponseBody, trimmedErrMsg))
+func cloneValue(v *iwfpb.Value) *iwfpb.Value {
+	if v == nil {
+		return nil
+	}
+	return proto.Clone(v).(*iwfpb.Value)
+}
+
+func validateWorkerWaitForResponse(resp *iwfpb.InvokeWaitForMethodResponse) error {
+	if resp == nil {
+		return fmt.Errorf("nil InvokeWaitForMethodResponse")
+	}
+	if err := workerclient.RejectWorkerAttributeWriteBlobIDs(resp.GetUpsertAttributes()); err != nil {
+		return err
+	}
+	if err := workerclient.RejectWorkerKVBlobIDs(resp.GetUpsertStepExeLocals()); err != nil {
+		return err
+	}
+	return workerclient.RejectWorkerKVBlobIDs(resp.GetRecordEvents())
+}
+
+func validateWorkerExecuteResponse(resp *iwfpb.InvokeExecuteMethodResponse) error {
+	if resp == nil {
+		return fmt.Errorf("nil InvokeExecuteMethodResponse")
+	}
+	if err := workerclient.RejectWorkerAttributeWriteBlobIDs(resp.GetUpsertAttributes()); err != nil {
+		return err
+	}
+	if err := workerclient.RejectWorkerKVBlobIDs(resp.GetUpsertStepExeLocals()); err != nil {
+		return err
+	}
+	if err := workerclient.RejectWorkerKVBlobIDs(resp.GetRecordEvents()); err != nil {
+		return err
+	}
+	if decision := resp.GetStepDecision(); decision != nil {
+		for _, step := range decision.GetNextSteps() {
+			if step == nil {
+				continue
+			}
+			if err := workerclient.RejectWorkerBlobIDs(step.GetStepInput()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateStepDecision(decision *iwfpb.StepDecision) error {
+	if decision == nil || len(decision.GetNextSteps()) == 0 {
+		return fmt.Errorf("empty step decision is not supported")
+	}
+	return nil
+}
+
+func validateWaitingCondition(waiting *iwfpb.WaitingCondition) error {
+	if waiting == nil {
+		return nil
+	}
+	hasConditions := len(waiting.GetTimerConditions())+len(waiting.GetChannelConditions()) > 0
+	if !hasConditions {
+		return nil
+	}
+	switch waiting.GetWaitingConditionType() {
+	case iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED:
+		// ok
+	case iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED:
+		if len(waiting.GetConditionCombinations()) == 0 {
+			return fmt.Errorf("ANY_COMBINATION_COMPLETED requires non-empty condition_combinations and condition ids")
+		}
+		for _, cmd := range waiting.GetTimerConditions() {
+			if cmd.GetConditionId() == "" {
+				return fmt.Errorf("ANY_COMBINATION_COMPLETED requires condition_id on every timer condition")
+			}
+		}
+		for _, cmd := range waiting.GetChannelConditions() {
+			if cmd.GetConditionId() == "" {
+				return fmt.Errorf("ANY_COMBINATION_COMPLETED requires condition_id on every channel condition")
+			}
+			if err := validateChannelBounds(cmd); err != nil {
+				return err
+			}
+		}
+		if !areAllConditionCombinationIdsValid(waiting) {
+			return fmt.Errorf("ANY_COMBINATION_COMPLETED condition ids must exist on timer/channel conditions")
+		}
+	default:
+		return fmt.Errorf("unsupported waiting_condition_type %v", waiting.GetWaitingConditionType())
+	}
+	for _, cmd := range waiting.GetChannelConditions() {
+		if err := validateChannelBounds(cmd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateChannelBounds(cmd *iwfpb.ChannelCondition) error {
+	if cmd == nil {
+		return nil
+	}
+	if cmd.AtLeast != nil && cmd.GetAtLeast() < 0 {
+		return fmt.Errorf("channel condition at_least must be >= 0")
+	}
+	if cmd.AtMost != nil && cmd.AtLeast != nil && cmd.GetAtMost() > 0 && cmd.GetAtMost() < cmd.GetAtLeast() {
+		return fmt.Errorf("channel condition at_most must be >= at_least when set")
+	}
+	return nil
+}
+
+func areAllConditionCombinationIdsValid(waiting *iwfpb.WaitingCondition) bool {
+	ids := listConditionIds(waiting)
+	for _, combo := range waiting.GetConditionCombinations() {
+		for _, id := range combo.GetConditionIds() {
+			if !slices.Contains(ids, id) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func listConditionIds(waiting *iwfpb.WaitingCondition) []string {
+	var ids []string
+	for _, cmd := range waiting.GetTimerConditions() {
+		ids = append(ids, cmd.GetConditionId())
+	}
+	for _, cmd := range waiting.GetChannelConditions() {
+		ids = append(ids, cmd.GetConditionId())
+	}
+	return ids
+}
+
+func composeInputForDebug(stepExeId string) string {
+	return fmt.Sprintf("stepExeId: %s", stepExeId)
+}
+
+func printDebugMsg(logger interfaces.UnifiedLogger, err error, target string) {
+	if os.Getenv(service.EnvNameDebugMode) != "" {
+		logger.Info("check error at worker gRPC request", err, target)
+	}
+}
+
+func composeWorkerDialError(provider interfaces.ActivityProvider, isLocal bool, err error) error {
+	return composeGRPCError(isLocal, provider, err, errTypeWorkerAPIFail)
+}
+
+func composeGRPCError(isLocalActivity bool, provider interfaces.ActivityProvider, err error, errType string) error {
+	msg := err.Error()
+	if st, ok := status.FromError(err); ok {
+		msg = fmt.Sprintf("code: %v, msg: %v", st.Code(), st.Message())
+	}
+	if isLocalActivity {
+		errType = "1st-attempt-failure"
+		msg = trimText(msg, 50)
+	} else {
+		msg = trimText(msg, 500)
+	}
+	return provider.NewApplicationError(errType, msg)
 }
 
 func trimText(msg string, maxLength int) string {
@@ -503,268 +519,46 @@ func trimText(msg string, maxLength int) string {
 	return msg
 }
 
-func checkCommandRequestFromWaitUntilResponse(resp *iwfidl.WorkflowStateStartResponse) error {
-	if resp == nil || resp.CommandRequest == nil {
-		return nil
+func logLocalActivityWarn(
+	logger interfaces.UnifiedLogger,
+	activityInfo interfaces.ActivityInfo, name, stepExeId string, err error,
+) {
+	_ = err
+	cfg := env.GetSharedConfig()
+	if !activityInfo.IsLocalActivity || cfg.Interpreter.LogLocalActivityThresholdBytes <= 0 {
+		return
 	}
-	commandReq := resp.CommandRequest
-	if len(commandReq.GetTimerCommands())+len(commandReq.GetSignalCommands())+len(commandReq.GetInterStateChannelCommands()) > 0 {
-		dtt := compatibility.GetDeciderTriggerType(*commandReq)
-		if dtt != iwfidl.ANY_COMMAND_COMPLETED && dtt != iwfidl.ALL_COMMAND_COMPLETED && dtt != iwfidl.ANY_COMMAND_COMBINATION_COMPLETED {
-			return fmt.Errorf("unsupported decider trigger type %s", dtt)
-		}
-		if dtt == iwfidl.ANY_COMMAND_COMBINATION_COMPLETED {
-			// every command must have an id for this type
-			err := fmt.Errorf("ANY_COMMAND_COMBINATION_COMPLETED can only be used when every command has an commandId, and the combination list cannot be empty")
-			if len(commandReq.GetCommandCombinations()) == 0 {
-				return err
-			}
-			for _, cmd := range commandReq.GetTimerCommands() {
-				if cmd.GetCommandId() == "" {
-					return err
-				}
-			}
-			for _, cmd := range commandReq.GetSignalCommands() {
-				if cmd.GetCommandId() == "" {
-					return err
-				}
-			}
-			for _, cmd := range commandReq.GetInterStateChannelCommands() {
-				if cmd.GetCommandId() == "" {
-					return err
-				}
-			}
-			// Check if each command in the combinations has a matching command in one of the lists
-			if !areAllCommandCombinationsIdsValid(commandReq) {
-				return fmt.Errorf("ANY_COMMAND_COMBINATION_COMPLETED can only be used when every command has an commandId that is found in TimerCommands, SignalCommands or InternalChannelCommand")
-			}
-		}
-	}
-	// NOTE: we don't require decider trigger type when there is no commands
-	return nil
+	logger.Warn(name+" local activity return on error",
+		"workflowId", activityInfo.WorkflowExecution.ID,
+		"stepExecutionId", stepExeId)
 }
 
-func areAllCommandCombinationsIdsValid(commandReq *iwfidl.CommandRequest) bool {
-	timerSignalInternalChannelCmdIds := listTimerSignalInternalChannelCommandIds(commandReq)
-	for _, commandCombo := range commandReq.GetCommandCombinations() {
-		for _, cmdId := range commandCombo.GetCommandIds() {
-			if !slices.Contains(timerSignalInternalChannelCmdIds, cmdId) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func listTimerSignalInternalChannelCommandIds(commandReq *iwfidl.CommandRequest) []string {
-	var ids []string
-	for _, timerCmd := range commandReq.GetTimerCommands() {
-		ids = append(ids, timerCmd.GetCommandId())
-	}
-	for _, signalCmd := range commandReq.GetSignalCommands() {
-		ids = append(ids, signalCmd.GetCommandId())
-	}
-	for _, internalChannelCmd := range commandReq.GetInterStateChannelCommands() {
-		ids = append(ids, internalChannelCmd.GetCommandId())
-	}
-	return ids
-}
-
-func DumpWorkflowInternal(
-	ctx context.Context, backendType service.BackendType, req iwfidl.WorkflowDumpRequest,
-) (*iwfidl.WorkflowDumpResponse, error) {
-	provider := interfaces.GetActivityProviderByType(backendType)
-	logger := provider.GetLogger(ctx)
-	logger.Info("DumpWorkflowInternalActivity", "input", log.ToJsonAndTruncateForLogging(req))
-
-	sharedCfg := env.GetSharedConfig()
-	apiAddress := sharedCfg.GetInternalServiceTargetWithDefault()
-
-	apiClient := iwfidl.NewAPIClient(&iwfidl.Configuration{
-		DefaultHeader: sharedCfg.Interpreter.InterpreterActivityConfig.DefaultHeaders,
-		Servers: []iwfidl.ServerConfiguration{
-			{
-				URL: apiAddress,
-			},
-		},
+func emitStepEvent(
+	req *iwfpb.InvokeWaitForMethodRequest, activityInfo interfaces.ActivityInfo, eventType string, startMs int64, appErr error,
+) {
+	_ = appErr
+	event.Handle(event.Event{
+		FlowId:          activityInfo.WorkflowExecution.ID,
+		RunId:           activityInfo.WorkflowExecution.RunID,
+		FlowType:        req.GetFlowType(),
+		StepType:        req.GetStepType(),
+		StepExecutionId: req.GetContext().GetStepExecutionId(),
+		EventType:       eventType,
 	})
-
-	request := apiClient.DefaultApi.ApiV1WorkflowInternalDumpPost(ctx)
-	resp, httpResp, err := request.WorkflowDumpRequest(req).Execute()
-	if checkHttpError(err, httpResp) {
-		return nil, composeHttpError(provider.GetActivityInfo(ctx).IsLocalActivity,
-			provider, err, httpResp, string(iwfidl.SERVER_INTERNAL_ERROR_TYPE))
-	}
-	return resp, nil
+	_ = startMs
 }
 
-func InvokeWorkerRpc(
-	ctx context.Context, backendType service.BackendType, rpcPrep *service.PrepareRpcQueryResponse,
-	req iwfidl.WorkflowRpcRequest,
-) (*interfaces.InvokeRpcActivityOutput, error) {
-	provider := interfaces.GetActivityProviderByType(backendType)
-	logger := provider.GetLogger(ctx)
-	logger.Info("InvokeWorkerRpcActivity", "input", log.ToJsonAndTruncateForLogging(req))
-	activityInfo := provider.GetActivityInfo(ctx)
-	sharedCfg := env.GetSharedConfig()
-
-	apiMaxSeconds := sharedCfg.Api.MaxWaitSeconds
-
-	resp, statusErr := rpc.InvokeWorkerRpc(ctx, rpcPrep, req, apiMaxSeconds, env.GetBlobStore(), sharedCfg.ExternalStorage)
-	output := &interfaces.InvokeRpcActivityOutput{
-		RpcOutput:   resp,
-		StatusError: statusErr,
-	}
-	if activityInfo.IsLocalActivity {
-		outputBytes, _ := json.Marshal(output)
-		if threshold := sharedCfg.Interpreter.LogLocalActivityThresholdBytes; threshold > 0 && len(outputBytes) >= threshold {
-			logger.Warn("InvokeWorkerRpc local activity return",
-				"workflowId", activityInfo.WorkflowExecution.ID,
-				"payloadSize", len(outputBytes))
-		}
-	}
-	return output, nil
-}
-
-func writeNextStateInputsToExternalStorage(ctx context.Context, nextStates []iwfidl.StateMovement, currentInputCopy *iwfidl.EncodedObject, workflowId string) ([]iwfidl.StateMovement, error) {
-	for i := range nextStates {
-		if err := processNextStateInputForExternalStorage(ctx, nextStates[i].StateInput, currentInputCopy, workflowId); err != nil {
-			return nil, err
-		}
-	}
-	return nextStates, nil
-}
-
-func processNextStateInputForExternalStorage(ctx context.Context, nextStateInput *iwfidl.EncodedObject, currentInputCopy *iwfidl.EncodedObject, workflowId string) error {
-	blobStore := env.GetBlobStore()
-
-	// Check if external storage is needed
-	if nextStateInput == nil || nextStateInput.Data == nil || len(*nextStateInput.Data) <= env.GetSharedConfig().ExternalStorage.ThresholdInBytes {
-		return nil
-	}
-
-	// Try to reuse existing external storage if data is identical
-	if currentInputCopy != nil && currentInputCopy.Data != nil && nextStateInput.Data != nil &&
-		*currentInputCopy.Data == *nextStateInput.Data &&
-		currentInputCopy.ExtStoreId != nil && currentInputCopy.ExtPath != nil {
-		// Reuse existing external storage
-		nextStateInput.ExtStoreId = currentInputCopy.ExtStoreId
-		nextStateInput.ExtPath = currentInputCopy.ExtPath
-		nextStateInput.Data = nil
-		return nil
-	}
-
-	// Save to external storage
-	storeId, path, err := blobStore.WriteObject(ctx, workflowId, *nextStateInput.Data)
-	if err != nil {
-		return err
-	}
-	nextStateInput.ExtStoreId = &storeId
-	nextStateInput.ExtPath = &path
-	nextStateInput.Data = nil
-	return nil
-}
-
-// loadStateInputFromExternalStorage is specifically for loading state input from external storage.
-// It loads the data and replace the field of input,
-// and it also preserves the external storage identifiers for potential reuse optimization by returning a "whole" encodedObject
-func loadStateInputFromExternalStorage(ctx context.Context, input *iwfidl.EncodedObject) (*iwfidl.EncodedObject, error) {
-	if input == nil || input.ExtStoreId == nil || input.ExtPath == nil {
-		return input, nil
-	}
-
-	extStoreId := *input.ExtStoreId
-	extPath := *input.ExtPath
-
-	err := doLoadFromExternalStorage(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-
-	// Load the data but preserve external storage identifiers for potential reuse
-	// This allows us to optimize by reusing the same external storage location
-	// if the next state input has identical data
-	newEncodedObject := iwfidl.EncodedObject{
-		Data:       input.Data,
-		Encoding:   input.Encoding,
-		ExtStoreId: &extStoreId,
-		ExtPath:    &extPath,
-	}
-	return &newEncodedObject, nil
-}
-
-// doLoadFromExternalStorage loads data from external storage and replace the fields of the input
-func doLoadFromExternalStorage(ctx context.Context, input *iwfidl.EncodedObject) error {
-	blobStore := env.GetBlobStore()
-
-	data, err := blobStore.ReadObject(ctx, input.GetExtStoreId(), input.GetExtPath())
-	if err != nil {
-		return err
-	}
-
-	input.Data = &data
-	input.ExtPath = nil
-	input.ExtStoreId = nil
-	return nil
-}
-
-func CleanupBlobStore(
-	ctx context.Context, backendType service.BackendType, storeId string,
-) (int, error) {
-	store := env.GetBlobStore()
-	provider := interfaces.GetActivityProviderByType(backendType)
-	logger := provider.GetLogger(ctx)
-	logger.Info("CleanupBlobStore started")
-
-	client := env.GetUnifiedClient()
-
-	var continueToken *string
-	var totalDeleted int
-
-	for {
-		listOutput, err := store.ListWorkflowPaths(ctx, blobstore.ListObjectPathsInput{
-			StoreId:           storeId,
-			ContinuationToken: continueToken,
-		})
-		if err != nil {
-			return totalDeleted, err
-		}
-		continueToken = listOutput.ContinuationToken
-		for _, workflowPath := range listOutput.WorkflowPaths {
-			_, valid := blobstore.ExtractYyyymmddToUnixSeconds(workflowPath)
-			if !valid {
-				logger.Info("CleanupBlobStore skipped workflow path", "path", workflowPath)
-				continue
-			}
-
-			// Check if workflow still exists in Temporal
-			// We must always check because workflows can run indefinitely,
-			// and the retention period only applies after workflow closure
-			workflowId := blobstore.MustExtractWorkflowId(workflowPath)
-			_, err := client.DescribeWorkflowExecution(ctx, workflowId, "", nil)
-			if client.IsNotFoundError(err) {
-				// Workflow has been removed from Temporal, safe to delete S3 objects
-				err = store.DeleteWorkflowObjects(ctx, storeId, workflowPath)
-				if err != nil {
-					logger.Error("CleanupBlobStore failed to delete workflow objects", "workflowPath", workflowPath, "error", err)
-					return totalDeleted, err
-				}
-				totalDeleted++
-				logger.Info("CleanupBlobStore deleted workflow objects", "workflowPath", workflowPath)
-			} else if err != nil {
-				logger.Error("CleanupBlobStore failed to describe workflow", "workflowPath", workflowPath, "error", err)
-				return totalDeleted, err
-			}
-			// If no error, workflow still exists (open or within retention), don't delete
-
-			// this is a long running activity
-			// using record heartbeat so that it won't timeout at startToClose timeout
-			provider.RecordHeartbeat(ctx)
-		}
-		if continueToken == nil {
-			break
-		}
-	}
-	logger.Info("CleanupBlobStore completed", "totalDeleted", totalDeleted)
-	return totalDeleted, nil
+func emitExecuteEvent(
+	req *iwfpb.InvokeExecuteMethodRequest, activityInfo interfaces.ActivityInfo, eventType string, startMs int64, appErr error,
+) {
+	_ = appErr
+	_ = startMs
+	event.Handle(event.Event{
+		FlowId:          activityInfo.WorkflowExecution.ID,
+		RunId:           activityInfo.WorkflowExecution.RunID,
+		FlowType:        req.GetFlowType(),
+		StepType:        req.GetStepType(),
+		StepExecutionId: req.GetContext().GetStepExecutionId(),
+		EventType:       eventType,
+	})
 }

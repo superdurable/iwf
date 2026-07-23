@@ -23,11 +23,12 @@ package temporal
 import (
 	"context"
 	"fmt"
-	"github.com/superdurable/iwf/service/common/blobstore"
 	"log"
 
 	"github.com/superdurable/iwf/config"
 	uclient "github.com/superdurable/iwf/service/client"
+	"github.com/superdurable/iwf/service/common/blobstore"
+	"github.com/superdurable/iwf/service/common/workerclient"
 	"github.com/superdurable/iwf/service/interpreter"
 	"github.com/superdurable/iwf/service/interpreter/env"
 	"go.temporal.io/sdk/client"
@@ -39,6 +40,8 @@ type InterpreterWorker struct {
 	temporalClient client.Client
 	worker         worker.Worker
 	taskQueue      string
+	workerPool     *workerclient.Pool
+	internalClient *workerclient.Internal
 }
 
 func NewInterpreterWorker(
@@ -46,17 +49,28 @@ func NewInterpreterWorker(
 	memoEncryptionConverter converter.DataConverter, unifiedClient uclient.UnifiedClient,
 	store blobstore.BlobStore,
 ) *InterpreterWorker {
-	env.SetSharedEnv(config, memoEncryption, memoEncryptionConverter, unifiedClient, taskQueue, store)
+	pool, internal := interpreter.NewWorkerClients(config)
+	env.SetSharedEnv(config, memoEncryption, memoEncryptionConverter, unifiedClient, taskQueue, store, pool, internal)
 
 	return &InterpreterWorker{
 		temporalClient: temporalClient,
 		taskQueue:      taskQueue,
+		workerPool:     pool,
+		internalClient: internal,
 	}
 }
 
 func (iw *InterpreterWorker) Close() {
+	if iw.worker != nil {
+		iw.worker.Stop()
+	}
+	if iw.workerPool != nil {
+		iw.workerPool.Close()
+	}
+	if iw.internalClient != nil {
+		iw.internalClient.Close()
+	}
 	iw.temporalClient.Close()
-	iw.worker.Stop()
 }
 
 func (iw *InterpreterWorker) StartWithStickyCacheDisabledForTest() {
@@ -75,19 +89,13 @@ func (iw *InterpreterWorker) start(disableStickyCache bool) {
 		options = *cfg.Interpreter.Temporal.WorkerOptions
 	}
 
-	// override default
 	if options.MaxConcurrentActivityTaskPollers == 0 {
 		options.MaxConcurrentActivityTaskPollers = 10
 	}
-
-	// override default
 	if options.MaxConcurrentWorkflowTaskPollers == 0 {
-		// TODO: this cannot be too small otherwise the persistence_test for continueAsNew will fail, probably a bug in Temporal goSDK.
-		// It seems work as "parallelism" of something... need to report a bug ticket...
 		options.MaxConcurrentWorkflowTaskPollers = 10
 	}
 
-	// When DisableStickyCache is true it can harm performance; should not be used in production environment
 	if disableStickyCache {
 		worker.SetStickyWorkflowCacheSize(0)
 		fmt.Println("Temporal worker: Sticky cache disabled")
@@ -97,14 +105,11 @@ func (iw *InterpreterWorker) start(disableStickyCache bool) {
 	worker.EnableVerboseLogging(cfg.Interpreter.VerboseDebug)
 
 	iw.worker.RegisterWorkflow(Interpreter)
-	iw.worker.RegisterWorkflow(WaitforStateCompletionWorkflow)
 	iw.worker.RegisterWorkflow(BlobStoreCleanup)
-	iw.worker.RegisterActivity(interpreter.StateStart)  // TODO: remove in next release
-	iw.worker.RegisterActivity(interpreter.StateDecide) // TODO: remove in next release
-	iw.worker.RegisterActivity(interpreter.StateApiWaitUntil)
-	iw.worker.RegisterActivity(interpreter.StateApiExecute)
-	iw.worker.RegisterActivity(interpreter.DumpWorkflowInternal)
-	iw.worker.RegisterActivity(interpreter.InvokeWorkerRpc)
+	iw.worker.RegisterActivity(interpreter.InvokeWaitForMethod)
+	iw.worker.RegisterActivity(interpreter.InvokeExecuteMethod)
+	iw.worker.RegisterActivity(interpreter.DumpFlowForContinueAsNew)
+	iw.worker.RegisterActivity(interpreter.InvokeWorkerRpcActivity)
 	iw.worker.RegisterActivity(interpreter.CleanupBlobStore)
 
 	err := iw.worker.Start()

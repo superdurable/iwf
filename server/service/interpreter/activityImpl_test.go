@@ -21,212 +21,160 @@
 package interpreter
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/golang/mock/gomock"
-	"github.com/superdurable/iwf/gen/iwfidl"
-	"github.com/superdurable/iwf/service/common/ptr"
-	"github.com/superdurable/iwf/service/interpreter/interfaces"
-	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/require"
+	"github.com/superdurable/iwf/gen/iwfpb"
+	"github.com/superdurable/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-func TestInvalidAnyCommandCombination(t *testing.T) {
-	validTimerCommands, validSignalCommands, internalCommands := createCommands()
-
-	resp := iwfidl.WorkflowStateStartResponse{
-		CommandRequest: &iwfidl.CommandRequest{
-			SignalCommands:            validSignalCommands,
-			TimerCommands:             validTimerCommands,
-			InterStateChannelCommands: internalCommands,
-			DeciderTriggerType:        iwfidl.ANY_COMMAND_COMBINATION_COMPLETED.Ptr(),
-			CommandCombinations: []iwfidl.CommandCombination{
-				{
-					CommandIds: []string{
-						"timer-cmd1", "signal-cmd1",
-					},
-				},
-				{
-					CommandIds: []string{
-						"timer-cmd1", "invalid",
-					},
-				},
-			},
+func TestInvalidAnyConditionCombination(t *testing.T) {
+	timers, channels := createConditions()
+	waiting := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED,
+		TimerConditions:      timers,
+		ChannelConditions:    channels,
+		ConditionCombinations: []*iwfpb.ConditionCombination{
+			{ConditionIds: []string{"timer-cmd1", "signal-cmd1"}},
+			{ConditionIds: []string{"timer-cmd1", "invalid"}},
 		},
 	}
 
-	err := checkCommandRequestFromWaitUntilResponse(&resp)
-
-	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "ANY_COMMAND_COMBINATION_COMPLETED can only be used when every command has an commandId that is found in TimerCommands, SignalCommands or InternalChannelCommand")
+	err := validateWaitingCondition(waiting)
+	require.Error(t, err)
+	require.Equal(t,
+		"ANY_COMBINATION_COMPLETED condition ids must exist on timer/channel conditions",
+		err.Error())
 }
 
-func TestValidAnyCommandCombination(t *testing.T) {
-	validTimerCommands, validSignalCommands, internalCommands := createCommands()
-
-	resp := iwfidl.WorkflowStateStartResponse{
-		CommandRequest: &iwfidl.CommandRequest{
-			SignalCommands:            validSignalCommands,
-			TimerCommands:             validTimerCommands,
-			InterStateChannelCommands: internalCommands,
-			DeciderTriggerType:        iwfidl.ANY_COMMAND_COMBINATION_COMPLETED.Ptr(),
-			CommandCombinations: []iwfidl.CommandCombination{
-				{
-					CommandIds: []string{
-						"timer-cmd1", "signal-cmd1",
-					},
-				},
-				{
-					CommandIds: []string{
-						"timer-cmd1", "internal-cmd1",
-					},
-				},
-			},
+func TestValidAnyConditionCombination(t *testing.T) {
+	timers, channels := createConditions()
+	waiting := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED,
+		TimerConditions:      timers,
+		ChannelConditions:    channels,
+		ConditionCombinations: []*iwfpb.ConditionCombination{
+			{ConditionIds: []string{"timer-cmd1", "signal-cmd1"}},
+			{ConditionIds: []string{"timer-cmd1", "internal-cmd1"}},
 		},
 	}
 
-	err := checkCommandRequestFromWaitUntilResponse(&resp)
-
-	assert.NoError(t, err)
+	require.NoError(t, validateWaitingCondition(waiting))
 }
 
-func createCommands() ([]iwfidl.TimerCommand, []iwfidl.SignalCommand, []iwfidl.InterStateChannelCommand) {
-	validTimerCommands := []iwfidl.TimerCommand{
-		{
-			CommandId:                  ptr.Any("timer-cmd1"),
-			FiringUnixTimestampSeconds: iwfidl.PtrInt64(time.Now().Unix() + 86400*365), // one year later
+func TestValidateWaitingConditionChannelBounds(t *testing.T) {
+	waiting := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
+		ChannelConditions: []*iwfpb.ChannelCondition{
+			{ConditionId: "c1", ChannelName: "ch", AtLeast: ptr.Any(int32(2)), AtMost: ptr.Any(int32(1))},
 		},
 	}
-	validSignalCommands := []iwfidl.SignalCommand{
-		{
-			CommandId:         ptr.Any("signal-cmd1"),
-			SignalChannelName: "test-signal-name1",
-		},
-	}
-	internalCommands := []iwfidl.InterStateChannelCommand{
-		{
-			CommandId:   ptr.Any("internal-cmd1"),
-			ChannelName: "test-internal-name1",
-		},
-	}
-	return validTimerCommands, validSignalCommands, internalCommands
+	require.Error(t, validateWaitingCondition(waiting))
 }
 
-func TestComposeHttpError_LocalActivity_LongErrorResponse(t *testing.T) {
-	longError := strings.Repeat("a", 1000)
-	errMsg := "original error message"
-	mockActivityProvider, httpResp, err := createTestComposeHttpErrorInitialState(t, longError, errMsg)
-
-	returnedError := errors.New("test error msg")
-	mockActivityProvider.EXPECT().NewApplicationError("1st-attempt-failure", fmt.Sprintf("statusCode: %v, responseBody: %v, errMsg: %v", httpResp.StatusCode, longError[:50]+"...", errors.New(errMsg[:5]+"..."))).Return(returnedError)
-
-	err = composeHttpError(true, mockActivityProvider, err, httpResp, "test-error-type")
-	if err != nil {
-		return
-	}
-
-	assert.Error(t, err)
-	assert.Equal(t, returnedError, err)
+func TestValidateStepDecisionEmpty(t *testing.T) {
+	require.Error(t, validateStepDecision(nil))
+	require.Error(t, validateStepDecision(&iwfpb.StepDecision{}))
+	require.NoError(t, validateStepDecision(&iwfpb.StepDecision{
+		NextSteps: []*iwfpb.StepMovement{{StepType: "s"}},
+	}))
 }
 
-func TestComposeHttpError_RegularActivity_LongErrorResponse(t *testing.T) {
-	longError := strings.Repeat("a", 1000)
-	errMsg := "original error message which is very long like this"
-	mockActivityProvider, httpResp, err := createTestComposeHttpErrorInitialState(t, longError, errMsg)
-
-	returnedError := errors.New("test error msg")
-	mockActivityProvider.EXPECT().NewApplicationError("test-error-type", fmt.Sprintf("statusCode: %v, responseBody: %v, errMsg: %v", httpResp.StatusCode, longError[:500]+"...", errors.New(errMsg[:50]+"..."))).Return(returnedError)
-
-	err = composeHttpError(false, mockActivityProvider, err, httpResp, "test-error-type")
-	if err != nil {
-		return
+func createConditions() ([]*iwfpb.TimerCondition, []*iwfpb.ChannelCondition) {
+	timers := []*iwfpb.TimerCondition{
+		{ConditionId: "timer-cmd1", DurationSeconds: 86400 * 365},
 	}
-
-	assert.Error(t, err)
-	assert.Equal(t, returnedError, err)
+	channels := []*iwfpb.ChannelCondition{
+		{ConditionId: "signal-cmd1", ChannelName: "test-signal-name1"},
+		{ConditionId: "internal-cmd1", ChannelName: "test-internal-name1"},
+	}
+	return timers, channels
 }
 
-func TestComposeHttpError_LocalActivity_ShortErrorResponse(t *testing.T) {
-	shortError := strings.Repeat("a", 40)
-	errMsg := "OK"
-	mockActivityProvider, httpResp, err := createTestComposeHttpErrorInitialState(t, shortError, errMsg)
+func TestComposeGRPCError_LocalActivity_LongMessage(t *testing.T) {
+	longMsg := strings.Repeat("a", 1000)
+	provider := &recordingActivityProvider{ret: errors.New("app-err")}
 
-	returnedError := errors.New("test error msg")
-	mockActivityProvider.EXPECT().NewApplicationError("1st-attempt-failure", fmt.Sprintf("statusCode: %v, responseBody: %v, errMsg: %v", httpResp.StatusCode, shortError, errors.New(errMsg))).Return(returnedError)
-
-	err = composeHttpError(true, mockActivityProvider, err, httpResp, "test-error-type")
-	if err != nil {
-		return
-	}
-
-	assert.Error(t, err)
-	assert.Equal(t, returnedError, err)
+	err := composeGRPCError(true, provider, errors.New(longMsg), "test-error-type")
+	require.Equal(t, provider.ret, err)
+	require.Equal(t, "1st-attempt-failure", provider.errType)
+	require.Equal(t, longMsg[:50]+"...", provider.details)
 }
 
-func TestComposeHttpError_RegularActivity_ShortErrorResponse(t *testing.T) {
-	shortError := strings.Repeat("a", 40)
-	errMsg := "OK"
-	mockActivityProvider, httpResp, err := createTestComposeHttpErrorInitialState(t, shortError, errMsg)
+func TestComposeGRPCError_RegularActivity_LongMessage(t *testing.T) {
+	longMsg := strings.Repeat("a", 1000)
+	provider := &recordingActivityProvider{ret: errors.New("app-err")}
 
-	returnedError := errors.New("test error msg")
-	mockActivityProvider.EXPECT().NewApplicationError("test-error-type", fmt.Sprintf("statusCode: %v, responseBody: %v, errMsg: %v", httpResp.StatusCode, shortError, errors.New(errMsg))).Return(returnedError)
-
-	err = composeHttpError(false, mockActivityProvider, err, httpResp, "test-error-type")
-	if err != nil {
-		return
-	}
-
-	assert.Error(t, err)
-	assert.Equal(t, returnedError, err)
+	err := composeGRPCError(false, provider, errors.New(longMsg), "test-error-type")
+	require.Equal(t, provider.ret, err)
+	require.Equal(t, "test-error-type", provider.errType)
+	require.Equal(t, longMsg[:500]+"...", provider.details)
 }
 
-func TestComposeHttpError_LocalActivity_NilResponse(t *testing.T) {
-	errMsg := "OK"
-	mockActivityProvider, httpResp, err := createTestComposeHttpErrorInitialState(t, "", errMsg)
+func TestComposeGRPCError_LocalActivity_ShortMessage(t *testing.T) {
+	shortMsg := strings.Repeat("a", 40)
+	provider := &recordingActivityProvider{ret: errors.New("app-err")}
 
-	returnedError := errors.New("test error msg")
-	mockActivityProvider.EXPECT().NewApplicationError("1st-attempt-failure", fmt.Sprintf("statusCode: %v, responseBody: %v, errMsg: %v", 0, "None", errors.New(errMsg))).Return(returnedError)
-
-	err = composeHttpError(true, mockActivityProvider, err, httpResp, "test-error-type")
-	if err != nil {
-		return
-	}
-
-	assert.Error(t, err)
-	assert.Equal(t, returnedError, err)
+	err := composeGRPCError(true, provider, errors.New(shortMsg), "test-error-type")
+	require.Equal(t, provider.ret, err)
+	require.Equal(t, "1st-attempt-failure", provider.errType)
+	require.Equal(t, shortMsg, provider.details)
 }
 
-func TestComposeHttpError_RegularActivity_NilResponse(t *testing.T) {
-	errMsg := "OK"
-	mockActivityProvider, httpResp, err := createTestComposeHttpErrorInitialState(t, "", errMsg)
+func TestComposeGRPCError_RegularActivity_ShortMessage(t *testing.T) {
+	shortMsg := strings.Repeat("a", 40)
+	provider := &recordingActivityProvider{ret: errors.New("app-err")}
 
-	returnedError := errors.New("test error msg")
-	mockActivityProvider.EXPECT().NewApplicationError("test-error-type", fmt.Sprintf("statusCode: %v, responseBody: %v, errMsg: %v", 0, "None", errors.New(errMsg))).Return(returnedError)
-
-	err = composeHttpError(false, mockActivityProvider, err, httpResp, "test-error-type")
-	if err != nil {
-		return
-	}
-
-	assert.Error(t, err)
-	assert.Equal(t, returnedError, err)
+	err := composeGRPCError(false, provider, errors.New(shortMsg), "test-error-type")
+	require.Equal(t, provider.ret, err)
+	require.Equal(t, "test-error-type", provider.errType)
+	require.Equal(t, shortMsg, provider.details)
 }
 
-func createTestComposeHttpErrorInitialState(t *testing.T, httpError string, initialError string) (*interfaces.MockActivityProvider, *http.Response, error) {
-	ctrl := gomock.NewController(t)
-	mockActivityProvider := interfaces.NewMockActivityProvider(ctrl)
+func TestComposeGRPCError_LocalActivity_StatusError(t *testing.T) {
+	provider := &recordingActivityProvider{ret: errors.New("app-err")}
+	stErr := status.Error(codes.Unavailable, "worker down")
 
-	var httpResp *http.Response = nil
-	if httpError != "" {
-		httpResp = &http.Response{
-			StatusCode: 400,
-			Body:       io.NopCloser(strings.NewReader(httpError)),
-		}
-	}
-	err := errors.New(initialError)
-	return mockActivityProvider, httpResp, err
+	err := composeGRPCError(true, provider, stErr, "test-error-type")
+	require.Equal(t, provider.ret, err)
+	require.Equal(t, "1st-attempt-failure", provider.errType)
+	require.Equal(t, "code: Unavailable, msg: worker down", provider.details)
 }
+
+func TestComposeGRPCError_RegularActivity_StatusErrorLong(t *testing.T) {
+	provider := &recordingActivityProvider{ret: errors.New("app-err")}
+	longDetail := strings.Repeat("b", 600)
+	stErr := status.Error(codes.Internal, longDetail)
+
+	err := composeGRPCError(false, provider, stErr, "test-error-type")
+	require.Equal(t, provider.ret, err)
+	require.Equal(t, "test-error-type", provider.errType)
+	expected := fmt.Sprintf("code: Internal, msg: %s", longDetail)
+	require.Equal(t, expected[:500]+"...", provider.details)
+}
+
+type recordingActivityProvider struct {
+	errType string
+	details interface{}
+	ret     error
+}
+
+func (r *recordingActivityProvider) GetLogger(context.Context) interfaces.UnifiedLogger {
+	panic("unexpected")
+}
+func (r *recordingActivityProvider) NewApplicationError(errType string, details interface{}) error {
+	r.errType = errType
+	r.details = details
+	return r.ret
+}
+func (r *recordingActivityProvider) GetActivityInfo(context.Context) interfaces.ActivityInfo {
+	panic("unexpected")
+}
+func (r *recordingActivityProvider) RecordHeartbeat(context.Context, ...interface{}) {}

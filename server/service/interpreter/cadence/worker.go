@@ -23,11 +23,12 @@ package cadence
 import (
 	"context"
 	"fmt"
-	"github.com/superdurable/iwf/config"
-	"github.com/superdurable/iwf/service/common/blobstore"
 	"log"
 
+	"github.com/superdurable/iwf/config"
 	uclient "github.com/superdurable/iwf/service/client"
+	"github.com/superdurable/iwf/service/common/blobstore"
+	"github.com/superdurable/iwf/service/common/workerclient"
 	"github.com/superdurable/iwf/service/interpreter"
 	"github.com/superdurable/iwf/service/interpreter/env"
 	"go.uber.org/cadence/.gen/go/cadence/workflowserviceclient"
@@ -35,11 +36,13 @@ import (
 )
 
 type InterpreterWorker struct {
-	service   workflowserviceclient.Interface
-	closeFunc func()
-	domain    string
-	worker    worker.Worker
-	tasklist  string
+	service        workflowserviceclient.Interface
+	closeFunc      func()
+	domain         string
+	worker         worker.Worker
+	tasklist       string
+	workerPool     *workerclient.Pool
+	internalClient *workerclient.Internal
 }
 
 func NewInterpreterWorker(
@@ -47,18 +50,29 @@ func NewInterpreterWorker(
 	unifiedClient uclient.UnifiedClient,
 	store blobstore.BlobStore,
 ) *InterpreterWorker {
-	env.SetSharedEnv(config, false, nil, unifiedClient, tasklist, store)
+	pool, internal := interpreter.NewWorkerClients(config)
+	env.SetSharedEnv(config, false, nil, unifiedClient, tasklist, store, pool, internal)
 	return &InterpreterWorker{
-		service:   service,
-		domain:    domain,
-		tasklist:  tasklist,
-		closeFunc: closeFunc,
+		service:        service,
+		domain:         domain,
+		tasklist:       tasklist,
+		closeFunc:      closeFunc,
+		workerPool:     pool,
+		internalClient: internal,
 	}
 }
 
 func (iw *InterpreterWorker) Close() {
+	if iw.worker != nil {
+		iw.worker.Stop()
+	}
+	if iw.workerPool != nil {
+		iw.workerPool.Close()
+	}
+	if iw.internalClient != nil {
+		iw.internalClient.Close()
+	}
 	iw.closeFunc()
-	iw.worker.Stop()
 }
 
 func (iw *InterpreterWorker) StartWithStickyCacheDisabledForTest() {
@@ -77,17 +91,13 @@ func (iw *InterpreterWorker) start(disableStickyCache bool) {
 		options = *cfg.Interpreter.Cadence.WorkerOptions
 	}
 
-	// override default
 	if options.MaxConcurrentActivityTaskPollers == 0 {
 		options.MaxConcurrentActivityTaskPollers = 10
 	}
-
-	// override default
 	if options.MaxConcurrentDecisionTaskPollers == 0 {
 		options.MaxConcurrentDecisionTaskPollers = 10
 	}
 
-	// When DisableStickyCache is true it can harm performance; should not be used in production environment
 	if disableStickyCache {
 		options.DisableStickyExecution = true
 		fmt.Println("Cadence worker: Sticky cache disabled")
@@ -97,13 +107,11 @@ func (iw *InterpreterWorker) start(disableStickyCache bool) {
 	worker.EnableVerboseLogging(cfg.Interpreter.VerboseDebug)
 
 	iw.worker.RegisterWorkflow(Interpreter)
-	iw.worker.RegisterWorkflow(WaitforStateCompletionWorkflow)
 	iw.worker.RegisterWorkflow(BlobStoreCleanup)
-	iw.worker.RegisterActivity(interpreter.StateStart)  // TODO: remove in next release
-	iw.worker.RegisterActivity(interpreter.StateDecide) // TODO: remove in next release
-	iw.worker.RegisterActivity(interpreter.StateApiWaitUntil)
-	iw.worker.RegisterActivity(interpreter.StateApiExecute)
-	iw.worker.RegisterActivity(interpreter.DumpWorkflowInternal)
+	iw.worker.RegisterActivity(interpreter.InvokeWaitForMethod)
+	iw.worker.RegisterActivity(interpreter.InvokeExecuteMethod)
+	iw.worker.RegisterActivity(interpreter.DumpFlowForContinueAsNew)
+	iw.worker.RegisterActivity(interpreter.InvokeWorkerRpcActivity)
 	iw.worker.RegisterActivity(interpreter.CleanupBlobStore)
 
 	err := iw.worker.Start()

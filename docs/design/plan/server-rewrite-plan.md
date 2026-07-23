@@ -707,9 +707,10 @@ Stop for review after Phase 2.5 before Phase 3.
   `InvokeExecuteMethod`, worker RPC → `InvokeWorkerRPC` (response has **no**
   `upsert_step_exe_locals`).
 - Replace [`service/common/urlautofix`](../../../server/service/common/urlautofix)
-  with a gRPC-target helper. Accept `host:port` and documented native gRPC target
-  forms, reject HTTP(S) URLs, and use `insecure.NewCredentials()` for this
-  plaintext-only phase. `StartFlowRequest.worker_target` is the dial target.
+  with [`service/common/grpctarget`](../../../server/service/common/grpctarget). Accept
+  `host:port` and documented native gRPC target forms, reject HTTP(S) URLs, and use
+  `insecure.NewCredentials()` for this plaintext-only phase.
+  `StartFlowRequest.worker_target` is the dial target.
 - Convert `InterpreterActivityConfig.DefaultHeaders` to outgoing gRPC metadata for
   every WorkerService and InternalService call. Preserve each configured string
   value exactly and reject invalid metadata keys at startup.
