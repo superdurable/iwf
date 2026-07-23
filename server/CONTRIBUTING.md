@@ -35,7 +35,22 @@ Here is the repository layout if you are interested to learn about it:
 ## How to update IDL and the generated code
 
 1. Edit [`protos/iwf.proto`](../protos/iwf.proto)
-2. Run `make idl-code-gen` (or `make -C ../protos proto`) to refresh stubs in server + SDKs.
+2. Server rewrite (preferred while SDKs are frozen): `make idl-code-gen-server`
+   (or `make -C ../protos proto-server-go`) — refreshes only `server/gen/iwfpb`.
+3. Full regen (server + SDKs): `make idl-code-gen` (or `make -C ../protos proto`).
+
+## Temporal / Cadence DataConverters
+
+Interpreter history and query/update payloads are binary protobuf (not JSON).
+Factories live in [`service/common/converter`](service/common/converter):
+
+* `NewTemporalDataConverter()` — Proto binary before JSON escape hatch
+* `NewCadenceDataConverter()` — `IWFDC` framed wire format (proto/json/raw)
+
+API client Options and interpreter worker Options must use the **same** factory
+(and the same memo-encryption codec wrapper when enabled). Search-attribute values
+still go through the backend SA mapper, not this converter. Temporal Web may show
+opaque binary payloads by design.
 
 # How to run server or integration test
 

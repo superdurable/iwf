@@ -109,6 +109,29 @@ Canonical naming for the protobuf rewrite. Old OpenAPI names are not kept as ali
 | waitForKey / wait_for_key | **deleted** |
 | upsert_step_exe_locals on InvokeWorkerRPCResponse | **deleted** (RPC is not a step execution) |
 
+## Internal serializable types
+
+History / query / activity payloads (not FlowService RPCs). Encoded as binary
+protobuf via Temporal/Cadence DataConverters (`service/common/converter`).
+
+| Message / enum | Role |
+|----------------|------|
+| `InterpreterWorkflowInput` / `Output`, `ContinueAsNewInput` | Interpreter workflow I/O + CAN resume |
+| `BlobStoreCleanupWorkflowInput` / `Output` | Maintenance workflow I/O |
+| `InvokeWaitForMethodActivityInput` / `Output` | Wait-for activity |
+| `InvokeExecuteMethodActivityInput` / `Output` | Execute activity |
+| `DumpFlowForContinueAsNewActivityInput` / `Output` | CAN dump activity |
+| `InvokeWorkerRPCActivityInput` / `Output` | Worker RPC activity |
+| `CleanupBlobStoreActivityInput` / `Output` | Blob cleanup activity |
+| `ExecuteRpcSignalRequest`, `SkipTimerSignalRequest`, `FailFlowSignalRequest`, `CompleteFlowSignalRequest` | System signals (`FlowConfig` reused for config update) |
+| `GetAttributesQueryRequest` / `Response`, `PrepareRpcQueryRequest` / `Response` | Attribute / RPC prep queries |
+| `GetCurrentTimerInfosQueryResponse`, `GetScheduledGreedyTimerTimesQueryResponse`, `DebugDumpResponse` | Timer / debug queries |
+| `TimerInfo`, `TimerInfoList`, `InternalTimerStatus` | Nested timer snapshot data |
+| `InterpreterError`, `InvokeRpcUpdateResult` | Serialized failure + sync-update RPC envelope |
+| `BackendType` | Temporal vs Cadence on activity inputs |
+
+In-process-only helpers (e.g. `BasicInfo`) stay as Go structs and are not listed here.
+
 ## Attribute indexing (new)
 
 On SDK→server attribute writes, optional IndexConfig when indexing cannot be inferred:

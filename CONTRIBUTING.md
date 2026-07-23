@@ -37,12 +37,22 @@ make -C sdk-go ci-tests   # may start docker compose under sdk-go/integ
 
 Protobuf source lives in [`protos/iwf.proto`](protos/iwf.proto). Rename catalog: [`docs/design/idl-renames.md`](docs/design/idl-renames.md).
 
-Regenerate checked-in stubs (server + all SDKs):
+Server-only regen (leave SDK trees alone during the server rewrite):
+
+```bash
+make -C protos proto-server-go
+# or: make -C server idl-code-gen-server
+```
+
+Full regen (server + all SDKs):
 
 ```bash
 make -C protos proto
 # or: make -C server idl-code-gen
 ```
+
+Interpreter Temporal/Cadence history encoding uses binary protobuf DataConverters
+in `server/service/common/converter` (see `server/CONTRIBUTING.md`).
 
 ## Java
 
