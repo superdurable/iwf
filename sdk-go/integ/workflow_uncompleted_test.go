@@ -3,9 +3,9 @@ package integ
 import (
 	"context"
 	"fmt"
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
-	"github.com/superdurable/iwf-golang-sdk/iwf"
-	"github.com/superdurable/iwf-golang-sdk/iwf/ptr"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/iwf"
+	"github.com/superdurable/iwf/sdk-go/iwf/ptr"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"strings"

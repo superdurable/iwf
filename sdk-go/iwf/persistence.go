@@ -5,7 +5,7 @@ package iwf
 import (
 	"time"
 
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
 )
 
 // Persistence APIs are for read/write persistence of workflow

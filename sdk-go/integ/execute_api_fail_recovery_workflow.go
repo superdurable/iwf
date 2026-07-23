@@ -1,6 +1,6 @@
 package integ
 
-import "github.com/superdurable/iwf-golang-sdk/iwf"
+import "github.com/superdurable/iwf/sdk-go/iwf"
 
 type executeApiFailRecoveryWorkflow struct {
 	iwf.WorkflowDefaults

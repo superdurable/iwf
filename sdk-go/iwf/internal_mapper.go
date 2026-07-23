@@ -3,8 +3,8 @@ package iwf
 import (
 	"strings"
 
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
-	"github.com/superdurable/iwf-golang-sdk/iwf/ptr"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/iwf/ptr"
 )
 
 func fromIdlCommandResults(results *iwfidl.CommandResults, encoder ObjectEncoder) (CommandResults, error) {

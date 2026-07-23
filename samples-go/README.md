@@ -1,6 +1,6 @@
 # iwf-golang-samples
 
-Samples for [iWF Golang SDK](https://github.com/superdurable/iwf-golang-sdk) that runs
+Samples for [iWF Golang SDK](https://github.com/superdurable/iwf/tree/main/sdk-go) that runs
 against [iWF server](https://github.com/superdurable/iwf)
 
 ## Setup

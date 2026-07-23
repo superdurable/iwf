@@ -1,14 +1,17 @@
 # iWF Golang SDK
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/superdurable/iwf-golang-sdk.svg)](https://pkg.go.dev/github.com/superdurable/iwf-golang-sdk)
-[![Go Report Card](https://goreportcard.com/badge/github.com/superdurable/iwf-golang-sdk)](https://goreportcard.com/report/github.com/superdurable/iwf-golang-sdk)
-[![Coverage Status](https://codecov.io/github/superdurable/iwf-golang-sdk/coverage.svg?branch=main)](https://app.codecov.io/gh/superdurable/iwf-golang-sdk/branch/main)
+[![Go Reference](https://pkg.go.dev/badge/github.com/superdurable/iwf/sdk-go.svg)](https://pkg.go.dev/github.com/superdurable/iwf/sdk-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/superdurable/iwf/sdk-go)](https://goreportcard.com/report/github.com/superdurable/iwf/sdk-go)
 
-[![Build status](https://github.com/superdurable/iwf-golang-sdk/actions/workflows/ci-integ-test.yml/badge.svg?branch=main)](https://github.com/superdurable/iwf-golang-sdk/actions/workflows/ci-integ-test.yml)
+[![Build status](https://github.com/superdurable/iwf/actions/workflows/sdk-go-ci.yml/badge.svg?branch=main)](https://github.com/superdurable/iwf/actions/workflows/sdk-go-ci.yml)
 
 Golang SDK for [iWF workflow engine](https://github.com/superdurable/iwf)
 
-See [samples](https://github.com/superdurable/iwf-golang-samples) for how to use this SDK.
+```bash
+go get github.com/superdurable/iwf/sdk-go@latest
+```
+
+See [samples](../samples-go) for how to use this SDK.
 
 ## Contribution
 

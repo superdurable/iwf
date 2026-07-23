@@ -2,7 +2,7 @@ package subscription
 
 import (
 	"github.com/superdurable/iwf-golang-samples/workflows/service"
-	"github.com/superdurable/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf/sdk-go/iwf"
 	"time"
 )
 

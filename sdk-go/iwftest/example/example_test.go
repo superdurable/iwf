@@ -3,8 +3,8 @@ package example
 import (
 	"testing"
 
-	"github.com/superdurable/iwf-golang-sdk/iwf"
-	"github.com/superdurable/iwf-golang-sdk/iwftest"
+	"github.com/superdurable/iwf/sdk-go/iwf"
+	"github.com/superdurable/iwf/sdk-go/iwftest"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )

@@ -1,7 +1,7 @@
 package integ
 
 import (
-	"github.com/superdurable/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf/sdk-go/iwf"
 )
 
 type persistenceWorkflowState1 struct {

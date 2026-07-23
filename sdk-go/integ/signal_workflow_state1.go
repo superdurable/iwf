@@ -3,8 +3,8 @@ package integ
 import (
 	"fmt"
 
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
-	"github.com/superdurable/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/iwf"
 )
 
 type signalWorkflowState1 struct {

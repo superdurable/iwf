@@ -46,7 +46,7 @@ See more in [iWF wiki](https://github.com/superdurable/iwf/wiki).
 As a coding framework, iWF provides three SDKs to use with:
 
 * [iWF Java SDK](https://github.com/superdurable/iwf-java-sdk) and [samples](https://github.com/superdurable/iwf-java-samples)
-* [iWF Golang SDK](https://github.com/superdurable/iwf-golang-sdk) and [samples](https://github.com/superdurable/iwf-golang-samples)
+* [iWF Golang SDK](https://github.com/superdurable/iwf/tree/main/sdk-go) and [samples](https://github.com/superdurable/iwf/tree/main/samples-go)
 * [iWF Python SDK](https://github.com/superdurable/iwf-python-sdk) and [samples](https://github.com/superdurable/iwf-python-samples)
 
 The iWF SDKs required a server to run against. See below options to run the server locally. See [iWF wiki](https://github.com/superdurable/iwf/wiki) for production 

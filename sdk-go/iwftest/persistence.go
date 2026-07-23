@@ -12,7 +12,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	iwfidl "github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	iwfidl "github.com/superdurable/iwf/sdk-go/gen/iwfidl"
 	gomock "go.uber.org/mock/gomock"
 )
 

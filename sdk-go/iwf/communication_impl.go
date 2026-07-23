@@ -1,6 +1,6 @@
 package iwf
 
-import "github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+import "github.com/superdurable/iwf/sdk-go/gen/iwfidl"
 
 type communicationImpl struct {
 	internalChannelNames     map[string]bool

@@ -7,7 +7,7 @@ import (
 	"github.com/superdurable/iwf-golang-samples/workflows/polling"
 	"github.com/superdurable/iwf-golang-samples/workflows/service"
 	"github.com/superdurable/iwf-golang-samples/workflows/subscription"
-	"github.com/superdurable/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf/sdk-go/iwf"
 )
 
 var registry = iwf.NewRegistry()

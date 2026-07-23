@@ -2,7 +2,7 @@ package iwf
 
 import (
 	"fmt"
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
 	"log"
 	"net/http"
 	"runtime/debug"

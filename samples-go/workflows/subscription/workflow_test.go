@@ -3,9 +3,9 @@ package subscription
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/superdurable/iwf-golang-samples/workflows/service"
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
-	"github.com/superdurable/iwf-golang-sdk/iwf"
-	"github.com/superdurable/iwf-golang-sdk/iwftest"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/iwf"
+	"github.com/superdurable/iwf/sdk-go/iwftest"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

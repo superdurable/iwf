@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/superdurable/iwf-golang-samples/workflows/engagement"
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
 	"net/http"
 	"strings"
 )

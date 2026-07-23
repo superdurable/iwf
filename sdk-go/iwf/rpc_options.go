@@ -1,7 +1,7 @@
 package iwf
 
 import (
-	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf/sdk-go/gen/iwfidl"
 )
 
 type RPCOptions struct {

@@ -1,4 +1,4 @@
-module github.com/superdurable/iwf-golang-sdk
+module github.com/superdurable/iwf/sdk-go
 
 go 1.24.0
 
