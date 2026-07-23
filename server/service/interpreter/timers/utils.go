@@ -3,8 +3,8 @@ package timers
 import (
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 )
 
 func removeElement(s []service.StaleSkipTimerSignal, i int) []service.StaleSkipTimerSignal {

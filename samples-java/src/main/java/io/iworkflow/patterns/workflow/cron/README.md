@@ -11,7 +11,7 @@ This package demonstrates a how to use a Cron Scheduled workflow to replace Orc 
 
 ## Useful Links
 
-- [Workflow Options](https://github.com/indeedeng/iwf/wiki/WorkflowOptions#cron-schedule)
+- [Workflow Options](https://github.com/superdurable/iwf/wiki/WorkflowOptions#cron-schedule)
 - [CRON Expression Format](https://pkg.go.dev/github.com/robfig/cron#hdr-CRON_Expression_Format)
 - [CRON Expression Tester](https://crontab.guru/)
 

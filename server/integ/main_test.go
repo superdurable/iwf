@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/indeedeng/iwf/cmd/server/iwf"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/cmd/server/iwf"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"go.temporal.io/sdk/client"
 	"go.uber.org/cadence/.gen/go/cadence/workflowserviceclient"
 	"go.uber.org/cadence/.gen/go/shared"

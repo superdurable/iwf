@@ -2,14 +2,14 @@ package temporal
 
 import (
 	"errors"
-	"github.com/indeedeng/iwf/service/common/mapper"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/service/common/mapper"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/retry"
-	"github.com/indeedeng/iwf/service/interpreter/env"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/retry"
+	"github.com/superdurable/iwf/service/interpreter/env"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )

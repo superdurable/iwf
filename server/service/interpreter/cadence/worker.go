@@ -3,13 +3,13 @@ package cadence
 import (
 	"context"
 	"fmt"
-	"github.com/indeedeng/iwf/config"
-	"github.com/indeedeng/iwf/service/common/blobstore"
+	"github.com/superdurable/iwf/config"
+	"github.com/superdurable/iwf/service/common/blobstore"
 	"log"
 
-	uclient "github.com/indeedeng/iwf/service/client"
-	"github.com/indeedeng/iwf/service/interpreter"
-	"github.com/indeedeng/iwf/service/interpreter/env"
+	uclient "github.com/superdurable/iwf/service/client"
+	"github.com/superdurable/iwf/service/interpreter"
+	"github.com/superdurable/iwf/service/interpreter/env"
 	"go.uber.org/cadence/.gen/go/cadence/workflowserviceclient"
 	"go.uber.org/cadence/worker"
 )

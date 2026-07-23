@@ -1,8 +1,8 @@
 package cont
 
 import (
-	"github.com/indeedeng/iwf/service/interpreter/config"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/service/interpreter/config"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
 type ContinueAsNewCounter struct {

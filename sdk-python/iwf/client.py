@@ -422,7 +422,7 @@ class Client:
         )
 
     """A long poll API to wait for the completion of the state.
-    Note 1 The state_completion to wait for is needed to registered on starting workflow due to limitation in https://github.com/indeedeng/iwf/issues/349
+    Note 1 The state_completion to wait for is needed to registered on starting workflow due to limitation in https://github.com/superdurable/iwf/issues/349
     Note 2 The max polling time is configured in client_options (default to 10s)
 
     Args:
@@ -444,7 +444,7 @@ class Client:
         )
 
     """A long poll API to wait for the completion of the state.
-    Note 1 The state_completion to wait for is needed to registered on starting workflow due to limitation in https://github.com/indeedeng/iwf/issues/349
+    Note 1 The state_completion to wait for is needed to registered on starting workflow due to limitation in https://github.com/superdurable/iwf/issues/349
     Note 2 The max polling time is configured in client_options (default to 10s)
 
     Args:

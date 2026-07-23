@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"time"
 
-	uclient "github.com/indeedeng/iwf/service/client"
-	"github.com/indeedeng/iwf/service/common/event"
-	"github.com/indeedeng/iwf/service/common/ptr"
-	"github.com/indeedeng/iwf/service/common/utils"
-	"github.com/indeedeng/iwf/service/interpreter/config"
-	"github.com/indeedeng/iwf/service/interpreter/cont"
-	"github.com/indeedeng/iwf/service/interpreter/env"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
-	"github.com/indeedeng/iwf/service/interpreter/timers"
+	uclient "github.com/superdurable/iwf/service/client"
+	"github.com/superdurable/iwf/service/common/event"
+	"github.com/superdurable/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/service/common/utils"
+	"github.com/superdurable/iwf/service/interpreter/config"
+	"github.com/superdurable/iwf/service/interpreter/cont"
+	"github.com/superdurable/iwf/service/interpreter/env"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/service/interpreter/timers"
 
-	"github.com/indeedeng/iwf/service/common/compatibility"
+	"github.com/superdurable/iwf/service/common/compatibility"
 	"golang.org/x/exp/slices"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 )
 
 func InterpreterImpl(

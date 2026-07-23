@@ -45,7 +45,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -107,7 +107,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -171,7 +171,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -233,7 +233,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -297,7 +297,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -361,7 +361,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -425,7 +425,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -489,7 +489,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -551,7 +551,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -615,7 +615,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -679,7 +679,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -743,7 +743,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -807,7 +807,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -869,7 +869,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -931,7 +931,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -995,7 +995,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -1059,7 +1059,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -1123,7 +1123,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -1185,7 +1185,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -1247,7 +1247,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -1309,7 +1309,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -1373,7 +1373,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {
@@ -1437,7 +1437,7 @@ import (
     "context"
     "fmt"
     "os"
-    openapiclient "github.com/indeedeng/iwf-idl"
+    openapiclient "github.com/superdurable/iwf-idl"
 )
 
 func main() {

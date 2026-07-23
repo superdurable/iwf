@@ -3,7 +3,7 @@ package blobstore
 import (
 	"context"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfidl"
 )
 
 func WriteDataObjectsToExternalStorage(ctx context.Context, dataObjects []iwfidl.KeyValue, workflowId string, threashold int, blobStore BlobStore, isExternalStorageEnabled bool) error {

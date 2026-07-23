@@ -144,7 +144,7 @@ iwf-server:
 
 idl-code-gen: #generate/refresh go code for idl (API schema), do this after updating the idl file
 	rm -Rf ./gen ; true
-	java -jar openapi-generator-cli-6.6.0.jar generate -i ../protos/iwf.yaml -g go -o gen/iwfidl/ -p packageName=iwfidl -p generateInterfaces=true -p isGoSubmodule=false --git-user-id indeedeng --git-repo-id iwf-idl
+	java -jar openapi-generator-cli-6.6.0.jar generate -i ../protos/iwf.yaml -g go -o gen/iwfidl/ -p packageName=iwfidl -p generateInterfaces=true -p isGoSubmodule=false --git-user-id superdurable --git-repo-id iwf-idl
 	rm ./gen/iwfidl/go.* ; rm -rf ./gen/iwfidl/test; gofmt -s -w gen; true
 
 bins: $(BINS)

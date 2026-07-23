@@ -2,8 +2,8 @@ package utils
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"net/http"
 	"time"

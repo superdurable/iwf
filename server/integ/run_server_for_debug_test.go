@@ -1,7 +1,7 @@
 package integ
 
 import (
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/service"
 	"testing"
 	"time"
 )

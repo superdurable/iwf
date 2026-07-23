@@ -22,8 +22,8 @@ package loggerimpl
 
 import (
 	"fmt"
-	"github.com/indeedeng/iwf/service/common/log"
-	"github.com/indeedeng/iwf/service/common/log/tag"
+	"github.com/superdurable/iwf/service/common/log"
+	"github.com/superdurable/iwf/service/common/log/tag"
 	"path/filepath"
 	"runtime"
 

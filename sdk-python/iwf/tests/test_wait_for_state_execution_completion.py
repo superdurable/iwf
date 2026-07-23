@@ -33,7 +33,7 @@ class TestWaitForStateWithWaitForKey(unittest.TestCase):
         self.client.wait_for_workflow_completion(wf_id)
 
         # TODO: Improve this test by verifying both workflows completed with describe_workflow method
-        # https://github.com/indeedeng/iwf-python-sdk/issues/22
+        # https://github.com/superdurable/iwf-python-sdk/issues/22
         #
         # child_wf_id =
         #

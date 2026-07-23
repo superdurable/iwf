@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfidl"
 )
 
 type (

@@ -1,11 +1,11 @@
 package interpreter
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/mapper"
-	"github.com/indeedeng/iwf/service/common/utils"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/mapper"
+	"github.com/superdurable/iwf/service/common/utils"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
 type PersistenceManager struct {
@@ -162,7 +162,7 @@ func (am *PersistenceManager) GetAllSearchAttributes() []iwfidl.SearchAttribute 
 	var res []iwfidl.SearchAttribute
 	// NOTE: using DeterministicKeys so that the JSON snapshot for continueAsNew is stable for pagination
 	// TODO: we should use DeterministicKeys for every map iteration in interpreter for safety
-	// https://github.com/indeedeng/iwf/issues/510
+	// https://github.com/superdurable/iwf/issues/510
 	for _, k := range DeterministicKeys(am.searchAttributes) {
 		res = append(res, am.searchAttributes[k])
 	}
@@ -174,7 +174,7 @@ func (am *PersistenceManager) GetAllDataAttributes() []iwfidl.KeyValue {
 
 	// NOTE: using DeterministicKeys so that the JSON snapshot for continueAsNew is stable for pagination
 	// TODO: we should use DeterministicKeys for every map iteration in interpreter for safety
-	// https://github.com/indeedeng/iwf/issues/510
+	// https://github.com/superdurable/iwf/issues/510
 	for _, k := range DeterministicKeys(am.dataAttributes) {
 		res = append(res, am.dataAttributes[k])
 	}

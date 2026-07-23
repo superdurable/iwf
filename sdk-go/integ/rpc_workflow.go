@@ -2,7 +2,7 @@ package integ
 
 import (
 	"fmt"
-	"github.com/indeedeng/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf-golang-sdk/iwf"
 )
 
 type rpcWorkflow struct {

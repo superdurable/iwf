@@ -2,8 +2,8 @@ package cadence
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"go.uber.org/cadence"
 	"go.uber.org/cadence/activity"
 )

@@ -10,8 +10,8 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	iwfidl "github.com/indeedeng/iwf/gen/iwfidl"
-	service "github.com/indeedeng/iwf/service"
+	iwfidl "github.com/superdurable/iwf/gen/iwfidl"
+	service "github.com/superdurable/iwf/service"
 )
 
 // MockActivityProvider is a mock of ActivityProvider interface.

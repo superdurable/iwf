@@ -1,6 +1,6 @@
 package example
 
-import "github.com/indeedeng/iwf-golang-sdk/iwf"
+import "github.com/superdurable/iwf-golang-sdk/iwf"
 
 func NewInitState() iwf.WorkflowState {
 	return initState{}

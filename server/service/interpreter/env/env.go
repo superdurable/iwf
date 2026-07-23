@@ -1,9 +1,9 @@
 package env
 
 import (
-	"github.com/indeedeng/iwf/config"
-	uclient "github.com/indeedeng/iwf/service/client"
-	"github.com/indeedeng/iwf/service/common/blobstore"
+	"github.com/superdurable/iwf/config"
+	uclient "github.com/superdurable/iwf/service/client"
+	"github.com/superdurable/iwf/service/common/blobstore"
 	"go.temporal.io/sdk/converter"
 )
 

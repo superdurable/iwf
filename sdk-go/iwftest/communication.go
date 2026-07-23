@@ -11,8 +11,8 @@ package iwftest
 import (
 	reflect "reflect"
 
-	iwfidl "github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
-	iwf "github.com/indeedeng/iwf-golang-sdk/iwf"
+	iwfidl "github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	iwf "github.com/superdurable/iwf-golang-sdk/iwf"
 	gomock "go.uber.org/mock/gomock"
 )
 

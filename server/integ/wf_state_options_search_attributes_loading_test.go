@@ -2,10 +2,10 @@ package integ
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/integ/workflow/wf_state_options_search_attributes_loading"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/integ/workflow/wf_state_options_search_attributes_loading"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"

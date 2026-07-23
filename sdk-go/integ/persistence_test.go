@@ -3,8 +3,8 @@ package integ
 import (
 	"context"
 	"fmt"
-	"github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
-	"github.com/indeedeng/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf-golang-sdk/iwf"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
@@ -56,7 +56,7 @@ func TestPersistenceWorkflow(t *testing.T) {
 		testSearchAttributeKeyword,
 		testSearchAttributeText,
 		testSearchAttributeBool,
-		// testSearchAttributeDatetime, // TODO https://github.com/indeedeng/iwf/issues/261
+		// testSearchAttributeDatetime, // TODO https://github.com/superdurable/iwf/issues/261
 		testSearchAttributeInt,
 		testSearchAttributeDouble,
 	})
@@ -65,7 +65,7 @@ func TestPersistenceWorkflow(t *testing.T) {
 		testSearchAttributeKeyword: "iWF",
 		testSearchAttributeText:    "Hail iWF!",
 		testSearchAttributeBool:    true,
-		// testSearchAttributeDatetime: sas[testSearchAttributeDatetime], // // TODO https://github.com/indeedeng/iwf/issues/261
+		// testSearchAttributeDatetime: sas[testSearchAttributeDatetime], // // TODO https://github.com/superdurable/iwf/issues/261
 		testSearchAttributeInt:    int64(1),
 		testSearchAttributeDouble: 1.0,
 	}

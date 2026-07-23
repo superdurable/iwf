@@ -94,7 +94,7 @@ public class RpcTest {
         executor.shutdown();
 
         // TODO make sure continue as new is happening when no state is executed
-        // https://github.com/indeedeng/iwf/issues/339
+        // https://github.com/superdurable/iwf/issues/339
 
         client.stopWorkflow(wfId, null);
     }

@@ -3,7 +3,7 @@ package replayTests
 import (
 	"testing"
 
-	"github.com/indeedeng/iwf/service/interpreter/temporal"
+	"github.com/superdurable/iwf/service/interpreter/temporal"
 	"github.com/stretchr/testify/assert"
 
 	"go.temporal.io/sdk/worker"

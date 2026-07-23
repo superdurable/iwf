@@ -3,9 +3,9 @@ package cadence
 import (
 	"context"
 	"fmt"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/timeparser"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/timeparser"
 	"go.uber.org/cadence/.gen/go/cadence/workflowserviceclient"
 	"go.uber.org/cadence/.gen/go/shared"
 	"go.uber.org/cadence/encoded"

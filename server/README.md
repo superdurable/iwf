@@ -1,13 +1,13 @@
 # iWF project - main & server repo
 
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](http://iworkflow-slack.work)
-[![Go Reference](https://pkg.go.dev/badge/github.com/indeedeng/iwf.svg)](https://pkg.go.dev/github.com/indeedeng/iwf)
-[![Go Report Card](https://goreportcard.com/badge/github.com/indeedeng/iwf)](https://goreportcard.com/report/github.com/indeedeng/iwf)
-[![Coverage Status](https://codecov.io/github/indeedeng/iwf/coverage.svg?branch=main)](https://app.codecov.io/gh/indeedeng/iwf/branch/main)
+[![Go Reference](https://pkg.go.dev/badge/github.com/superdurable/iwf.svg)](https://pkg.go.dev/github.com/superdurable/iwf)
+[![Go Report Card](https://goreportcard.com/badge/github.com/superdurable/iwf)](https://goreportcard.com/report/github.com/superdurable/iwf)
+[![Coverage Status](https://codecov.io/github/superdurable/iwf/coverage.svg?branch=main)](https://app.codecov.io/gh/superdurable/iwf/branch/main)
 [![Static Badge for Temporal Code Exchange](https://img.shields.io/badge/Temporal-Code_Exchange_Featured-blue?style=flat-square&logo=temporal&labelColor=141414&color=444CE7)](https://temporal.io/code-exchange/indeed-workflow-framework-iwf)
 
-[![Build status](https://github.com/indeedeng/iwf/actions/workflows/ci-cadence-integ-test.yml/badge.svg?branch=main)](https://github.com/indeedeng/iwf/actions/workflows/ci-cadence-integ-test.yml)
-[![Build status](https://github.com/indeedeng/iwf/actions/workflows/ci-temporal-integ-test.yml/badge.svg?branch=main)](https://github.com/indeedeng/iwf/actions/workflows/ci-temporal-integ-test.yml)
+[![Build status](https://github.com/superdurable/iwf/actions/workflows/ci-cadence-integ-test.yml/badge.svg?branch=main)](https://github.com/superdurable/iwf/actions/workflows/ci-cadence-integ-test.yml)
+[![Build status](https://github.com/superdurable/iwf/actions/workflows/ci-temporal-integ-test.yml/badge.svg?branch=main)](https://github.com/superdurable/iwf/actions/workflows/ci-temporal-integ-test.yml)
 
 
 # What is iWF
@@ -26,30 +26,30 @@ and persisting state over long durations. With iWF, developers can build scalabl
 
 ## Use case study/examples
 * [SAGA pattern](https://medium.com/@qlong/saga-pattern-deep-dive-with-indeed-workflow-engine-b7e82c59e51f?sk=672abd70b0e092d4cda7788276c5a241)
-  * [Java samples](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/money/transfer), [Golang samples](https://github.com/indeedeng/iwf-golang-samples/tree/main/workflows/moneytransfer), [Python samples](https://github.com/indeedeng/iwf-python-samples/tree/main/moneytransfer)
-* [User sign-up/registry in Python/Java](https://github.com/indeedeng/iwf/wiki/Use-case-study-%E2%80%90%E2%80%90-user-signup-workflow)
-* [Abstracted microservice orchestration in Java/Golang](https://github.com/indeedeng/iwf/wiki/Use-case-study-%E2%80%90%E2%80%90-Microservice-Orchestration)
-* Employer & JobSeeker engagement in [Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/engagement) or [Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/engagement)
-* Subscription Workflow in [Java](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/subscription) or [Golang](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/subscription)
+  * [Java samples](https://github.com/superdurable/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/money/transfer), [Golang samples](https://github.com/superdurable/iwf-golang-samples/tree/main/workflows/moneytransfer), [Python samples](https://github.com/superdurable/iwf-python-samples/tree/main/moneytransfer)
+* [User sign-up/registry in Python/Java](https://github.com/superdurable/iwf/wiki/Use-case-study-%E2%80%90%E2%80%90-user-signup-workflow)
+* [Abstracted microservice orchestration in Java/Golang](https://github.com/superdurable/iwf/wiki/Use-case-study-%E2%80%90%E2%80%90-Microservice-Orchestration)
+* Employer & JobSeeker engagement in [Java](https://github.com/superdurable/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/engagement) or [Golang](https://github.com/superdurable/iwf-golang-samples/blob/main/workflows/engagement)
+* Subscription Workflow in [Java](https://github.com/superdurable/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/subscription) or [Golang](https://github.com/superdurable/iwf-golang-samples/blob/main/workflows/subscription)
 * [Design Patterns](https://medium.com/@qlong/iwf-design-patterns-936a48336766)
 
 ## Basic concepts
-* [Basic concepts overview](https://github.com/indeedeng/iwf/wiki/Basic-concepts-overview)
-* [WorkflowState](https://github.com/indeedeng/iwf/wiki/WorkflowState)
-* [RPC](https://github.com/indeedeng/iwf/wiki/RPC)
-* [Persistence](https://github.com/indeedeng/iwf/wiki/Persistence)
+* [Basic concepts overview](https://github.com/superdurable/iwf/wiki/Basic-concepts-overview)
+* [WorkflowState](https://github.com/superdurable/iwf/wiki/WorkflowState)
+* [RPC](https://github.com/superdurable/iwf/wiki/RPC)
+* [Persistence](https://github.com/superdurable/iwf/wiki/Persistence)
 
-See more in [iWF wiki](https://github.com/indeedeng/iwf/wiki).
+See more in [iWF wiki](https://github.com/superdurable/iwf/wiki).
 
 # How to use
 
 As a coding framework, iWF provides three SDKs to use with:
 
-* [iWF Java SDK](https://github.com/indeedeng/iwf-java-sdk) and [samples](https://github.com/indeedeng/iwf-java-samples)
-* [iWF Golang SDK](https://github.com/indeedeng/iwf-golang-sdk) and [samples](https://github.com/indeedeng/iwf-golang-samples)
-* [iWF Python SDK](https://github.com/indeedeng/iwf-python-sdk) and [samples](https://github.com/indeedeng/iwf-python-samples)
+* [iWF Java SDK](https://github.com/superdurable/iwf-java-sdk) and [samples](https://github.com/superdurable/iwf-java-samples)
+* [iWF Golang SDK](https://github.com/superdurable/iwf-golang-sdk) and [samples](https://github.com/superdurable/iwf-golang-samples)
+* [iWF Python SDK](https://github.com/superdurable/iwf-python-sdk) and [samples](https://github.com/superdurable/iwf-python-samples)
 
-The iWF SDKs required a server to run against. See below options to run the server locally. See [iWF wiki](https://github.com/indeedeng/iwf/wiki) for production 
+The iWF SDKs required a server to run against. See below options to run the server locally. See [iWF wiki](https://github.com/superdurable/iwf/wiki) for production 
 
 ## Using all-in-one docker image
 
@@ -79,17 +79,17 @@ This by default will run Temporal server with it, again:
 * Temporal service: localhost:7233
 
 ## Production
-Check the [wiki](https://github.com/indeedeng/iwf/wiki/iWF-Server-Operations#how-to-deploy).
+Check the [wiki](https://github.com/superdurable/iwf/wiki/iWF-Server-Operations#how-to-deploy).
 
 # Support
 
 Join our Slack channel! [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](http://iworkflow-slack.work)
 
-You can also post in our [Discussion](https://github.com/indeedeng/iwf/discussions), or raise an issue.
+You can also post in our [Discussion](https://github.com/superdurable/iwf/discussions), or raise an issue.
 
 # Contributing
 
-Check out our [CONTRIBUTING](https://github.com/indeedeng/iwf/blob/main/CONTRIBUTING.md) page.
+Check out our [CONTRIBUTING](https://github.com/superdurable/iwf/blob/main/CONTRIBUTING.md) page.
 
 
 # Posts & Articles & Reference

@@ -1,7 +1,7 @@
 package compatibility
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfidl"
 )
 
 func GetWorkflowIdReusePolicy(options iwfidl.WorkflowStartOptions) *iwfidl.WorkflowIDReusePolicy {

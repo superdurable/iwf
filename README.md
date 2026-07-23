@@ -2,7 +2,7 @@
 
 Workflow-as-code orchestration: server, OpenAPI IDL, and SDKs/samples for Go, Java, and Python.
 
-This repository combines the former [indeedeng/iwf](https://github.com/indeedeng/iwf) family of repos into one tree while preserving git history under each directory.
+This repository combines the former [indeedeng/iwf](https://github.com/indeedeng/iwf) family of repos into one tree under [superdurable/iwf](https://github.com/superdurable/iwf), preserving git history under each directory.
 
 ## Layout
 

@@ -3,8 +3,8 @@ package integ
 import (
 	"errors"
 
-	"github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
-	"github.com/indeedeng/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf-golang-sdk/iwf"
 )
 
 type executeApiFailRecoveryWorkflowState1 struct {

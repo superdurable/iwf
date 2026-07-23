@@ -3,7 +3,7 @@ package temporal
 import (
 	"testing"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfidl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"

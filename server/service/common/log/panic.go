@@ -22,9 +22,9 @@ package log
 
 import (
 	"fmt"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service/common/errors"
-	"github.com/indeedeng/iwf/service/common/log/tag"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service/common/errors"
+	"github.com/superdurable/iwf/service/common/log/tag"
 	"net/http"
 	"runtime/debug"
 )

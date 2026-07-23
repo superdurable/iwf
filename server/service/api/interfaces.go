@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service/common/errors"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service/common/errors"
 )
 
 type ApiService interface {

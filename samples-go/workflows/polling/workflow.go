@@ -1,8 +1,8 @@
 package polling
 
 import (
-	"github.com/indeedeng/iwf-golang-samples/workflows/service"
-	"github.com/indeedeng/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf-golang-samples/workflows/service"
+	"github.com/superdurable/iwf-golang-sdk/iwf"
 	"time"
 )
 

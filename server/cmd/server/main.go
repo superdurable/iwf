@@ -23,7 +23,7 @@ package main
 import (
 	"os"
 
-	"github.com/indeedeng/iwf/cmd/server/iwf"
+	"github.com/superdurable/iwf/cmd/server/iwf"
 )
 
 // main entry point for the iwf server

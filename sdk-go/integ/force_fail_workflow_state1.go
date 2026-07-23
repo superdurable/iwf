@@ -1,7 +1,7 @@
 package integ
 
 import (
-	"github.com/indeedeng/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf-golang-sdk/iwf"
 )
 
 type forceFailWorkflowState1 struct {

@@ -1,32 +1,32 @@
 
 # iwf-python-sdk
 
-Python SDK for [iWF workflow engine](https://github.com/indeedeng/iwf)
+Python SDK for [iWF workflow engine](https://github.com/superdurable/iwf)
 
 ```
 pip install iwf-python-sdk==0.12.0
 ```
 
-See [samples](https://github.com/indeedeng/iwf-python-samples) for use case examples.
+See [samples](https://github.com/superdurable/iwf-python-samples) for use case examples.
 
 ## Requirements
 
 - Python 3.9+
-- [iWF server](https://github.com/indeedeng/iwf#how-to-use)
+- [iWF server](https://github.com/superdurable/iwf#how-to-use)
 
 ## Concepts
 
 To implement a workflow, the two most core interfaces are
 
-* [Workflow interface](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/workflow.py)
+* [Workflow interface](https://github.com/superdurable/iwf-python-sdk/blob/main/iwf/workflow.py)
   defines the workflow definition
 
-* [WorkflowState interface](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/workflow_state.py)
+* [WorkflowState interface](https://github.com/superdurable/iwf-python-sdk/blob/main/iwf/workflow_state.py)
   defines the workflow states for workflow definitions
 
 A workflow can contain any number of WorkflowStates.
 
-See more in https://github.com/indeedeng/iwf#what-is-iwf
+See more in https://github.com/superdurable/iwf#what-is-iwf
 
 
 # Development Plan
@@ -53,7 +53,7 @@ See more in https://github.com/indeedeng/iwf#what-is-iwf
 ### Running iwf-server locally
 
 #### Option 1: use docker compose
-See [iwf README](https://github.com/indeedeng/iwf#using-docker-image--docker-compose)
+See [iwf README](https://github.com/superdurable/iwf#using-docker-image--docker-compose)
 
 #### Option 2: VSCode Dev Container
 

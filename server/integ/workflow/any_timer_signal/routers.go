@@ -2,10 +2,10 @@ package anytimersignal
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/integ/workflow/common"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/integ/workflow/common"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"log"
 	"net/http"
 	"sync"

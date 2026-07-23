@@ -1,6 +1,6 @@
 package iwf
 
-import "github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
+import "github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
 
 // Object is a representation of EncodedObject
 type Object struct {

@@ -1,6 +1,6 @@
 package event
 
-import "github.com/indeedeng/iwf/gen/iwfidl"
+import "github.com/superdurable/iwf/gen/iwfidl"
 
 // The implementation must be lightweight, reliable and fast (less than 1s)
 type HandleEventFunc func(event iwfidl.IwfEvent)

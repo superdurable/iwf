@@ -1,4 +1,4 @@
-This [Subscription](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/subscription)
+This [Subscription](https://github.com/superdurable/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/subscription)
 
 To start a subscription workflow:
 

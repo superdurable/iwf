@@ -3,8 +3,8 @@ package iwf
 import (
 	"context"
 	"github.com/gin-gonic/gin"
-	"github.com/indeedeng/iwf-golang-samples/workflows/engagement"
-	"github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf-golang-samples/workflows/engagement"
+	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
 	"net/http"
 	"strings"
 )

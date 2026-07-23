@@ -8,13 +8,13 @@ E.g. Amazon/Linkedin/Google/etc...
 * User will click the link in the email to verify the account
 * If not clicking, a reminder will be sent every X hours
 
-<img width="303" alt="user case requirements" src="https://github.com/indeedeng/iwf-python-sdk/assets/4523955/356a4284-b816-42d3-9e44-b371a91834e4">
+<img width="303" alt="user case requirements" src="https://github.com/superdurable/iwf-python-sdk/assets/4523955/356a4284-b816-42d3-9e44-b371a91834e4">
 
 ### Some old solution
 
 With some other existing technologies, you solve it using message queue(like SQS which has timer) + Database like below:
 
-<img width="309" alt="old solution" src="https://github.com/indeedeng/iwf-python-sdk/assets/4523955/49ef8846-9589-4a28-91bd-c575daf37dcf">
+<img width="309" alt="old solution" src="https://github.com/superdurable/iwf-python-sdk/assets/4523955/49ef8846-9589-4a28-91bd-c575daf37dcf">
 
 * Using visibility timeout for backoff retry
 * Need to re-enqueue the message for larger backoff
@@ -30,7 +30,7 @@ With some other existing technologies, you solve it using message queue(like SQS
 ### New solution with iWF
 
 The solution with iWF:
-<img width="752" alt="iwf solution" src="https://github.com/indeedeng/iwf-python-sdk/assets/4523955/4cec7742-a965-4a2d-868b-693ffba372fa">
+<img width="752" alt="iwf solution" src="https://github.com/superdurable/iwf-python-sdk/assets/4523955/4cec7742-a965-4a2d-868b-693ffba372fa">
 
 * All in one single dependency
 * WorkflowAsCode

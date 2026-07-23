@@ -3,13 +3,13 @@ package temporal
 import (
 	"context"
 	"fmt"
-	"github.com/indeedeng/iwf/service/common/blobstore"
+	"github.com/superdurable/iwf/service/common/blobstore"
 	"log"
 
-	"github.com/indeedeng/iwf/config"
-	uclient "github.com/indeedeng/iwf/service/client"
-	"github.com/indeedeng/iwf/service/interpreter"
-	"github.com/indeedeng/iwf/service/interpreter/env"
+	"github.com/superdurable/iwf/config"
+	uclient "github.com/superdurable/iwf/service/client"
+	"github.com/superdurable/iwf/service/interpreter"
+	"github.com/superdurable/iwf/service/interpreter/env"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/worker"

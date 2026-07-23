@@ -1,14 +1,14 @@
 # iWF Golang SDK
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/indeedeng/iwf-golang-sdk.svg)](https://pkg.go.dev/github.com/indeedeng/iwf-golang-sdk)
-[![Go Report Card](https://goreportcard.com/badge/github.com/indeedeng/iwf-golang-sdk)](https://goreportcard.com/report/github.com/indeedeng/iwf-golang-sdk)
-[![Coverage Status](https://codecov.io/github/indeedeng/iwf-golang-sdk/coverage.svg?branch=main)](https://app.codecov.io/gh/indeedeng/iwf-golang-sdk/branch/main)
+[![Go Reference](https://pkg.go.dev/badge/github.com/superdurable/iwf-golang-sdk.svg)](https://pkg.go.dev/github.com/superdurable/iwf-golang-sdk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/superdurable/iwf-golang-sdk)](https://goreportcard.com/report/github.com/superdurable/iwf-golang-sdk)
+[![Coverage Status](https://codecov.io/github/superdurable/iwf-golang-sdk/coverage.svg?branch=main)](https://app.codecov.io/gh/superdurable/iwf-golang-sdk/branch/main)
 
-[![Build status](https://github.com/indeedeng/iwf-golang-sdk/actions/workflows/ci-integ-test.yml/badge.svg?branch=main)](https://github.com/indeedeng/iwf-golang-sdk/actions/workflows/ci-integ-test.yml)
+[![Build status](https://github.com/superdurable/iwf-golang-sdk/actions/workflows/ci-integ-test.yml/badge.svg?branch=main)](https://github.com/superdurable/iwf-golang-sdk/actions/workflows/ci-integ-test.yml)
 
-Golang SDK for [iWF workflow engine](https://github.com/indeedeng/iwf)
+Golang SDK for [iWF workflow engine](https://github.com/superdurable/iwf)
 
-See [samples](https://github.com/indeedeng/iwf-golang-samples) for how to use this SDK.
+See [samples](https://github.com/superdurable/iwf-golang-samples) for how to use this SDK.
 
 ## Contribution
 

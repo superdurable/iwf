@@ -142,12 +142,12 @@ publishing {
             pom {
                 name = "iwf-java-sdk"
                 description = "iwf java sdk core"
-                url = 'https://github.com/indeedeng/iwf-java-sdk'
+                url = 'https://github.com/superdurable/iwf'
 
                 scm {
-                    connection = 'scm:git@github.com:indeedeng/iwf-java-sdk.git'
-                    developerConnection = 'scm:git@github.com:indeedeng/iwf-java-sdk.git'
-                    url = 'https://github.com/indeedeng/iwf-java-sdk.git'
+                    connection = 'scm:git@github.com:superdurable/iwf.git'
+                    developerConnection = 'scm:git@github.com:superdurable/iwf.git'
+                    url = 'https://github.com/superdurable/iwf.git'
                 }
 
                 licenses {

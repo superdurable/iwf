@@ -1,7 +1,7 @@
 package retry
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfidl"
 	"go.temporal.io/sdk/temporal"
 	"go.uber.org/cadence/workflow"
 	"time"

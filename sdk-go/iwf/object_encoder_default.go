@@ -2,8 +2,8 @@ package iwf
 
 import (
 	"encoding/json"
-	"github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
-	"github.com/indeedeng/iwf-golang-sdk/iwf/ptr"
+	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf-golang-sdk/iwf/ptr"
 )
 
 func GetDefaultObjectEncoder() ObjectEncoder {

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfidl"
 	"github.com/uber-go/tally/v4/prometheus"
 	temporalWorker "go.temporal.io/sdk/worker"
 	cadenceWorker "go.uber.org/cadence/worker"

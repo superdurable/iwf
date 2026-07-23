@@ -8,13 +8,13 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/indeedeng/iwf/config"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/blobstore"
-	"github.com/indeedeng/iwf/service/common/errors"
-	"github.com/indeedeng/iwf/service/common/urlautofix"
-	"github.com/indeedeng/iwf/service/common/utils"
+	"github.com/superdurable/iwf/config"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/blobstore"
+	"github.com/superdurable/iwf/service/common/errors"
+	"github.com/superdurable/iwf/service/common/urlautofix"
+	"github.com/superdurable/iwf/service/common/utils"
 )
 
 func InvokeWorkerRpc(

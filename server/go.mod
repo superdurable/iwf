@@ -1,4 +1,4 @@
-module github.com/indeedeng/iwf
+module github.com/superdurable/iwf
 
 go 1.24.0
 

@@ -2,9 +2,9 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/compatibility"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/compatibility"
 )
 
 func IsDeciderTriggerConditionMet(

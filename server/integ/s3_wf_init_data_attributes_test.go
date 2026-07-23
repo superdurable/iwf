@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	s3_init_data_attributes "github.com/indeedeng/iwf/integ/workflow/s3-init-data-attributes"
+	s3_init_data_attributes "github.com/superdurable/iwf/integ/workflow/s3-init-data-attributes"
 
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/service/common/ptr"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 	"github.com/stretchr/testify/assert"
 )
 

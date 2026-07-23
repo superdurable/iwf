@@ -2,10 +2,10 @@ package uclient
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/service"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfidl"
 )
 
 type UnifiedClient interface {

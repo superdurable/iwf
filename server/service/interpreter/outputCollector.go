@@ -1,6 +1,6 @@
 package interpreter
 
-import "github.com/indeedeng/iwf/gen/iwfidl"
+import "github.com/superdurable/iwf/gen/iwfidl"
 
 type OutputCollector struct {
 	outputs []iwfidl.StateCompletionOutput

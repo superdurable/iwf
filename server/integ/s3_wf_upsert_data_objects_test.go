@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	s3_upsert_data_objects "github.com/indeedeng/iwf/integ/workflow/s3-upsert-data-objects"
+	s3_upsert_data_objects "github.com/superdurable/iwf/integ/workflow/s3-upsert-data-objects"
 
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/service/common/ptr"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 	"github.com/stretchr/testify/assert"
 )
 

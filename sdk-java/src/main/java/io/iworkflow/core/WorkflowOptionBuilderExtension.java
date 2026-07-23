@@ -11,7 +11,7 @@ public class WorkflowOptionBuilderExtension {
 
     /**
      * Add a state to wait for completion. This only waiting for all the completion of the state executions
-     * NOTE: this will not be needed/required once server implements <a href="https://github.com/indeedeng/iwf/issues/349">this</a>
+     * NOTE: this will not be needed/required once server implements <a href="https://github.com/superdurable/iwf/issues/349">this</a>
      * @param state The state to wait for completion.
      * @return The builder.
      */
@@ -22,7 +22,7 @@ public class WorkflowOptionBuilderExtension {
 
     /**
      * Add states to wait for completion. This only waiting for all the completion of the state executions
-     * NOTE: this will not be needed/required once server implements <a href="https://github.com/indeedeng/iwf/issues/349">this</a>
+     * NOTE: this will not be needed/required once server implements <a href="https://github.com/superdurable/iwf/issues/349">this</a>
      * @param states The states to wait for completion.
      * @return The builder.
      */

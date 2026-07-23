@@ -2,8 +2,8 @@ package headers
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 	"log"
 	"net/http"
 	"sync"

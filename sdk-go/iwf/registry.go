@@ -1,6 +1,6 @@
 package iwf
 
-import "github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
+import "github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
 
 type Registry interface {
 	// AddWorkflow registers a workflow

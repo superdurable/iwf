@@ -1,10 +1,10 @@
 package timers
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/interpreter/cont"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/interpreter/cont"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
 type GreedyTimerProcessor struct {

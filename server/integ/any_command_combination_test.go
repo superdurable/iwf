@@ -3,15 +3,15 @@ package integ
 import (
 	"context"
 	"encoding/json"
-	"github.com/indeedeng/iwf/integ/helpers"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/integ/helpers"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	anycommandcombination "github.com/indeedeng/iwf/integ/workflow/any_command_combination"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	anycommandcombination "github.com/superdurable/iwf/integ/workflow/any_command_combination"
+	"github.com/superdurable/iwf/service"
 	"github.com/stretchr/testify/assert"
 )
 

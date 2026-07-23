@@ -1,13 +1,13 @@
 package workflows
 
 import (
-	"github.com/indeedeng/iwf-golang-samples/workflows/engagement"
-	"github.com/indeedeng/iwf-golang-samples/workflows/microservices"
-	"github.com/indeedeng/iwf-golang-samples/workflows/moneytransfer"
-	"github.com/indeedeng/iwf-golang-samples/workflows/polling"
-	"github.com/indeedeng/iwf-golang-samples/workflows/service"
-	"github.com/indeedeng/iwf-golang-samples/workflows/subscription"
-	"github.com/indeedeng/iwf-golang-sdk/iwf"
+	"github.com/superdurable/iwf-golang-samples/workflows/engagement"
+	"github.com/superdurable/iwf-golang-samples/workflows/microservices"
+	"github.com/superdurable/iwf-golang-samples/workflows/moneytransfer"
+	"github.com/superdurable/iwf-golang-samples/workflows/polling"
+	"github.com/superdurable/iwf-golang-samples/workflows/service"
+	"github.com/superdurable/iwf-golang-samples/workflows/subscription"
+	"github.com/superdurable/iwf-golang-sdk/iwf"
 )
 
 var registry = iwf.NewRegistry()

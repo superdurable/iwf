@@ -1,8 +1,8 @@
 package interpreter
 
 import (
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
 const globalChangeId = "global"
@@ -14,14 +14,14 @@ const StartingVersionUsingGlobalVersioning = 1
 const StartingVersionOptimizedUpsertSearchAttribute = 2
 
 // StartingVersionRenamedStateApi Renamed state API
-// see: https://github.com/indeedeng/iwf/pull/242/files
+// see: https://github.com/superdurable/iwf/pull/242/files
 const StartingVersionRenamedStateApi = 3
 
 // StartingVersionContinueAsNewOnNoStates Fix ContinueAsNew bug
 const StartingVersionContinueAsNewOnNoStates = 4
 
 // StartingVersionTemporal26SDK Upgraded Temporal SDK version which brought changes to update handler
-// see: https://github.com/indeedeng/iwf/releases/tag/v1.11.0
+// see: https://github.com/superdurable/iwf/releases/tag/v1.11.0
 const StartingVersionTemporal26SDK = 5
 
 // StartingVersionExecutingStateIdMode Changed default rule of upserting SAs

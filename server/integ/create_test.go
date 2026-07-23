@@ -2,10 +2,10 @@ package integ
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/integ/helpers"
-	"github.com/indeedeng/iwf/integ/workflow/rpc"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/integ/helpers"
+	"github.com/superdurable/iwf/integ/workflow/rpc"
+	"github.com/superdurable/iwf/service"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"

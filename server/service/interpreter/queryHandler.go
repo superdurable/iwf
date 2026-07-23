@@ -1,10 +1,10 @@
 package interpreter
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/interpreter/config"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/interpreter/config"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
 func SetQueryHandlers(

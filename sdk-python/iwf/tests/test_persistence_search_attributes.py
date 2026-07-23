@@ -69,7 +69,7 @@ class TestPersistenceSearchAttributes(unittest.TestCase):
         )
         initial_expected_search_attributes[sa_int_key] = initial_sa_int
         initial_expected_search_attributes[sa_datetime_key] = (
-            "2024-11-10T00:00:01.731455544Z"  # This is a bug. The iwf-server always returns utc time. See https://github.com/indeedeng/iwf/issues/261
+            "2024-11-10T00:00:01.731455544Z"  # This is a bug. The iwf-server always returns utc time. See https://github.com/superdurable/iwf/issues/261
             # "2024-11-09T18:00:01.731455544-06:00"
         )
 
@@ -91,7 +91,7 @@ class TestPersistenceSearchAttributes(unittest.TestCase):
         expected_search_attributes[sa_keyword_array_key] = sa_keyword_array
         expected_search_attributes[sa_int_key] = sa_int
         expected_search_attributes[sa_datetime_key] = (
-            "2024-11-13T00:00:01.731455544Z"  # This is a bug. The iwf-server always returns utc time. See https://github.com/indeedeng/iwf/issues/261
+            "2024-11-13T00:00:01.731455544Z"  # This is a bug. The iwf-server always returns utc time. See https://github.com/superdurable/iwf/issues/261
             # "2024-11-12T18:00:01.731455544-06:00"
         )
 
@@ -106,7 +106,7 @@ class TestPersistenceSearchAttributes(unittest.TestCase):
         final_expected_search_attributes[sa_bool_key] = final_sa_bool
         final_expected_search_attributes[sa_keyword_array_key] = final_sa_keyword_array
         final_expected_search_attributes[sa_datetime_key] = (
-            "2024-12-14T00:00:01.731455544Z"  # This is a bug. The iwf-server always returns utc time. See https://github.com/indeedeng/iwf/issues/261
+            "2024-12-14T00:00:01.731455544Z"  # This is a bug. The iwf-server always returns utc time. See https://github.com/superdurable/iwf/issues/261
             # "2024-12-13T18:00:01.731455544-06:00"
         )
 

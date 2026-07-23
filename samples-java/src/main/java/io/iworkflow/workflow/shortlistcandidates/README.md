@@ -63,4 +63,4 @@ cadence adm cl asa --search_attr_key SHORTLIST_CandidateId --search_attr_type 1
 
 ## Test the APIs in [Postman](https://www.postman.com)
 
-* See the [ShortlistCandidatesController](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/controller/ShortlistCandidatesController.java).
+* See the [ShortlistCandidatesController](https://github.com/superdurable/iwf-java-samples/blob/main/src/main/java/io/iworkflow/controller/ShortlistCandidatesController.java).

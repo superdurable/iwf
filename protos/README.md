@@ -1,5 +1,5 @@
 # iwf-idl
-interface definition/ API schema between iWF SDKs and [iWF server](https://github.com/indeedeng/iwf)
+interface definition/ API schema between iWF SDKs and [iWF server](https://github.com/superdurable/iwf)
 
 There are two idl files: iwf.yaml and iwf-sdk.yaml:
 

@@ -1,11 +1,11 @@
 package timers
 
 import (
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 )
 
 type SimpleTimerProcessor struct {

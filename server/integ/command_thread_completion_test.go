@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/integ/workflow/command_thread_completion"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/integ/workflow/command_thread_completion"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/stretchr/testify/assert"
 )
 

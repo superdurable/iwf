@@ -63,7 +63,7 @@ Make sure you have the following installed and set up:
 1. Run iWF server
     * The simplest way is to run
       `docker pull iworkflowio/iwf-server-lite:latest && docker run -p 8801:8801 -p 7233:7233 -p 8233:8233 -e AUTO_FIX_WORKER_URL=host.docker.internal --add-host host.docker.internal:host-gateway -it iworkflowio/iwf-server-lite:latest`
-    * Or check out [iWF documentation](https://github.com/indeedeng/iwf?tab=readme-ov-file#how-to-use)
+    * Or check out [iWF documentation](https://github.com/superdurable/iwf?tab=readme-ov-file#how-to-use)
 2. [Python 3.13.2](https://www.python.org/downloads/)
 2. [Poetry](https://python-poetry.org/docs/) for dependency management and virtual environments.
 3. [Node.js and npm](https://nodejs.org/) for building the frontend.

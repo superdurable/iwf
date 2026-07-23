@@ -1,9 +1,9 @@
 package timers
 
 import (
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/interpreter/cont"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/interpreter/cont"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"time"
 )
 

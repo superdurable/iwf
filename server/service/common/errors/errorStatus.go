@@ -1,8 +1,8 @@
 package errors
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service/common/ptr"
 )
 
 type ErrorAndStatus struct {

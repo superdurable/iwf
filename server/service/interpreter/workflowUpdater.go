@@ -1,13 +1,13 @@
 package interpreter
 
 import (
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/event"
-	"github.com/indeedeng/iwf/service/common/ptr"
-	"github.com/indeedeng/iwf/service/interpreter/config"
-	"github.com/indeedeng/iwf/service/interpreter/cont"
-	"github.com/indeedeng/iwf/service/interpreter/interfaces"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/event"
+	"github.com/superdurable/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/service/interpreter/config"
+	"github.com/superdurable/iwf/service/interpreter/cont"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"time"
 )
 

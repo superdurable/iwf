@@ -1,10 +1,10 @@
 # iwf-java-sdk
-[![Coverage Status](https://codecov.io/github/indeedeng/iwf-java-sdk/coverage.svg?branch=main)](https://app.codecov.io/gh/indeedeng/iwf-java-sdk/branch/main)
-[![Build status](https://github.com/indeedeng/iwf-java-sdk/actions/workflows/ci-integ-test.yml/badge.svg?branch=main)](https://github.com/indeedeng/iwf-java-sdk/actions/workflows/ci-integ-test.yml)
+[![Coverage Status](https://codecov.io/github/superdurable/iwf-java-sdk/coverage.svg?branch=main)](https://app.codecov.io/gh/superdurable/iwf-java-sdk/branch/main)
+[![Build status](https://github.com/superdurable/iwf-java-sdk/actions/workflows/ci-integ-test.yml/badge.svg?branch=main)](https://github.com/superdurable/iwf-java-sdk/actions/workflows/ci-integ-test.yml)
 
-Java SDK for [iWF workflow engine](https://github.com/indeedeng/iwf)
+Java SDK for [iWF workflow engine](https://github.com/superdurable/iwf)
 
-See [samples](https://github.com/indeedeng/iwf-java-samples) for how to use this SDK to build your workflow.
+See [samples](https://github.com/superdurable/iwf-java-samples) for how to use this SDK to build your workflow.
 
 ## Requirements
 
@@ -43,15 +43,15 @@ implementation 'io.iworkflow:iwf-java-sdk:2.5.+'
 
 To implement a workflow, the two most core interfaces are
 
-* [Workflow interface](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/ObjectWorkflow.java)
+* [Workflow interface](https://github.com/superdurable/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/ObjectWorkflow.java)
   defines the workflow definition
 
-* [WorkflowState interface](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/WorkflowState.java)
+* [WorkflowState interface](https://github.com/superdurable/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/WorkflowState.java)
   defines the workflow states for workflow definitions
 
 A workflow can contain any number of WorkflowStates.
 
-See more in https://github.com/indeedeng/iwf#what-is-iwf
+See more in https://github.com/superdurable/iwf#what-is-iwf
 
 ## How to build & run
 
@@ -69,7 +69,7 @@ Edit OpenAPI specs in monorepo [`protos/`](../protos/), then regenerate via the 
 
 ### Local testing
 
-If you'd like to test your changes to the SDK with the workflows in the [samples](https://github.com/indeedeng/iwf-java-samples) repo, 
+If you'd like to test your changes to the SDK with the workflows in the [samples](https://github.com/superdurable/iwf-java-samples) repo, 
 use the local publishing command:
 
 1. Run:
@@ -77,7 +77,7 @@ use the local publishing command:
   ./gradlew publishToMavenLocal -x signMavenJavaPublication
   ```
 
-2. In the [samples](https://github.com/indeedeng/iwf-java-samples) repo, make sure your `build.gradle` depends on the same version you just published. To find which version you published, open the SDK's `build.gradle` file and look for the `version = "x.y.z"` line near the bottom of the file. Then run:
+2. In the [samples](https://github.com/superdurable/iwf-java-samples) repo, make sure your `build.gradle` depends on the same version you just published. To find which version you published, open the SDK's `build.gradle` file and look for the `version = "x.y.z"` line near the bottom of the file. Then run:
   ```
    ./gradlew --refresh-dependencies build
   ```

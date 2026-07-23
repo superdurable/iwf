@@ -3,7 +3,7 @@ package iwf
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/indeedeng/iwf-golang-samples/workflows/moneytransfer"
+	"github.com/superdurable/iwf-golang-samples/workflows/moneytransfer"
 	"net/http"
 	"strconv"
 	"time"

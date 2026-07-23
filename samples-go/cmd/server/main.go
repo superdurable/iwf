@@ -21,7 +21,7 @@
 package main
 
 import (
-	"github.com/indeedeng/iwf-golang-samples/cmd/server/iwf"
+	"github.com/superdurable/iwf-golang-samples/cmd/server/iwf"
 	"os"
 )
 

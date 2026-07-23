@@ -2,11 +2,11 @@ package integ
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/integ/workflow/persistence"
-	"github.com/indeedeng/iwf/integ/workflow/signal"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/integ/workflow/persistence"
+	"github.com/superdurable/iwf/integ/workflow/signal"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"strconv"

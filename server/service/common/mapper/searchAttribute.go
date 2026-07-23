@@ -3,9 +3,9 @@ package mapper
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service/common/ptr"
-	"github.com/indeedeng/iwf/service/common/timeparser"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/service/common/timeparser"
 	"go.temporal.io/api/common/v1"
 	"go.temporal.io/sdk/converter"
 	"go.uber.org/cadence/.gen/go/shared"

@@ -1,6 +1,6 @@
 package iwftest
 
-import "github.com/indeedeng/iwf-golang-sdk/iwf"
+import "github.com/superdurable/iwf-golang-sdk/iwf"
 
 func NewTestObject(obj interface{}) iwf.Object {
 	obj2, err := iwf.GetDefaultObjectEncoder().Encode(obj)

@@ -42,7 +42,7 @@
 <img width="1423" alt="Screenshot 2023-04-21 at 9 02 11 AM" src="https://user-images.githubusercontent.com/4523955/233682984-1fafe0cc-5229-4c0f-8cf2-21f6ff59d1dc.png">
 
 ## Controller
-And controller is a very thin layer of calling iWF client APIs and workflow RPC stub APIs. See [EngagementController](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/controller/EngagementWorkflowController.java).
+And controller is a very thin layer of calling iWF client APIs and workflow RPC stub APIs. See [EngagementController](https://github.com/superdurable/iwf-java-samples/blob/main/src/main/java/io/iworkflow/controller/EngagementWorkflowController.java).
 
 # How to run
 

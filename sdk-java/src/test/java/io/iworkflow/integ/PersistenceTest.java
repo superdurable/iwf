@@ -115,7 +115,7 @@ public class PersistenceTest {
         Assertions.assertEquals(ImmutableMap.builder()
                 .put(TEST_SEARCH_ATTRIBUTE_INT, 2L)
                 .put(TEST_SEARCH_ATTRIBUTE_KEYWORD, "keyword-2")
-                // .put(TEST_SEARCH_ATTRIBUTE_DATE_TIME, "2023-04-17T16:17:49-05:00") // This is a bug. The iwf-server always returns utc time. See https://github.com/indeedeng/iwf/issues/261
+                // .put(TEST_SEARCH_ATTRIBUTE_DATE_TIME, "2023-04-17T16:17:49-05:00") // This is a bug. The iwf-server always returns utc time. See https://github.com/superdurable/iwf/issues/261
                 .put(TEST_SEARCH_ATTRIBUTE_DATE_TIME, "2023-04-17T21:17:49Z")
                 .build(), finalSearchAttributes);
     }
@@ -182,7 +182,7 @@ public class PersistenceTest {
                 SEARCH_ATTRIBUTE_INT, INTEGER_VALUE_1,
                 SEARCH_ATTRIBUTE_BOOL, BOOLEAN_VALUE_1,
                 SEARCH_ATTRIBUTE_KEYWORD_ARRAY, ARRAY_STRING_VALUE_1,
-                // SEARCH_ATTRIBUTE_DATE_TIME, "2024-11-12T18:00:01.731455544-06:00" //This is a bug. The iwf-server always returns utc time. See https://github.com/indeedeng/iwf/issues/261
+                // SEARCH_ATTRIBUTE_DATE_TIME, "2024-11-12T18:00:01.731455544-06:00" //This is a bug. The iwf-server always returns utc time. See https://github.com/superdurable/iwf/issues/261
                 SEARCH_ATTRIBUTE_DATE_TIME, "2024-11-13T00:00:01.731455544Z"
         );
         Assertions.assertEquals(expectedSearchAttributes, returnedSearchAttributes);

@@ -3,7 +3,7 @@ package iwf
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/indeedeng/iwf-golang-samples/workflows/polling"
+	"github.com/superdurable/iwf-golang-samples/workflows/polling"
 	"net/http"
 	"strconv"
 )

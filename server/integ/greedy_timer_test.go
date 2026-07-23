@@ -3,17 +3,17 @@ package integ
 import (
 	"context"
 	"encoding/json"
-	"github.com/indeedeng/iwf/integ/workflow/greedy_timer"
-	uclient "github.com/indeedeng/iwf/service/client"
+	"github.com/superdurable/iwf/integ/workflow/greedy_timer"
+	uclient "github.com/superdurable/iwf/service/client"
 	"github.com/stretchr/testify/assert"
 	"log"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 )
 
 func TestGreedyTimerWorkflowBaseTemporal(t *testing.T) {

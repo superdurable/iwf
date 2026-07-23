@@ -69,7 +69,7 @@ public class ApiController {
         e.printStackTrace(pw);
         String sStackTrace = sw.toString(); // stack trace as a string
         if(sStackTrace.length()>1000){
-            // make sure NOT exceeding 4K limit in Temporal https://github.com/indeedeng/iwf/issues/272
+            // make sure NOT exceeding 4K limit in Temporal https://github.com/superdurable/iwf/issues/272
             sStackTrace = sStackTrace.substring(0, 1000) + "...(TRUNCATED)";
         }
         String msg = e.getMessage();

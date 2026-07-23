@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
-	"github.com/indeedeng/iwf-golang-sdk/iwf/ptr"
+	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf-golang-sdk/iwf/ptr"
 )
 
 type unregisteredClientImpl struct {

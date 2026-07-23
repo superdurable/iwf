@@ -2,10 +2,10 @@ package integ
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	conditionalClose "github.com/indeedeng/iwf/integ/workflow/conditional_close"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	conditionalClose "github.com/superdurable/iwf/integ/workflow/conditional_close"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"

@@ -145,7 +145,7 @@ public class WorkflowStateOptions implements Cloneable {
      * This is useful for some advanced use cases like SAGA pattern.
      * RetryPolicy is required to be set with maximumAttempts or maximumAttemptsDurationSeconds for waitUntil API.
      * <br>NOTE: execute API will use commandResults to check whether the waitUntil has succeeded or not.
-     * <br>See more in <a href="https://github.com/indeedeng/iwf/wiki/WorkflowStateOptions">wiki</a>
+     * <br>See more in <a href="https://github.com/superdurable/iwf/wiki/WorkflowStateOptions">wiki</a>
      * @param proceed true to proceed to the execute API after waitUntil API exhausted all retries; false to fail.
      * @return this
      */

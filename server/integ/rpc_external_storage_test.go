@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	rpcStorage "github.com/indeedeng/iwf/integ/workflow/rpc-external-storage"
-	"github.com/indeedeng/iwf/service"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	rpcStorage "github.com/superdurable/iwf/integ/workflow/rpc-external-storage"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/stretchr/testify/assert"
 )
 

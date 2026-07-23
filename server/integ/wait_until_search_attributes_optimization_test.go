@@ -2,9 +2,9 @@ package integ
 
 import (
 	"context"
-	"github.com/indeedeng/iwf/integ/helpers"
-	"github.com/indeedeng/iwf/integ/workflow/wait_until_search_attributes_optimization"
-	"github.com/indeedeng/iwf/service/common/ptr"
+	"github.com/superdurable/iwf/integ/helpers"
+	"github.com/superdurable/iwf/integ/workflow/wait_until_search_attributes_optimization"
+	"github.com/superdurable/iwf/service/common/ptr"
 	"go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
 	history "go.temporal.io/api/history/v1"
@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/indeedeng/iwf/gen/iwfidl"
-	"github.com/indeedeng/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
 	"github.com/stretchr/testify/assert"
 )
 

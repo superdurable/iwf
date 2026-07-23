@@ -3,7 +3,7 @@ package iwf
 import (
 	"context"
 
-	"github.com/indeedeng/iwf-golang-sdk/gen/iwfidl"
+	"github.com/superdurable/iwf-golang-sdk/gen/iwfidl"
 )
 
 type workerServiceImpl struct {

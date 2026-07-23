@@ -1,6 +1,6 @@
 package integ
 
-import "github.com/indeedeng/iwf-golang-sdk/iwf"
+import "github.com/superdurable/iwf-golang-sdk/iwf"
 
 type forceFailWorkflow struct {
 	iwf.DefaultWorkflowType
