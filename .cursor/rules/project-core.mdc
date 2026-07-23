@@ -1,0 +1,54 @@
+---
+description: Core iWF architecture and code-quality constraints
+alwaysApply: true
+---
+
+# iWF Project Rules
+
+iWF is a durable workflow framework: Go server (`server/`), OpenAPI IDL
+(`protos/`), and SDKs/samples for Go, Java, and Python. See `README.md` for the
+module map.
+
+## Compatibility
+
+- The project has not launched. Remove dead config fields immediately.
+- Break APIs, interfaces, and data formats freely. Prefer the cleanest design.
+- Do not keep shims, dual-path logic, deprecated aliases, or migration adapters.
+- Do not add docs or comments that explain former behavior.
+- Ask before adding any backward-compatibility shim.
+
+## Dependency Injection
+
+- Use constructor injection. Never add `SetXyz`, `Inject*`, `Wire*`, or exported
+  mutable fields to wire dependencies after construction.
+- Fix bootstrap ordering instead of post-construction wiring.
+- Inject a pointer to the component's config section, not individual tunables or
+  the whole `config.Config`.
+- Store it as `cfg *config.XyzConfig`, panic on nil in the constructor, and read
+  fields where used.
+
+## Maintainability
+
+- Lift stateful closures into struct methods when they capture 3+ values, mutate
+  outer state, have multiple call sites, or outlive one statement.
+- One-shot callbacks, tiny pure transforms, and IIFEs are acceptable.
+- Comments explain only non-obvious reasons, trade-offs, invariants, or external
+  constraints. Prefer clearer names over obvious comments.
+- Keep every contiguous comment block under 20 words. Ask before exceeding this.
+- The two comment-simplification rules above do not apply to `server/config/`;
+  configuration comments should favor complete operational semantics.
+- Preserve comments during refactors; move them or update stale wording.
+- Before producing a binary, add its exact path to both `.gitignore` and
+  `.dockerignore`, then remove any stray uncommitted binaries.
+
+## License Headers
+
+- Every new or edited `.go` / `.java` / `.py` file (and hand-written OpenAPI
+  YAML under `protos/`) must start with the license header for its directory.
+- Templates and mapping: `script/licenseheaders/` (`mit`, `apache-2.0`,
+  `dual-mit-apache`). The tool picks the template by longest path prefix.
+- Skip generated trees: `**/gen/**`, `*.pb.go`, `*_pb.go`, `*.gen.*`.
+- When creating or modifying such a file, check the top; if the header is
+  missing, add it. Or run `make copyright` from the repo root.
+- Use `make copyright-check` to verify; `make copyright-replace` rewrites to the
+  Super Durable per-directory template (destructive).

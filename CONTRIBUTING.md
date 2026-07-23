@@ -60,6 +60,24 @@ cd sdk-python && poetry install && poetry run pytest   # if tests are configured
 cd ../samples-python && poetry install
 ```
 
+## License headers
+
+Source files use per-directory license headers (MIT under `server/` and
+`samples-go/`; Apache-2.0 under the SDKs and Java/Python samples; dual MIT +
+Apache-2.0 under `protos/`). Templates and the directory mapping live in
+[`script/licenseheaders/`](script/licenseheaders/).
+
+From the repo root:
+
+```bash
+make copyright         # add missing headers
+make copyright-check   # verify headers are present
+make copyright-replace # rewrite to Super Durable per-directory templates (destructive)
+```
+
+Skip generated trees (`**/gen/**`, `*.pb.go`, `*_pb.go`, `*.gen.*`). Prefer
+`make copyright` over hand-copying when adding files.
+
 ## CI
 
 Root workflows under [`.github/workflows/`](.github/workflows/) run path-filtered jobs for server and each SDK/samples tree. Prefer fixing those over re-adding nested `*/.github/workflows` duplicates.

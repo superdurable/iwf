@@ -1,11 +1,223 @@
-# Agent instructions
+# iWF — Codex Instructions
 
-## No backward compatibility (pre-launch)
+Durable workflow framework: Go server (`server/`), OpenAPI IDL (`protos/`), and
+SDKs/samples for Go, Java, and Python. See [README.md](README.md) for the module
+map.
 
-This repository has **not officially launched**. Treat the surface area as unstable.
+## Plan Mode
 
-- Do **not** preserve backward compatibility when changing or planning APIs, interfaces, protos, SDKs, configs, persistence, or data formats.
-- Prefer the cleanest design. **Breaking changes are expected and allowed.**
-- Do **not** keep shim layers, dual-path logic, deprecated aliases, or migration adapters “just in case.”
-- Do **not** add docs, changelogs, or comments that explain former behavior, migration from old shapes, or “previously X meant Y.”
-- When replacing something, delete the old path and update all in-repo callers; do not leave dead compatibility code.
+Every plan must include all three sections below. Use `N/A: <one-line reason>`
+only when a section genuinely doesn't apply.
+
+- `## Tests` — list specific scenarios (integration vs E2E, why each)
+- `## Documentation` — which module READMEs / `CONTRIBUTING.md` to create or update
+- `## UI/UX` — usually `N/A: no in-repo web UI`
+
+### Tests
+
+- Default to **integration tests** (`server/integ/`) and SDK integ suites.
+- Do NOT add unit tests unless explicitly asked or the edge case is unreachable
+  through integration/E2E paths.
+- List specific test scenarios — not just "add tests".
+
+### Documentation
+
+- Name docs under module READMEs or `CONTRIBUTING.md`. There is no top-level
+  `docs/` tree yet.
+
+### UI/UX
+
+- No in-repo web UI. Do not invent Temporal Web work unless the change adds a UI.
+
+## Code Quality Rules
+
+### License Headers
+
+Every new or edited `.go` / `.java` / `.py` file (and hand-written OpenAPI YAML
+under `protos/`) must start with the license header for its directory from
+[`script/licenseheaders/`](script/licenseheaders/) — selected by longest path
+prefix in `mapping.yaml`.
+
+Skip generated trees: `**/gen/**`, `*.pb.go`, `*_pb.go`, `*.gen.*`.
+
+When creating or modifying such a file, check the top; if the header is missing,
+add it. From the repo root:
+
+- `make copyright` — add missing headers
+- `make copyright-check` — verify (fails if any are missing)
+- `make copyright-replace` — replace existing headers with the current
+  Super Durable per-directory template (destructive)
+
+### No Backward Compatibility
+
+The project has **not launched**. Remove dead config fields immediately. Break
+APIs freely. Ask before adding any compat shim. Do not leave docs/comments that
+explain former behavior.
+
+### No Setter Injection
+
+Constructor injection only. Never add `SetXyz`, `Inject*`, `Wire*`, or exported
+mutable fields for wiring components after `New*()` returns. Fix bootstrap
+ordering instead.
+
+### Inject Config Sections by Pointer, Not Individual Fields
+
+When a component needs tunables from a config section, pass a pointer to that
+whole section into its constructor and read fields off it — do NOT thread
+individual fields as separate constructor params.
+
+- Store an unexported `cfg *config.XyzConfig`; read `h.cfg.SomeKnob` where used.
+  Panic in the constructor if nil.
+- Pass the **section**, not the whole `config.Config`, and by **pointer**, not
+  value.
+
+### No Stateful Closures — Use Methods on Structs
+
+A closure that captures 3+ outer variables, mutates outer state, is called from
+more than one site, or outlives a single statement → lift it into a method on a
+struct with explicit fields.
+
+Fine: one-shot callbacks (`sort.Slice`, `errgroup.Go`, `defer`), tiny pure
+transforms, IIFEs for scoping.
+
+### No Obvious Comments
+
+Write the fewest comments needed. Never restate what the code or a well-named
+identifier already says. Write a comment only for a non-obvious *why*. When in
+doubt, improve the name instead.
+
+### Short Comments — Under 20 Words
+
+Every comment block (a contiguous group of `//` lines) must be fewer than 20
+words. If you believe a longer one is necessary, ask the user first.
+
+The comment-simplification and 20-word rules do not apply to `server/config/`.
+Configuration comments should favor complete operational semantics.
+
+### Preserve Comments During Refactoring
+
+Never delete existing comments during a refactor. Move them with the code they
+describe. Rewrite stale comments to reflect the new reality — do not drop them.
+
+### Top-Down File Ordering (Go files)
+
+In the same file, a callee always appears **below** its caller. High-level
+orchestration at the top, leaf helpers at the bottom. Preferred order for a
+struct-based file:
+
+1. Type declaration
+2. Constructor (`new<Type>`)
+3. Constructor's own helpers
+4. Main entry method (`Run`, `Serve`, `Handle`, `Process`)
+5. Per-event/step handlers (in dispatch order)
+6. Sub-handlers
+7. Mutators / state-changing helpers
+8. Encoders / converters / pure transforms
+9. Tiny accessors at the very bottom
+
+Exceptions: generated code (leave as-is); tightly grouped methods on different
+subsystems in one file (keep the cluster intact).
+
+### `ptr.Any(...)` for Pointer Literals (Go)
+
+Use `ptr.Any(value)` instead of a throwaway local variable taken by address.
+Import: `github.com/superdurable/iwf/service/common/ptr` (server) or
+`github.com/superdurable/iwf/sdk-go/iwf/ptr` (SDK). Use explicit types for
+numerics: `ptr.Any(int64(0))`, `ptr.Any(int32(1))`.
+
+Do not use `ptr.Any` when the pointer must alias an existing named variable that
+is also read or mutated elsewhere.
+
+### Update Ignore Files When Producing Binaries
+
+Before running `go build -o <path>` or adding a new `main` package, add the
+output path to both `.gitignore` **and** `.dockerignore`. Use exact paths, not
+overly broad globs. Delete stray uncommitted binaries.
+
+### Run Tests After Every Change
+
+After code changes, run tests via the Makefile — not bare `go test` for full
+suites:
+
+- `make -C server unitTests`
+- `make -C server integTests` / `temporalIntegTests` / `cadenceIntegTests`
+
+Always tee output: `make -C server unitTests 2>&1 | tee /tmp/test-<scope>.log`
+
+Fix all failures before moving on. If stuck after multiple attempts, pause and
+ask the user with: (1) the failure, (2) what you tried, (3) where you're blocked.
+
+## Go-Specific Rules
+
+### Config Field Comments
+
+Every config struct field must have a Go doc comment:
+
+1. Always state the default value.
+2. Explain what it means/controls if non-obvious.
+3. State immutability, relationships, valid ranges if constrained.
+4. Add a concrete example if tricky.
+
+For address fields, explain protocol served, who connects, and bind-vs-advertise
+relationship.
+
+### Go Package Aliases
+
+Use the package's declared name. Only alias when:
+
+- Two packages share the same name in one file.
+- The default name is misleading or ambiguous.
+- An established repo convention applies (e.g. `iwfidl` for generated OpenAPI).
+
+Do not invent aliases like `servermetrics` or `mongostore`.
+
+### No Unnecessary Nil Checks
+
+Required dependencies must panic or `log.Fatal` if nil — fail fast at startup.
+Do not add `if x == nil { return nil }` guards that silently swallow bugs. Only
+add nil checks when nil is a valid, expected value.
+
+### Server Error Handling (`server/`)
+
+API failures that reach Gin handlers should use `errors.ErrorAndStatus` from
+`github.com/superdurable/iwf/service/common/errors` with an
+`iwfidl.ErrorSubStatus` and HTTP status code.
+
+- Prefer `NewErrorAndStatus` / `NewErrorAndStatusWithWorkerError`.
+- Bad client/SDK input → 4xx + appropriate `ErrorSubStatus`.
+- Infrastructure / unexpected failures → 5xx.
+
+### Never Silently Ignore Errors
+
+Every returned error must be handled — returned, logged, or explicitly acted on.
+Never `_ = f()`, `x, _ := f()`, or `if err == nil { use(x) }` with no `else`.
+If you genuinely must ignore one, leave a code comment explaining why **and**
+call it out in review.
+
+Trusted vs untrusted decides fail-fast vs graceful:
+
+- **Trusted** (our own store rows, server-minted ids, invariants we control): a
+  violated invariant is a bug — fail fast. Use a `Must*` helper rather than
+  silently ignoring. Better still, thread the typed value end-to-end.
+- **Untrusted** (HTTP request fields, SDK/worker payloads, anything a client can
+  set): must handle gracefully — validate and return an input-style
+  `ErrorAndStatus`; **never** `Must*`/panic.
+
+### Naming — No 1-2 Letter Variable Names
+
+Variables (struct fields, parameters, locals) must use descriptive names. Method
+receivers are exempt (Go convention: `func (w *Worker) ...`).
+
+Allowed short non-receiver names: `i j k n err ctx ok t mu wg id r w ch`
+
+## Test Isolation Rules
+
+### No `time.Sleep` for Async Convergence
+
+Use `require.Eventually` or a polling loop. `time.Sleep` is only acceptable
+inside the system under test itself.
+
+### Unique IDs Per Test
+
+Generate unique workflow IDs (and namespaces when applicable) per test when
+sharing a Temporal/Cadence stack. Never rely on leftover state from another test.

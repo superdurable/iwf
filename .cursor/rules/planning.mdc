@@ -1,0 +1,29 @@
+---
+description: Required sections and standards for implementation plans
+alwaysApply: true
+---
+
+# Plan Requirements
+
+Every implementation plan must include all three sections below. Use
+`N/A: <one-line reason>` only when a section genuinely does not apply.
+
+## Tests
+
+- List specific integration and E2E scenarios and why each is needed.
+- Default to integration tests in `server/integ/` and the relevant SDK integ
+  suites (`sdk-go/integ/`, Java/Python test stacks).
+- Do not propose unit tests unless explicitly requested or the edge case cannot
+  be reached through integration/E2E paths.
+- Cluster or multi-backend features should cover Temporal and Cadence when both
+  are affected.
+
+## Documentation
+
+- Name module READMEs or [`CONTRIBUTING.md`](CONTRIBUTING.md) sections to create
+  or update. There is no top-level `docs/` tree yet.
+
+## UI/UX
+
+- `N/A: no in-repo web UI` unless a change adds one. Do not invent UI work for
+  Temporal Web.

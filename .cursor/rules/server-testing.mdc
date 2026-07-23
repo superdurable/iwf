@@ -1,0 +1,28 @@
+---
+description: Server test execution and async test conventions
+globs: server/**/*
+alwaysApply: false
+---
+
+# Server Testing
+
+## Execution
+
+- After every code change, run tests through the Makefile, never bare `go test`
+  for full suites.
+- Always tee output:
+  `make -C server <target> 2>&1 | tee /tmp/test-<scope>.log`.
+- Targets: `unitTests` for unit tests; `integTests` / `temporalIntegTests` /
+  `cadenceIntegTests` for integration; `ci-all-tests` for the CI matrix.
+- Fix all failures. After multiple unsuccessful attempts, report the failure,
+  attempted fixes, and exact blocker.
+
+## Isolation and Async
+
+- Prefer package-level isolation so tests can run in parallel across packages.
+- Use unique workflow IDs / namespaces per test when sharing a Temporal/Cadence
+  stack.
+- Use `require.Eventually` or polling for convergence. Do not use `time.Sleep`
+  except inside the behavior under test.
+- Put expensive shared setup (docker stacks, shared workers) in `TestMain` when
+  a package already follows that pattern.
