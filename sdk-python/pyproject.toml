@@ -12,6 +12,8 @@ homepage = "https://github.com/superdurable/iwf/tree/main/sdk-python"
 python = "^3.9"
 python-dateutil = { version = "^2.8.2", python = "<3.11" }
 httpx = "0.28.1"
+grpcio = ">=1.60"
+protobuf = ">=4.25"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.3.5"
@@ -22,7 +24,6 @@ wemake-python-styleguide = "^0.19.2"
 pytest-cov = "^6.1.1"
 anyio = "^4.9.0"
 pytest-env = "^1.1.5"
-openapi-python-client = "^0.24.3"
 
 [tool.poetry.group.test.dependencies]
 flask = "^2.3.2"

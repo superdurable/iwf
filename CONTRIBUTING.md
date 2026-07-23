@@ -33,17 +33,15 @@ make -C server unitTests
 make -C sdk-go ci-tests   # may start docker compose under sdk-go/integ
 ```
 
-## IDL / OpenAPI (`protos/`)
+## IDL (`protos/`)
 
-Specs live in [`protos/`](protos/) (`iwf.yaml` for server, `iwf-sdk.yaml` for SDKs). There is no git submodule.
+Protobuf source lives in [`protos/iwf.proto`](protos/iwf.proto). Rename catalog: [`docs/design/idl-renames.md`](docs/design/idl-renames.md).
 
-Regenerate after editing specs:
+Regenerate checked-in stubs (server + all SDKs):
 
 ```bash
-make -C server idl-code-gen
-make -C sdk-go idl-code-gen
-# Java: Gradle OpenAPI generate tasks in sdk-java/
-# Python: see sdk-python/README.md (openapi-python-client)
+make -C protos proto
+# or: make -C server idl-code-gen
 ```
 
 ## Java

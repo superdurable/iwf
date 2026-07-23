@@ -10,11 +10,11 @@ Here is the repository layout if you are interested to learn about it:
   and interpreter service
 * `config/` the config to start the server, and also config template to start the Docker image
 * `docker-compose/` the docker compose file to start a full iWF server with Temporal dependency
-* `gen/` the generated code from iwf-idl (Open API definition/Swagger)
+* `gen/iwfpb/` the generated protobuf/gRPC stubs from [`protos/iwf.proto`](../protos/iwf.proto)
 * `integ/` the end to end integration tests.
     * `workflow/` the iWF workflows that are written without SDK(just implemented the REST APIs)
     * `*.go` the tests
-* IDL OpenAPI specs live in monorepo `protos/` (was formerly the `iwf-idl` submodule)
+* IDL source lives in monorepo `protos/iwf.proto` (see [`docs/design/idl-renames.md`](../docs/design/idl-renames.md))
 * `script/` some scripts
     * `http/` some example HTTP scripts to call server, like REST API
     * `start-server.sh` the script to start iWF server in Docker image
@@ -34,8 +34,8 @@ Here is the repository layout if you are interested to learn about it:
 
 ## How to update IDL and the generated code
 
-1. Edit OpenAPI specs in monorepo [`protos/`](../protos/) (`iwf.yaml` / `iwf-sdk.yaml`)
-2. Run `make idl-code-gen` to refresh the generated code.
+1. Edit [`protos/iwf.proto`](../protos/iwf.proto)
+2. Run `make idl-code-gen` (or `make -C ../protos proto`) to refresh stubs in server + SDKs.
 
 # How to run server or integration test
 

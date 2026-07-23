@@ -6,14 +6,14 @@ Any contribution is welcome. Even just a fix for typo in a code comment, or READ
 
 Here is the repository layout if you are interested to learn about it:
 
-* `gen/` the generated code from iwf-idl (Open API definition/Swagger)
+* `gen/iwfpb/` the generated protobuf/gRPC stubs from [`protos/iwf.proto`](../protos/iwf.proto)
 * `integ/` the end to end integration tests.
     * `init.go` the initiation & registration of workflows. It's using global variables just for convenience
     * `main_test` the setup + tear down for running local in-memory iWF worker with GoSDK
     * `xyz_test` the test for a test case xyz
     * `xyz_workflow.go` the test workflow for a test xyz
     * `xyz_workflow_state_*` the test workflow states for a test xyz
-* IDL OpenAPI specs live in monorepo `protos/` (was formerly the `iwf-idl` submodule)
+* IDL source lives in monorepo `protos/iwf.proto` (see [`docs/design/idl-renames.md`](../docs/design/idl-renames.md))
 * `iwf` the main directory
   * `*_impl.go` these are implementation for SDK. Ideally we should put them in separate folder, but Golang doesn't allow circular dependency, and we hate to use alias across packages
   * `internal_*.go` these are implementation for SDK
@@ -21,9 +21,8 @@ Here is the repository layout if you are interested to learn about it:
   * other `.go` the interfaces defined in this SDK for user to use
 
 ## How to update IDL and the generated code
-1. Install openapi-generator using Homebrew if you haven't. See more [documentation](https://openapi-generator.tech/docs/installation)
-2. Edit OpenAPI specs in monorepo [`protos/`](../protos/) (`iwf-sdk.yaml`)
-3. Run `make idl-code-gen` to refresh the generated code
+1. Edit [`protos/iwf.proto`](../protos/iwf.proto)
+2. Run `make idl-code-gen` (or `make -C ../protos proto`) to refresh stubs in server + SDKs
 
 ### Coding convention 
 There are lots of convention that we love here that we haven't summarized all of them. So you may get some code review feedback about more than just below:

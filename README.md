@@ -1,6 +1,6 @@
 # iWF (Indeed Workflow Framework) — monorepo
 
-Workflow-as-code orchestration: server, OpenAPI IDL, and SDKs/samples for Go, Java, and Python.
+Workflow-as-code orchestration: server, protobuf IDL, and SDKs/samples for Go, Java, and Python.
 
 This repository combines the former [indeedeng/iwf](https://github.com/indeedeng/iwf) family of repos into one tree under [superdurable/iwf](https://github.com/superdurable/iwf), preserving git history under each directory.
 
@@ -9,8 +9,8 @@ This repository combines the former [indeedeng/iwf](https://github.com/indeedeng
 | Path | Contents |
 |------|----------|
 | [server/](server/) | iWF server (Temporal/Cadence backend) |
-| [protos/](protos/) | OpenAPI IDL (`iwf.yaml`, `iwf-sdk.yaml`) |
-| [docs/](docs/) | Product docs (former [iwf wiki](https://github.com/indeedeng/iwf.wiki); start at [README.md](docs/README.md)) |
+| [protos/](protos/) | Protobuf IDL ([`iwf.proto`](protos/iwf.proto); renames in [`docs/design/idl-renames.md`](docs/design/idl-renames.md)) |
+| [docs/](docs/) | Docs: [`design/`](docs/design/), [`case-study/`](docs/case-study/), [`wiki/`](docs/wiki/) (start at [README.md](docs/README.md)) |
 | [sdk-go/](sdk-go/) | Go SDK |
 | [samples-go/](samples-go/) | Go samples |
 | [sdk-java/](sdk-java/) | Java SDK |

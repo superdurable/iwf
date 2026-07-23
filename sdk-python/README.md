@@ -85,20 +85,15 @@ poetry install
 
 #### Update IDL
 
-Edit OpenAPI specs in monorepo [`protos/`](../protos/) (`iwf-sdk.yaml`). No git submodule is used in this monorepo.
+Edit [`protos/iwf.proto`](../protos/iwf.proto). Rename catalog: [`docs/design/idl-renames.md`](../docs/design/idl-renames.md).
 
-#### Generate API client from IDL
-
-This project uses [openapi-python-client](https://github.com/openapi-generators/openapi-python-client) to generate an API client from the IDL. To update the generated client:
+#### Generate stubs from IDL
 
 ```bash
-poetry run openapi-python-client generate --path ../protos/iwf-sdk.yaml --config iwf/.openapi-python-client-config.yaml
-cp -R iwf_api/iwf_api/* iwf/iwf_api && rm -R iwf_api/ && poetry update
+make -C ../protos proto
 ```
 
-The last command will:
-* Fix the api package path
-* Update the local path dependency.
+Checked-in Python stubs land in `iwf/iwfpb/`.
 #### Linting
 
 To run linting for this project:

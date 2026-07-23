@@ -1,43 +1,57 @@
-## Use case study/examples
-* [User sign-up/registry in Python/Java](Use-case-study-%E2%80%90%E2%80%90-user-signup-workflow.md) 
-* [Abstracted microservice orchestration in Java/Golang](Use-case-study-%E2%80%90%E2%80%90-Microservice-Orchestration.md)
+# iWF documentation
+
+## Design
+
+* [iWF Design](design/iWF-Design.md)
+* [ContinueAsNew in Temporal (or Cadence)](design/ContinueAsNew-in-Temporal-(or-Cadence)-workflow.md)
+* [IDL renames (OpenAPI → iwf.proto)](design/idl-renames.md)
+
+## Case studies / examples
+
+* [User sign-up/registry in Python/Java](case-study/Use-case-study-%E2%80%90%E2%80%90-user-signup-workflow.md)
+* [Abstracted microservice orchestration in Java/Golang](case-study/Use-case-study-%E2%80%90%E2%80%90-Microservice-Orchestration.md)
 * Employer & JobSeeker engagement in [Java](../samples-java/src/main/java/io/iworkflow/workflow/engagement) or [Golang](../samples-go/workflows/engagement)
 * Subscription Workflow in [Java](../samples-java/src/main/java/io/iworkflow/workflow/subscription) or [Golang](../samples-go/workflows/subscription)
-## Basic concepts
-* [Basic concepts overview](Basic-concepts-overview.md)
-* [WorkflowState](WorkflowState.md)
-* [RPC](RPC.md)
-* [Persistence](Persistence.md)
-* [Client APIs](Client-APIs.md)
-* [Compare with Cadence/Temporal](Compare-with-Cadence-Temporal.md)
 
-## Advanced concepts
-* [WorkflowOptions](WorkflowOptions.md)
-* [WorkflowConfig](WorkflowConfig.md)
-* [WorkflowContext](WorkflowContext.md)
-* [WorkflowStateOptions](WorkflowStateOptions.md)
-* [Conditional complete workflow with checking channel emptiness](Conditionally-complete-workflow-with-atomic-checking-on-signal-or-internal-channel.md) 
-* [WaitForStateExecutionCompletion](How-to-wait-for-a-workflow-state-to-complete.md)
-* [iWF limitation](iWF-limitation.md)
-* [Persistence Caching (experimental)](Persistence-Caching.md)
-* [RPC locking](RPC-locking%3A-What-does-the-atomicity-of-RPC-really-mean%3F.md)
-* [SignalChannel vs InternalChannel](SignalChannel-vs-InternalChannel.md)
+## Wiki
 
+### Basic concepts
 
-## Operation
-* [iWF application operation](iWF-Application-Operations.md)
-* [iWF server operation](iWF-Server-Operations.md)
-* [How to modify/version iWF workflow safely](%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes.md)
-* [How to change server config in docker](How-to-change-server-config-in-docker.md)
+* [Basic concepts overview](wiki/Basic-concepts-overview.md)
+* [WorkflowState](wiki/WorkflowState.md)
+* [RPC](wiki/RPC.md)
+* [Persistence](wiki/Persistence.md)
+* [Client APIs](wiki/Client-APIs.md)
+* [Compare with Cadence/Temporal](wiki/Compare-with-Cadence-Temporal.md)
 
+### Advanced concepts
 
-## FAQ
-* [SignalChannel vs InternalChannel](SignalChannel-vs-InternalChannel.md)
-* [Using iWF as storage system](What-are-Pros-and-Cons-of-using-iWF-as-a-database-for-permanent-data-storage%3F.md)
-* [How iWF works & design](iWF-Design.md)
-* [Data Persistence vs StateExecutionLocal vs input](Using-persistence-vs-State-input-vs-StateExecutionLocal-to-pass-data.md)
-* [RPC atomicity](RPC-locking%3A-What-does-the-atomicity-of-RPC-really-mean%3F.md)
-* [iWF limitation](iWF-limitation.md)
-* [Wait for workflow to complete](How-to-wait-for-a-workflow-to-complete.md)
-* [Wait for workflow state to complete](How-to-wait-for-a-workflow-state-to-complete.md)
-* [How does waitForStateExecutionCompletion works](How-does-waitForStateCompletion-work%3F.md)
+* [WorkflowOptions](wiki/WorkflowOptions.md)
+* [WorkflowConfig](wiki/WorkflowConfig.md)
+* [WorkflowContext](wiki/WorkflowContext.md)
+* [WorkflowStateOptions](wiki/WorkflowStateOptions.md)
+* [Conditional complete workflow with checking channel emptiness](wiki/Conditionally-complete-workflow-with-atomic-checking-on-signal-or-internal-channel.md)
+* [WaitForStateExecutionCompletion](wiki/How-to-wait-for-a-workflow-state-to-complete.md)
+* [iWF limitation](wiki/iWF-limitation.md)
+* [Persistence Caching (experimental)](wiki/Persistence-Caching.md)
+* [RPC locking](wiki/RPC-locking%3A-What-does-the-atomicity-of-RPC-really-mean%3F.md)
+* [SignalChannel vs InternalChannel](wiki/SignalChannel-vs-InternalChannel.md)
+
+### Operation
+
+* [iWF application operation](wiki/iWF-Application-Operations.md)
+* [iWF server operation](wiki/iWF-Server-Operations.md)
+* [How to modify/version iWF workflow safely](wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes.md)
+* [How to change server config in docker](wiki/How-to-change-server-config-in-docker.md)
+
+### FAQ
+
+* [SignalChannel vs InternalChannel](wiki/SignalChannel-vs-InternalChannel.md)
+* [Using iWF as storage system](wiki/What-are-Pros-and-Cons-of-using-iWF-as-a-database-for-permanent-data-storage%3F.md)
+* [How iWF works & design](design/iWF-Design.md)
+* [Data Persistence vs StateExecutionLocal vs input](wiki/Using-persistence-vs-State-input-vs-StateExecutionLocal-to-pass-data.md)
+* [RPC atomicity](wiki/RPC-locking%3A-What-does-the-atomicity-of-RPC-really-mean%3F.md)
+* [iWF limitation](wiki/iWF-limitation.md)
+* [Wait for workflow to complete](wiki/How-to-wait-for-a-workflow-to-complete.md)
+* [Wait for workflow state to complete](wiki/How-to-wait-for-a-workflow-state-to-complete.md)
+* [How does waitForStateExecutionCompletion works](wiki/How-does-waitForStateCompletion-work%3F.md)

@@ -102,7 +102,7 @@ jobs:
       - name: Pytest
         run: |
           echo "[run]">>.coveragerc
-          echo "omit = iwf/iwf_api/">>.coveragerc
+          echo "omit = iwf/iwfpb/">>.coveragerc
           poetry run pytest -vv --cov-config=.coveragerc --cov="iwf/" .
       - name: Dump docker logs
         if: always()

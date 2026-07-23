@@ -52,7 +52,7 @@ See more in https://github.com/superdurable/iwf#what-is-iwf
 
 ### Using IntelliJ
 
-1. OpenAPI specs live in monorepo [`protos/`](../protos/) (no submodule checkout needed).
+1. Protobuf IDL lives in monorepo [`protos/iwf.proto`](../protos/iwf.proto) (no submodule checkout needed).
 2. In "Build, Execution, Deployment" -> "Gradle", choose "wrapper task in Gradle build script" for "Use gradle from".
 3. Open Gradle tab, click "build" under "build" to build the project
 
@@ -60,7 +60,7 @@ See more in https://github.com/superdurable/iwf#what-is-iwf
 
 ### Update IDL
 
-Edit OpenAPI specs in monorepo [`protos/`](../protos/), then regenerate via the Gradle OpenAPI tasks.
+Edit [`protos/iwf.proto`](../protos/iwf.proto), then run `make -C ../protos proto` to refresh checked-in stubs under `src/main/java/io/superdurable/gen/`.
 
 ### Local testing
 
@@ -84,7 +84,8 @@ use the local publishing command:
 
 ### Repo structure
 * `.github/workflows/`: the GithubActions workflows
-* IDL OpenAPI specs live in monorepo `protos/` (was formerly the `iwf-idl` submodule)
+* IDL source lives in monorepo [`protos/iwf.proto`](../protos/iwf.proto) (see [`docs/design/idl-renames.md`](../docs/design/idl-renames.md))
+* Generated stubs: `src/main/java/io/superdurable/gen/`
 * `script/`: some scripts for GithubActions and testing
 * `src/`: Java source code
   * `main/java/io/iworkflow/core/`: SDK code

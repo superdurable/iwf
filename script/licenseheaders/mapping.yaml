@@ -7,4 +7,4 @@ sdk-java: apache-2.0
 sdk-python: apache-2.0
 samples-java: apache-2.0
 samples-python: apache-2.0
-protos: dual-mit-apache
+protos: mit
