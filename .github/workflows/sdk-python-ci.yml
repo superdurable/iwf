@@ -29,8 +29,10 @@ jobs:
         run: pipx install poetry
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
-      - name: Run linters
-        run: poetry run pre-commit run --show-diff-on-failure --color=always --all-files
+      - name: Run linters (sdk-python files only)
+        run: |
+          FILES=$(git ls-files | tr '\n' ' ')
+          poetry run pre-commit run --show-diff-on-failure --color=always --files $FILES
 
   pytest:
     runs-on: ubuntu-latest
@@ -41,6 +43,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Start iWF environment
         run: docker compose -f iwf/tests/iwf-service-env/docker-compose.yml up -d
+      - name: Wait for iWF server
+        run: |
+          for i in $(seq 1 60); do
+            if (echo >/dev/tcp/127.0.0.1/8801) >/dev/null 2>&1; then
+              sleep 15
+              echo "iWF server port open"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for iWF server"
+          exit 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
@@ -52,7 +66,6 @@ jobs:
         run: |
           echo "[run]">>.coveragerc
           echo "omit = iwf/iwf_api/">>.coveragerc
-          sleep 30
           poetry run pytest -vv --cov-config=.coveragerc --cov="iwf/" .
       - name: Dump docker logs
         if: always()

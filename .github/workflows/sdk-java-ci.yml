@@ -31,8 +31,20 @@ jobs:
           java-version: "8"
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-      - name: Wait and build
-        run: sleep 30 && ./gradlew build -x signMavenJavaPublication
+      - name: Wait for iWF server
+        run: |
+          for i in $(seq 1 60); do
+            if (echo >/dev/tcp/127.0.0.1/8801) >/dev/null 2>&1; then
+              sleep 15
+              echo "iWF server port open"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for iWF server"
+          exit 1
+      - name: Build
+        run: ./gradlew build -x signMavenJavaPublication
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
