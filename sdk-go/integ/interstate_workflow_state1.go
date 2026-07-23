@@ -26,5 +26,5 @@ func (b interStateWorkflowState1) Execute(ctx iwf.WorkflowContext, input iwf.Obj
 	if cmd1.Status == iwfidl.WAITING && i == 2 {
 		return iwf.GracefulCompletingWorkflow, nil
 	}
-	return nil, fmt.Errorf("error in executing " + ctx.GetStateExecutionId())
+	return nil, fmt.Errorf("error in executing %s", ctx.GetStateExecutionId())
 }

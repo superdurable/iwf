@@ -1,17 +1,8 @@
 name: Java samples CI
 
+# Disabled on push/PR until the Java SDK is published under the superdurable
+# Maven coordinates. Re-enable path filters after release.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "samples-java/**"
-      - "sdk-java/**"
-      - ".github/workflows/samples-java-ci.yml"
-  pull_request:
-    paths:
-      - "samples-java/**"
-      - "sdk-java/**"
-      - ".github/workflows/samples-java-ci.yml"
   workflow_dispatch:
 
 jobs:

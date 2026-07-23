@@ -1,11 +1,8 @@
 name: Push Docker images (main)
 
+# Requires DOCKERHUB_USERNAME / DOCKERHUB_TOKEN repo secrets.
+# Manual-only until secrets are configured (auto-push was failing login).
 on:
-  push:
-    branches: [main]
-    paths:
-      - "server/**"
-      - ".github/workflows/docker-image-latest.yml"
   workflow_dispatch:
 
 jobs:

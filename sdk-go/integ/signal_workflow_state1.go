@@ -29,5 +29,5 @@ func (b signalWorkflowState1) Execute(ctx iwf.WorkflowContext, input iwf.Object,
 		signal1.SignalValue.Get(&value)
 		return iwf.SingleNextState(signalWorkflowState2{}, value), nil
 	}
-	return nil, fmt.Errorf(testChannelName2 + " doesn't receive correct value")
+	return nil, fmt.Errorf("%s doesn't receive correct value", testChannelName2)
 }
