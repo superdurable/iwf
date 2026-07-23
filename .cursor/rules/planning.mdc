@@ -20,7 +20,7 @@ Every implementation plan must include all three sections below. Use
 
 ## Documentation
 
-- Product docs: [`docs/`](docs/) (entry: [`docs/Home.md`](docs/Home.md)).
+- Product docs: [`docs/`](docs/) (entry: [`docs/README.md`](docs/README.md)).
 - Contributor / module docs: module READMEs or [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## UI/UX

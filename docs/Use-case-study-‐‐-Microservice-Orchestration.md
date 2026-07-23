@@ -42,7 +42,7 @@ The solution with iWF:
 
 It's so simple & easy to do that the code can be shown here!
 
-See the running code in [Java samples](https://github.com/indeedeng/iwf-java-samples/tree/main/src/main/java/io/iworkflow/workflow/microservices), [Golang samples](https://github.com/indeedeng/iwf-golang-samples#microservice-orchestration). 
+See the running code in [Java samples](../samples-java/src/main/java/io/iworkflow/workflow/microservices), [Golang samples](../samples-go/workflows/microservices). 
 ```java
 public class OrchestrationWorkflow implements ObjectWorkflow {
 
@@ -147,7 +147,7 @@ class State4 implements WorkflowState<Void> {
 }
 ```
 
-And the [application code](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/controller/MicroserviceWorkflowController.java) simply interacts with the workflow like below:
+And the [application code](../samples-java/src/main/java/io/iworkflow/controller/MicroserviceWorkflowController.java) simply interacts with the workflow like below:
 ```java
     @GetMapping("/start")
     public ResponseEntity<String> start(

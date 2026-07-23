@@ -1,4 +1,4 @@
-Similar to https://github.com/indeedeng/iwf/wiki/How-to-wait-for-a-workflow-to-complete 
+Similar to How-to-wait-for-a-workflow-to-complete.md 
 
 External application and make a blocking API call to wait for a state execution to complete.
 
@@ -6,7 +6,7 @@ To wait for a workflow state execution to complete, the stateExecutionId must be
 
 Then use `client.waitForStateExecution(stateClass)` API to wait for the completion. 
 
-See this [example](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/test/java/io/iworkflow/integ/TimerTest.java#L33) in Java integ test.
+See this [example](../sdk-java/src/test/java/io/iworkflow/integ/TimerTest.java#L33) in Java integ test.
 
 By default, the API will wait For the first execution. But a state could have multiple executions, and you may need to wait for the 2nd,3rd or other executions of the state.In that case, you can use `client.waitForStateExecution(stateClass, stateExecutionNumber)` to wait for the certain one by number.
 

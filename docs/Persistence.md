@@ -51,7 +51,7 @@ But if you need to go beyond above best practices, make sure you understand the 
   * Delete (setting to NULL) is okay. 
 * If using optimizeActivity=true (LocalActivity), each state execution should not update data attributes exceeding 40KB.
 * Each signal/internal channel message, should not greater than 100KB 
-* If a workflow execution has more than two 2 MB data+search attributes, specify [another persistence loading policy](https://github.com/indeedeng/iwf/wiki/Persistence#persistence-loading-policy) to reduce the loading data. By default, a state is loading all data/search attributes, which could exceed the 2MB limit of activity input.
+* If a workflow execution has more than two 2 MB data+search attributes, specify [another persistence loading policy](Persistence.md#persistence-loading-policy) to reduce the loading data. By default, a state is loading all data/search attributes, which could exceed the 2MB limit of activity input.
   * Using dynamic data attributes will help break into smaller pieces for write . 
   * For execute from waitUntil, this also includes the commandResults(eg signal messages)
 * Total history size cannot exceed 50MB
@@ -75,7 +75,7 @@ done in parallel without locking.
 
 ### Locking in RPC
 The locking with RPC is only supported by Temporal as backend using [synchronous update feature](https://docs.temporal.io/encyclopedia/workflow-message-passing#sending-updates). 
-See [more in this wiki page](https://github.com/indeedeng/iwf/wiki/RPC-locking:-What-does-the-atomicity-of-RPC-really-mean%3F).
+See [more in this wiki page](RPC-locking%3A-What-does-the-atomicity-of-RPC-really-mean%3F.md).
 
 
 ## SDKs
@@ -100,7 +100,7 @@ import TabItem from '@theme/TabItem';
 ### Java
 <!--- ## END-GITHUB-ONLY ## --->
 
-An [example](https://github.com/indeedeng/iwf-java-samples/blob/main/src/main/java/io/iworkflow/workflow/signup/UserSignupWorkflow.java) of Java workflow definition with persistence:
+An [example](../samples-java/src/main/java/io/iworkflow/workflow/signup/UserSignupWorkflow.java) of Java workflow definition with persistence:
 ```java
 public class UserSignupWorkflow implements ObjectWorkflow {
 
@@ -126,7 +126,7 @@ Example of read/write persistence in the workflow states or RPCs:
         persistence.setDataAttribute(DA_Status, "verified");
 ```
 
-To access the persistence outside of workflow, you can use [RRC](./RPC) via client, since RPC has read/write access.
+To access the persistence outside of workflow, you can use [RRC](RPC.md) via client, since RPC has read/write access.
 Alternatively, you can use direct APIs:
 
 ```
@@ -148,7 +148,7 @@ client.setSearchAttributes(...)
 ### Python
 <!--- ## END-GITHUB-ONLY ## --->
 
-[Example](https://github.com/indeedeng/iwf-python-samples/blob/main/signup/signup_workflow.py) in Python with persistence:
+[Example](../samples-python/signup/signup_workflow.py) in Python with persistence:
 ```python
 class UserSignupWorkflow(ObjectWorkflow):
 
@@ -175,7 +175,7 @@ persistence.set_data_attribute(data_attribute_status, "verified")
 
 Due to the limitation of Golang, the Golang SDK doesn't let you define "type" of an attribute. So there is no type checking in the SDK.
 
-This is an [example](https://github.com/indeedeng/iwf-golang-samples/blob/main/workflows/microservices/workflow.go) of a Golang workflow definition with persistence:
+This is an [example](../samples-go/workflows/microservices/workflow.go) of a Golang workflow definition with persistence:
 ```go
 type OrchestrationWorkflow struct {
 	iwf.WorkflowDefaults

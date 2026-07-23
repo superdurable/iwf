@@ -17,7 +17,7 @@ Level 2 is the most common case, but means there could be a racing condition of 
 
 Level 1 requires to use `PARTIAL_WITH_EXCLUSIVE_LOCK` as persistence loading policy for the RPC, which is only supported for Temporal as backend.
 
-For Cadence as backend, if this racing condition is a problem, the [workaround](https://github.com/indeedeng/iwf#persistence-loading-policy) today is to move the write part to a state execution with persistence locking, and let RPC trigger a state movement to do that.
+For Cadence as backend, if this racing condition is a problem, the [workaround](Persistence.md#persistence-loading-policy) today is to move the write part to a state execution with persistence locking, and let RPC trigger a state movement to do that.
 
 For example, if a workflow want to count some ID from an RPC, like this:
 

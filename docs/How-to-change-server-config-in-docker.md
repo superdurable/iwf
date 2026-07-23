@@ -1,6 +1,6 @@
 
 ## Option 1:
-You can  provide a volume override for this config for the https://github.com/indeedeng/iwf/blob/main/docker-compose/docker-compose.yml#L82 container for file:
+You can  provide a volume override for this config for the ../server/docker-compose/docker-compose.yml#L82 container for file:
 /iwf/config/config_template.yaml
 
 ## Option 2

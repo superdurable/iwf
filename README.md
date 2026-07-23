@@ -10,7 +10,7 @@ This repository combines the former [indeedeng/iwf](https://github.com/indeedeng
 |------|----------|
 | [server/](server/) | iWF server (Temporal/Cadence backend) |
 | [protos/](protos/) | OpenAPI IDL (`iwf.yaml`, `iwf-sdk.yaml`) |
-| [docs/](docs/) | Product docs (former [iwf wiki](https://github.com/indeedeng/iwf.wiki); start at [Home.md](docs/Home.md)) |
+| [docs/](docs/) | Product docs (former [iwf wiki](https://github.com/indeedeng/iwf.wiki); start at [README.md](docs/README.md)) |
 | [sdk-go/](sdk-go/) | Go SDK |
 | [samples-go/](samples-go/) | Go samples |
 | [sdk-java/](sdk-java/) | Java SDK |

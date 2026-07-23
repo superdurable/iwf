@@ -26,6 +26,6 @@ There are two reasons that we introduced InternalChannel later:
 * The WorkflowStates executions (especially when executing in parallel) may need some synchronization. E.g. 1 -> 2, 3, 4 -> 5 where 2, 3, 4 need to be completed together before 5 is executed. This is an internal communication as well, so we call it “internal channel”.
 <!--- ## GITHUB-ONLY ## --->
 ## See more
-* https://github.com/indeedeng/iwf/wiki/RPC#signal-channel-vs-rpc
-* https://github.com/indeedeng/iwf/wiki/WorkflowState#internalchannel-async-message-queue
+* RPC.md#signal-channel-vs-rpc
+* WorkflowState.md#internalchannel-async-message-queue
 <!--- ## END-GITHUB-ONLY ## --->

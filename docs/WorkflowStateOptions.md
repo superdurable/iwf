@@ -144,7 +144,7 @@ class DebitState(WorkflowState[None]):
 For WaitUntil API, using `PROCEED_ON_API_FAILURE` for `WaitUntilApiFailurePolicy` will let workflow continue to invoke `execute`
 API when the API fails with maxing out all the retry attempts.
 
-See example here in [Java](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/test/java/io/iworkflow/integ/basic/ProceedOnStateStartFailWorkflowState1.java#L45) and [Golang](https://github.com/indeedeng/iwf-golang-sdk/blob/main/integ/proceed_on_state_start_fail_workflow_state1.go#L36).
+See example here in [Java](../sdk-java/src/test/java/io/iworkflow/integ/basic/ProceedOnStateStartFailWorkflowState1.java#L45) and [Golang](../sdk-go/integ/proceed_on_state_start_fail_workflow_state1.go#L36).
 
 This is very uncommonly needed than the failure policy of Execute API. Currently not implemented in Python SDK yet.
 
@@ -158,4 +158,4 @@ To have a different WorkflowStateOptions, normally you just need to implement th
 
 But in some rare cases, you may need it to be more dynamic -- for example, different state executions could have a different retry policy, even they are from the same state definitions. 
 
-To achieve this, you can provide an [stateOptionsOverride to the StateMovement of StateDecision](https://github.com/indeedeng/iwf-java-sdk/blob/b2994f187f6786d8b7570ade93fcd5ff7a5b893f/src/main/java/io/iworkflow/core/StateDecision.java#L152).
+To achieve this, you can provide an [stateOptionsOverride to the StateMovement of StateDecision](../sdk-java/src/main/java/io/iworkflow/core/StateDecision.java#L152).

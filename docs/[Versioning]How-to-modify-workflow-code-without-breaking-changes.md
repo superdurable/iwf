@@ -5,7 +5,7 @@ So there are three types of “breaking changes” to discuss here:
 * Technical in-compatible changes (sorry, naming is very hard here)
 
 ## Non-deterministic errors
-First of all, there are [no “non-deterministic-errors” in iWF user workflow code](https://github.com/indeedeng/iwf/wiki/Compare-with-Cadence-Temporal#determinism-and-versioning) because iWF workflow is not running in a “replay model” like Temporal does. The iWF workflow code is serving as  RESTful APIs, meaning that the modification can take effect immediately once deployed, for current and future states.  
+First of all, there are [no “non-deterministic-errors” in iWF user workflow code](Compare-with-Cadence-Temporal.md#determinism-and-versioning) because iWF workflow is not running in a “replay model” like Temporal does. The iWF workflow code is serving as  RESTful APIs, meaning that the modification can take effect immediately once deployed, for current and future states.  
 
 For example, if we have a workflow with these 4 steps/states in sequence
 ![image](https://github.com/indeedeng/iwf/assets/4523955/0828ea23-5ef4-44e9-bd5b-4f9eaaa78448)

@@ -22,7 +22,7 @@ only when a section genuinely doesn't apply.
 
 ### Documentation
 
-- Product docs live in [`docs/`](docs/) (start at [`docs/Home.md`](docs/Home.md)).
+- Product docs live in [`docs/`](docs/) (start at [`docs/README.md`](docs/README.md)).
 - Contributor / module docs: update module READMEs or `CONTRIBUTING.md`.
 
 ### UI/UX

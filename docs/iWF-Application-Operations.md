@@ -37,7 +37,7 @@ To make it easier with iWF, customize the columns by clicking the button from si
 
 ### !!!Important Tips!!!
 * Let your worker service return error stacktrace as the response body to iWF server. E.g.
-  like [this example of Spring Boot using ExceptionHandler](https://github.com/indeedeng/iwf-java-samples/blob/2d500093e2aaecf2d728f78366fee776a73efd29/src/main/java/io/iworkflow/controller/IwfWorkerApiController.java#L51)
+  like [this example of Spring Boot using ExceptionHandler](../samples-java/src/main/java/io/iworkflow/controller/IwfWorkerApiController.java#L51)
 * If you return the full stacktrace in response body, the pending activity view will show it to you! Then use
   Cadence/Temporal WebUI to debug your application.
 
@@ -111,7 +111,7 @@ For example, you can search for workflow type that is executing a state: `IwfWor
 
 Search for executing states will be useful if you want to remove a state from the code base. Use the search query to check there is no workflow running at the state, otherwise the State API will run into error because the state is removed. 
 
-You can also use your [custom search attributes in iWF](https://github.com/indeedeng/iwf#persistence):
+You can also use your [custom search attributes in iWF](Persistence.md):
 
 ## Register Search Attribute
 
@@ -120,7 +120,7 @@ In Temporal Cloud WebUI, register your new search attribute. E.g. you can add a 
 
 ### Not in Temporal Cloud
 For self-hosted Temporal or Cadence, use command line to register search attributes. 
-See [examples](https://github.com/indeedeng/iwf/blob/main/CONTRIBUTING.md)
+See [examples](../server/CONTRIBUTING.md)
 
 ### Then ...
 Then in your workflow code, use persistence API to set the search attribute value. E.g. 
@@ -137,7 +137,7 @@ For Temporal, you can use [tctl](https://docs.temporal.io/tctl-v1) / [temporal](
 
 With iWF it's recommended to reset through the iWF service API.
 
-You can run the [HTTP script](https://github.com/indeedeng/iwf/blob/9a0f8018b409b7f4f162c2841df1348ceee5a240/script/http/local/home.http#L20) locally to invoke the reset API, or use a CURL command. 
+You can run the [HTTP script](../server/script/http/local/home.http#L20) locally to invoke the reset API, or use a CURL command. 
 
 Supported resetType:
 
@@ -155,7 +155,7 @@ For example, to use a CURL command to reset a workflow to
 `curl -X POST https://iwf-service.com/api/v1/workflow/reset -d '{ "workflowId": "<workflowId>", "resetType": "STATE_ID", "stateId": "WaitAndPrepareState", "skipSignalReapply": true }'`
 
 
-See iWF service [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) for more details.
+See iWF service [OpenAPI](../protos/iwf.yaml) for more details.
 
 ## How To Skip Timer for Workflows
 Any the timer commands can be skipped by an API call. The API is provided by iWF server for free. This can be used for operation or testing purpose. 
@@ -168,9 +168,9 @@ For example, to use a CURL command to skip a timer of a workflow
 
 `curl -X POST https://iwf-service.com/api/v1/workflow/timer/skip -d '{ "workflowId": "<workflowId>", "workflowStateExecutionId": "WaitAndPrepareState-1", "timerCommandIndex": 0 }'`
 
-Or run t[his HTTP script](https://github.com/indeedeng/iwf/blob/9a0f8018b409b7f4f162c2841df1348ceee5a240/script/http/local/home.http#L33) in IntelliJ IDE 
+Or run t[his HTTP script](../server/script/http/local/home.http#L33) in IntelliJ IDE 
 
-See iWF service [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) for more details.
+See iWF service [OpenAPI](../protos/iwf.yaml) for more details.
 
 ## How To Send a Signal Manually
 **iWF requires a format for the signalValue. Make sure you test it in QA first!**
@@ -182,7 +182,7 @@ Alternatively, use this CURL command to call iWF service:
 
 `curl -X POST https://iwf-service.com/api/v1/workflow/signal -d '{ "workflowId": "<workflowId>", "signalChannelName": "MySignalName", "signalValue": { "encoding": "jsonType", "data": "\"a string value\"" } }'`
 
-Or run t[his HTTP script](https://github.com/indeedeng/iwf/blob/9a0f8018b409b7f4f162c2841df1348ceee5a240/script/http/local/home.http#L43) in IntelliJ IDE 
+Or run t[his HTTP script](../server/script/http/local/home.http#L43) in IntelliJ IDE 
 
 
 ## How To Invoke RPC write manually 
@@ -222,10 +222,10 @@ RPC write operation is implemented as a system signal. So you can send a RPC wri
 ```
 
 
-See iWF service [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) for more details.
+See iWF service [OpenAPI](../protos/iwf.yaml) for more details.
 
 ## More Operations
-All other operation that you can do is defined in the [OpenAPI](https://github.com/indeedeng/iwf-idl/blob/main/iwf.yaml) of iWF service. All the operations supported in SDKs can be done using CURL command:
+All other operation that you can do is defined in the [OpenAPI](../protos/iwf.yaml) of iWF service. All the operations supported in SDKs can be done using CURL command:
 
 * Stop a workflow ( you can also just click the button in Temporal UI to do so, but you may want to use this REST API for batch operation using a script)
 * Start a workflow

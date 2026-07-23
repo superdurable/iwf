@@ -30,7 +30,7 @@ background execution when updating persistence. People sometimes have to use com
 Note that by default, read and write are atomic separately.
 To ensure the atomicity of the whole RPC for read+write, you should use `PARTIAL_WITH_EXCLUSIVE_LOCK` persistence loading policy for the RPC options.
 The `PARTIAL_WITH_EXCLUSIVE_LOCK` for RPC is only supported by Temporal as backend with enabling synchronous update feature (by `frontend.enableUpdateWorkflowExecution:true` in Dynamic Config).
-See the [wiki](https://github.com/indeedeng/iwf/wiki/RPC-locking:-What-does-the-atomicity-of-RPC-really-mean%3F) for further details.
+See the [wiki](RPC-locking%3A-What-does-the-atomicity-of-RPC-really-mean%3F.md) for further details.
 
 ## Signal Channel vs RPC
 
@@ -73,8 +73,8 @@ import TabItem from '@theme/TabItem';
 <!--- ## GITHUB-ONLY ## --->
 ### Java
 <!--- ## END-GITHUB-ONLY ## --->
-* Using the [RPC annotation](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/RPC.java) can make a method an RPC
-* The method must be [one of the four forms](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/RpcDefinitions.java)
+* Using the [RPC annotation](../sdk-java/src/main/java/io/iworkflow/core/RPC.java) can make a method an RPC
+* The method must be [one of the four forms](../sdk-java/src/main/java/io/iworkflow/core/RpcDefinitions.java)
 
 Example
 ```java
@@ -130,7 +130,7 @@ NOTE there there is a restriction to use RPC in Java/Kotlin:
 <!--- ## GITHUB-ONLY ## --->
 ### Python
 <!--- ## END-GITHUB-ONLY ## --->
-* Using [`rpc` decorator factory](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/rpc.py) to annotate a method will make it an RPC. 
+* Using [`rpc` decorator factory](../sdk-python/iwf/rpc.py) to annotate a method will make it an RPC. 
 * Because it's decorator factory, parentheses are required even there are not parameters : `@rpc()`
 * An RPC must have at most 5 params: self, context:WorkflowContext, input:Any, persistence:Persistence, communication:Communication, where input can be any type (the order doesn't matter, but it's recommended for convention)
 

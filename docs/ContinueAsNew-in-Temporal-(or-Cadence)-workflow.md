@@ -143,11 +143,11 @@ Mostly, `drainAllSignalsInOneWorkflowTask` can:
 *   Store the signal values in the snapshot that is to be built
 *   Process the signal in a non-blocking way — upsertSearchAttribute or complete or fail the workflow
 
-So here is the [implementation](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/signalReceiver.go#L226) of the iWF for draining all signals, which is called [before continueAsNew API is called](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/workflowImpl.go#L246).
+So here is the [implementation](../server/service/interpreter/signalReceiver.go#L226) of the iWF for draining all signals, which is called [before continueAsNew API is called](../server/service/interpreter/workflowImpl.go#L246).
 
 In draining the signals, it only mutates the workflow in-memory variables without making any blocking API calls.
 
-Before [actually calling the continueAsNew API](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/workflowImpl.go#L267), it may fail the workflow early, but won’t make another other blocking API call.
+Before [actually calling the continueAsNew API](../server/service/interpreter/workflowImpl.go#L267), it may fail the workflow early, but won’t make another other blocking API call.
 
 ### What if the workflow code does NOT know all the signal names beforehand?
 
@@ -156,7 +156,7 @@ When proactively receiving and processing all the signals received, if you know 
 *   use Temporal’s [“Len()” API](https://github.com/temporalio/sdk-go/blob/9bd67dd23989cc63672215bdc7bb88b315c14eee/internal/workflow.go#L108C3-L108C8) to check if any un-processed signals
 *   use [selector “Default” method to set a flag to indicate that all signals are received from the channel](https://github.com/uber-common/cadence-samples/blob/ce920bd6e917aec5fab3c66057a37a51b23c51ef/cmd/samples/recipes/signalcounter/signal_counter_workflow.go#L53).
 
-However, in a very dynamic workflow like iWF, the workflow doesn’t know all the signal names beforehand. In that case, [iWF uses a special API from Cadence/Temporal called GetUnhandledSignalNames](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/signalReceiver.go#L227C31-L227C54).
+However, in a very dynamic workflow like iWF, the workflow doesn’t know all the signal names beforehand. In that case, [iWF uses a special API from Cadence/Temporal called GetUnhandledSignalNames](../server/service/interpreter/signalReceiver.go#L227C31-L227C54).
 
 ### What if a signal is received when the continueAsNew command is returned to the server?
 
@@ -226,7 +226,7 @@ However, as the signalQueue pattern stores the received signals in a queue, your
 
 iWF took a slightly more advanced approach to wait for the sub-threads. This is because there could be unbounded sub-threads in iWF.
 
-iWF has a [wrapper](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/temporal/workflowProvider.go) of the `workflow.Go(...)` API, which track the thread started and completed.
+iWF has a [wrapper](../server/service/interpreter/temporal/workflowProvider.go) of the `workflow.Go(...)` API, which track the thread started and completed.
 
 ```
 type workflowProvider struct {
@@ -262,7 +262,7 @@ func (w *workflowProvider) GetThreadCount() int {
 
 The wrapper is also related to the fact that iWF has to support both Cadence and Temporal without any duplicate code.
 
-Therefore, the workflow code can just [check the sub-thread count](https://github.com/indeedeng/iwf/blob/v1.7.1/service/interpreter/continueAsNewer.go#L149) in a `workflow.Await(…)` API call.
+Therefore, the workflow code can just [check the sub-thread count](../server/service/interpreter/continueAsNewer.go#L149) in a `workflow.Await(…)` API call.
 
 ### Draining sub-threads before draining signals
 
@@ -286,4 +286,4 @@ Until now, your workflow code may be like this to drain threads and signals.
 ...
 ```
 
-This is a base of the real production [iWF code to drain the threads](https://github.com/indeedeng/iwf/blob/aae2109261bc42fd73799092df33d08085179f99/service/interpreter/workflowImpl.go#L226). The implementation is more complicated because we also have to optimize the workflow, so that if a workflow can fail/complete early, and let it fail/complete before continueAsNew, but this should give enough understand to the feature and its implementation. To understand it fully please study the production code.
+This is a base of the real production [iWF code to drain the threads](../server/service/interpreter/workflowImpl.go#L226). The implementation is more complicated because we also have to optimize the workflow, so that if a workflow can fail/complete early, and let it fail/complete before continueAsNew, but this should give enough understand to the feature and its implementation. To understand it fully please study the production code.

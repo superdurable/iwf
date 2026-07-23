@@ -7,9 +7,9 @@ Make sure you have registered the below search attributes into the namespace/dom
 * Int: IwfGlobalWorkflowVersion
 * Keyword: IwfExecutingStateIds
 
-See [Contribution](./CONTRIBUTING.md) for more detailed commands.
+See [Contribution](../CONTRIBUTING.md) for more detailed commands.
 * For Cadence without advancedVisibility enabled,
-      set [executingStateIdMode](https://github.com/indeedeng/iwf/blob/main/config/development_cadence.yaml#L9)
+      set [executingStateIdMode](../server/config/development_cadence.yaml#L9)
       to DISABLED 
 
 ## Option 1: Build & Run
@@ -22,10 +22,10 @@ See [Contribution](./CONTRIBUTING.md) for more detailed commands.
 ## Option 2: Using docker image
 You can use docker image to deploy in K8s cluster
 
-You can provide a volume override for this [config](https://github.com/indeedeng/iwf/blob/main/config/config_template.yaml) using the path: `/iwf/config/config_template.yaml` so that you can connect to any Cadence/Temporal cluster.
+You can provide a volume override for this [config](../server/config/config_template.yaml) using the path: `/iwf/config/config_template.yaml` so that you can connect to any Cadence/Temporal cluster.
 
 # Configuration
-All the server configuration is defined [here](https://github.com/indeedeng/iwf/blob/main/config/config.go).
+All the server configuration is defined [here](../server/config/config.go).
 
 For a new iWF server, it's recommended to use "new" for SignalWithStartOn and "WaitForOn".
 ```yaml
@@ -75,7 +75,7 @@ This is similar to Service API availability above
   * See [size limit in Search attributes](https://docs.temporal.io/visibility#search-attribute)) and [other limits ](https://docs.temporal.io/kb/temporal-platform-limits-sheet)(2MB limit on activity/memo etc).  
   * If so, ask the application to fix their code and do not return such big payload
   * Check if the workflow history is too long that causes workflow task failing because replay takes too much time
-  * Note that this shouldn't happen because iWF does "auto-continueAsNew" to workflow to keep history short. Application could override this config in start workflow API, or [update workflow config API](https://github.com/indeedeng/iwf-idl/blob/77e3713a46e8875707030da729dad4fbceb097f1/iwf.yaml#L242)
+  * Note that this shouldn't happen because iWF does "auto-continueAsNew" to workflow to keep history short. Application could override this config in start workflow API, or [update workflow config API](../protos/iwf.yaml#L242)
   * Also if there are too fast signals/RPC which could be a problem that iWF service doesn't have a chance to continueAsNew
   * This is an potential improvement in [iWF](https://github.com/indeedeng/iwf/issues/236) and [Temporal](https://github.com/temporalio/temporal/issues/4137)
   * For this case, we have to ask application to stop sending too fast signal. Alternatively, implement the rejection in iWF service like the Github issue described

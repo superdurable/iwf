@@ -15,7 +15,7 @@ The `waitUntil` API is optional. If not defined, then the `execute` API will be 
 NOTES:
 1. Both `waitUntil` and `execute` are hosted by REST APIs(via SDKs). 
 2. `waitUntil` method will not be waiting for the commands directly. The commands will be returned to server, then server will be waiting for the commands on behalf of application/workflow. There is nothing needed from application/workflow while it's waiting. In other words, `waitUntil` is non-blocking, and not consuming any CPU/memory/resources on the waiting.
-3. Both `waitUntil` and `execute` are implemented by code and executed in runtime dynamically. It's extremely flexible for business -- [any code change deployed will take effect immediately](https://github.com/indeedeng/iwf/wiki/%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes). 
+3. Both `waitUntil` and `execute` are implemented by code and executed in runtime dynamically. It's extremely flexible for business -- [any code change deployed will take effect immediately](%5BVersioning%5DHow-to-modify-workflow-code-without-breaking-changes.md). 
 
 ### StateDecision from `execute` 
 User workflow implements a **`execute` API** to return a StateDecision for:
@@ -28,7 +28,7 @@ User workflow implements a **`execute` API** to return a StateDecision for:
 * Dead end -- Just stop the thread, but not trying to stop the workflow.
   * This is needed for advanced cases where you want to keep the workflow running when all threads stopped. Otherwise in most cases, using Graceful complete will get the same behavior)
 * Atomically go to next state with condition(e.g. channel is not empty)
-  * This is for the advanced cases where you want stop the workflow while the (signal/internal) channel may be receiving new messages. Using this atomic decision can prevent message loss. Note that there [must be only one state consuming the signal/internal channel](https://github.com/indeedeng/iwf/wiki/Conditionally-complete-workflow-with-atomic-checking-on-signal-or-internal-channel).
+  * This is for the advanced cases where you want stop the workflow while the (signal/internal) channel may be receiving new messages. Using this atomic decision can prevent message loss. Note that there [must be only one state consuming the signal/internal channel](Conditionally-complete-workflow-with-atomic-checking-on-signal-or-internal-channel.md).
 
 State Decisions let you orchestrate the WorkflowState as complex as needed for any use case!
 
@@ -105,9 +105,9 @@ A full execution flow of a single WorklfowState can look like this:
 ### SDKs
 
 To implement a WorkflowState, just implement the:
-* [Java interface](https://github.com/indeedeng/iwf-java-sdk/blob/main/src/main/java/io/iworkflow/core/WorkflowState.java)
-* [Golang interface](https://github.com/indeedeng/iwf-golang-sdk/blob/main/iwf/workflow_state.go)
-* [Python Base Class](https://github.com/indeedeng/iwf-python-sdk/blob/main/iwf/workflow_state.py)
+* [Java interface](../sdk-java/src/main/java/io/iworkflow/core/WorkflowState.java)
+* [Golang interface](../sdk-go/iwf/workflow_state.go)
+* [Python Base Class](../sdk-python/iwf/workflow_state.py)
 
 #### Java
 For Java, the `waitUntil` has a default implementation so you just not implement it, and SDK will skip it to invoke `execute` directly.
