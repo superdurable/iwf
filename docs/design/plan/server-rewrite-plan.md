@@ -65,12 +65,13 @@ flowchart LR
   section). Do not leave Go structs with nested `iwfpb` fields as the outer
   history type — that falls through to JSON and double-encodes `Value`s.
 - **Binary protobuf DataConverter (Temporal + Cadence):** Both backends use a
-  shared encoding policy: `proto.Message` → binary protobuf. Temporal: custom
-  composite converter with `ProtoPayloadConverter` **before**
-  `ProtoJSONPayloadConverter` (default SDK prefers ProtoJSON). Cadence: custom
-  `encoded.DataConverter` (Cadence default is JSON-only). API client Options and
-  interpreter worker Options must use the **same** converter (including any memo
-  encryption codec wrapper).
+  shared encoding policy: `proto.Message` → binary protobuf. Temporal uses a
+  custom composite converter with `ProtoPayloadConverter` before the JSON escape
+  hatch; there is no old-history `ProtoJSONPayloadConverter` compatibility path.
+  Cadence uses a custom `encoded.DataConverter` instead of its default
+  byte-slice/Thrift/JSON converter. API client and interpreter worker Options must
+  use the same converter configuration and codec chain, not necessarily the same
+  object instance.
 
 ### Supersedes earlier drafts
 
@@ -100,8 +101,8 @@ unit of compilability is the whole non-test tree (Phases 1–4 land together), t
 tests (Phase 5), then replay (Phase 6). Do the work bottom-up so the final wiring
 compiles in one pass:
 
-`common (Value/mapper/errors/rpc) → service/interfaces+const → client →
-Phase 2.5 (control-plane proto + DataConverters) → interpreter → api → cmd →
+`common (Value/mapper/errors/rpc) → service/interfaces+const → Phase 2.5
+(control-plane proto + DataConverters) → client → interpreter → api → cmd →
 integ`.
 
 Treat Phases 1–4 (incl. 2.5) as workstreams in one source migration, not
@@ -291,8 +292,13 @@ always-on, no version gate:
 - On process shutdown, mark health not-serving, call `GracefulStop` with a bounded
   fallback to `Stop`, close InternalService/WorkerService connection pools, and
   stop the Temporal/Cadence workers and backend clients.
+- Once the Phase 2.5 factories exist, construct the selected backend converter
+  configuration before dialing the Temporal/Cadence client. Set the backend
+  `client.Options.DataConverter` here and constructor-inject the matching converter
+  into the interpreter worker; do not reconstruct converter order in bootstrap.
 - Interpreter-worker launch (`temporal.NewInterpreterWorker` /
-  `cadence.NewInterpreterWorker`) is unchanged except transitive config/type retypes.
+  `cadence.NewInterpreterWorker`) otherwise changes only for transitive config/type
+  retypes and the required converter dependency.
 
 ### 1d. Replace `server/service/api/`
 
@@ -483,29 +489,68 @@ query/update control plane) is a top-level `proto.Message`, encoded as **binary
 protobuf** on both backends. Stop JSON-wrapping Go structs that nest `iwfpb`
 fields.
 
+**Scope / non-goals:**
+
+- This phase delivers two things: (a) the server-internal proto messages, and (b) the
+  converter **factory functions**. The actual `Options.DataConverter = …` wiring lands
+  where the Options are built — `cmd/server` (Phase 1c), the interpreter workers
+  (Phase 4), and integ (Phase 5). Phase 2.5 alone is **not** independently green (the
+  worker Options can't be wired until Phase 4 compiles); see the checkpoint.
+- **Search-attribute values are out of scope.** SA values are typed through Temporal's
+  visibility / SA encoding (the `mapper`), **not** our `PayloadConverter`. Do not route
+  SA encoding through the proto converter or expect binary there.
+- **In-process-only structs are out of scope.** `IwfEvent` / `event.Handle`, metric
+  tags, and similar are never serialized to history — they get retyped off `iwfidl` in
+  Phase 2/4 but do **not** become proto messages.
+- **No global message registry.** Both SDKs decode into the target's concrete type from
+  the call signature (Temporal per-arg; Cadence `FromData(to ...interface{})`), so no
+  message-name → type registry is needed.
+
 ### IDL (`protos/iwf.proto`)
 
 Add a **server-internal interpreter control plane** section (same spirit as
-`ContinueAsNewDump` / `InternalService` — not FlowService public RPCs). Migrate
-**all** types currently in
-[`server/service/interfaces.go`](../../../server/service/interfaces.go):
+`ContinueAsNewDump` / `InternalService` — not FlowService public RPCs). Select
+messages by a **serialization-boundary inventory**, not by which Go file currently
+contains a struct. Complete this table before assigning fields:
 
-| Area | Messages / enums (names indicative) |
-|------|-------------------------------------|
-| Workflow I/O | `InterpreterWorkflowInput`, `InterpreterWorkflowOutput`, `ContinueAsNewInput`, `BasicInfo` |
-| Activity I/O | `InvokeWaitForMethodActivityInput`, `InvokeExecuteMethodActivityInput` (+ any activity outputs still Go-typed) |
-| Signals | `ExecuteRpcSignalRequest`, `SkipTimerSignalRequest`, `FailFlowSignalRequest`, `CompleteFlowSignalRequest`; UpdateConfig signal payload if not already `FlowConfig` |
-| Queries | `GetAttributesQueryRequest`/`Response`, `PrepareRpcQueryRequest`/`Response`, `GetCurrentTimerInfosQueryResponse`, `GetScheduledGreedyTimerTimesQueryResponse`, `DebugDumpResponse` |
-| Timers / status | `TimerInfo`, `InternalTimerStatus`, `StepExecutionStatus` (as proto enums/messages) |
-| Sync updates | Reuse public wait/RPC request/response messages where they already exist; add any missing update-handler envelopes |
+| Boundary | Required top-level proto (names indicative) | Notes |
+|----------|----------------------------------------------|-------|
+| Interpreter workflow | `InterpreterWorkflowInput`, `InterpreterWorkflowOutput`, `ContinueAsNewInput` | Includes start, result, and continue-as-new input. |
+| Server maintenance workflows | `BlobStoreCleanupWorkflowInput`/`Output` | Do not leave the cleanup workflow as primitive `string`/`int` I/O. |
+| Worker-method activities | `InvokeWaitForMethodActivityInput`/`Output`, `InvokeExecuteMethodActivityInput`/`Output` | One input message and one output message per activity. |
+| Internal/RPC/cleanup activities | `DumpFlowForContinueAsNewActivityInput`/`Output`, `InvokeWorkerRPCActivityInput`/`Output`, `CleanupBlobStoreActivityInput`/`Output` | Eliminate `backendType, request, ...` multi-arg call sites. Reuse existing request/response messages as nested fields where possible. |
+| Signals | `ExecuteRpcSignalRequest`, `SkipTimerSignalRequest`, `FailFlowSignalRequest`, `CompleteFlowSignalRequest` | Reuse `FlowConfig` directly for the config-update signal. |
+| Queries | `GetAttributesQueryRequest`/`Response`, `PrepareRpcQueryRequest`/`Response`, `GetCurrentTimerInfosQueryResponse`, `GetScheduledGreedyTimerTimesQueryResponse`, `DebugDumpResponse` | Every handler argument and result is a proto pointer. |
+| Synchronous updates | Reuse public wait/RPC request/response messages | Prefer returning the public response plus a Go error. Add an internal result envelope only if response/error multiplexing remains necessary. |
+| Nested timer/status data | `TimerInfo`, `InternalTimerStatus` | These become proto only because a serialized query/snapshot contains them. |
+| Serialized failures | `InterpreterError` or equivalent | Preserve the gRPC code and `ErrorResponse` currently carried by `ErrorAndStatus`; never JSON-wrap it inside an activity/update result. |
+
+The inventory must cover exported structs outside
+[`server/service/interfaces.go`](../../../server/service/interfaces.go), especially
+activity/update results currently under `service/interpreter/interfaces`. Conversely,
+in-process helpers such as `BasicInfo` remain Go structs. Do not create a proto enum
+for an unused/internal `StepExecutionStatus` unless the completed inventory shows a
+real serialization boundary.
+
+Proto schema rules for this section:
+
+- All call sites pass generated messages by pointer so they implement
+  `proto.Message`.
+- Every new enum reserves `*_UNSPECIFIED = 0`; decode paths reject unspecified
+  values where absence is invalid.
+- Proto maps cannot directly contain repeated values. Represent
+  `map<string, []*TimerInfo>` as `map<string, TimerInfoList>` or as repeated keyed
+  entries; do not flatten or lose the step-execution key.
+- Do not add a message-name → Go-type registry. Both SDKs decode into the concrete
+  target type supplied by the function signature.
 
 Regen server stubs only: `make -C protos proto-server-go` +
 `make -C server idl-code-gen-server`. Do **not** regen SDKs.
 
-After migration, `interfaces.go` retains only non-payload helpers (e.g.
-`ValidateTimerSkipRequest`) and type aliases if needed during Phase 4 renames;
-delete the Go structs that became proto messages. Signal/query/update **name**
-constants stay in `const.go`.
+After the Phase 4 call-site migration, `interfaces.go` retains only in-process
+helpers (e.g. `BasicInfo`, `ValidateTimerSkipRequest`) and temporary type aliases
+needed during the rename. Delete every Go struct that became a proto message.
+Signal/query/update **name** constants stay in `const.go`.
 
 ### Temporal DataConverter
 
@@ -517,59 +562,121 @@ converter.NewCompositeDataConverter(
   converter.NewNilPayloadConverter(),
   converter.NewByteSlicePayloadConverter(),
   converter.NewProtoPayloadConverter(),       // binary first — storage efficiency
-  converter.NewProtoJSONPayloadConverter(),   // optional decode compat only
-  converter.NewJSONPayloadConverter(),
+  converter.NewJSONPayloadConverter(),        // SDK/non-control-plane escape hatch
 )
 ```
 
-Wire into:
+`NewJSONPayloadConverter` remains because the SDK converter is process-wide and
+must still handle legitimate non-control-plane primitive values. It is **not** a
+compatibility mechanism. The boundary inventory, typed call-site checks, and
+raw-history/raw-query assertions must prove that no interpreter
+workflow/activity/signal/query/update outer payload uses `json/plain`.
 
-- Temporal API `client.Options.DataConverter` (`cmd/server`, integ helpers)
-- Interpreter Temporal `worker.Options.DataConverter`
-- Memo-encryption path: wrap this converter with the existing codec converter;
-  do not fall back to `GetDefaultDataConverter()` for interpreter payloads
+Wiring contract (implemented where each Options value is constructed):
+
+- Temporal API `client.Options.DataConverter` (`cmd/server` in Phase 1c and integ
+  helpers in Phase 5).
+- Interpreter Temporal `worker.Options.DataConverter` in Phase 4.
+- **Memo encode/decode:** WorkerTarget and RequestId memos pass through the backend
+  client converter. The matching converter must serve StartFlow's RequestId
+  idempotency check and every memo read via `DescribeWorkflowExecution`; neither
+  Temporal nor Cadence may retain a default-converter read path.
+- Memo-encryption path: wrap this converter with the existing codec converter
+  (`converter.NewCodecDataConverter(base, codec)`) on Temporal only. Construct the
+  wrapper once per client/worker configuration, avoid the current double wrapping,
+  and do not fall back to `GetDefaultDataConverter()` for interpreter payloads.
+- Reset and replay decode with the same configuration/codec chain. Search attributes
+  explicitly continue through the backend-native mapper and converter.
 
 ### Cadence DataConverter
 
-Cadence’s default `encoded.DataConverter` is **JSON-only**. Implement a custom
-converter that:
+Cadence's default `encoded.DataConverter` passes a single `[]byte` through unchanged,
+uses Thrift where applicable, and otherwise uses JSON. Implement a custom converter
+with an exact, versioned wire format:
 
-1. For each argument implementing `proto.Message`, `proto.Marshal` /
-   `proto.Unmarshal`.
-2. Otherwise JSON (escape hatch only; interpreter control plane should not need
-   it after this phase).
-3. Defines an explicit multi-arg framing (Cadence packs args into one blob). Prefer
-   length-prefixed frames so mixed/future multi-arg calls stay unambiguous.
-   Prefer single-message args at call sites where practical.
+1. Preserve the default single-`[]byte` raw passthrough. A `[]byte` inside a
+   multi-argument payload uses an explicit raw-bytes frame.
+2. For a non-nil argument implementing `proto.Message`, marshal binary protobuf.
+   Decode only into a concrete proto pointer supplied to `FromData`.
+3. Otherwise use JSON as an SDK/non-control-plane escape hatch. No interpreter
+   control-plane outer payload may use this frame kind after Phase 4.
+4. Frame multi-argument payloads as:
+   `magic("IWFDC") + version(uint8) + frame_count(uint32 BE) + frames`. Each frame
+   contains `kind(uint8: proto/json/raw) + nil(uint8) + length(uint32 BE) + data`.
+   Reject an unknown magic/version/kind, impossible declared length, truncation,
+   trailing bytes, and argument-count mismatch. Check lengths against the remaining
+   input before allocating.
+5. A typed nil proto pointer is encoded as a nil proto frame; it must not silently
+   become JSON `null`.
 
-Wire the **same** converter into Cadence `client.Options` and interpreter
-`worker.Options` (and reset/query paths that decode payloads).
+All iWF interpreter call sites use exactly one top-level proto input and one
+top-level proto result. The generic multi-arg framing remains necessary to satisfy
+Cadence's variadic `DataConverter` contract and legitimate SDK values, not as an
+excuse to retain interpreter multi-arg calls.
 
-### Call-site retarget
+Wiring contract:
 
-Point interpreter + UnifiedClient start/signal/query/update/activity paths at the
-new `iwfpb` messages (Phase 4 will finish behavioral rewrite; Phase 2.5 unblocks
-correct encoding). Replace any remaining `json.Marshal` of control-plane snapshots
-that belong in history/query with proto marshal (CAN dump already proto from
-Phase 0).
+- Cadence `client.Options.DataConverter` in `cmd/server` Phase 1c and integ Phase 5.
+- Interpreter Cadence `worker.Options.DataConverter` in Phase 4.
+- Reset, query-result, failure-detail, and memo decode paths use the matching
+  converter; remove direct `encoded.GetDefaultDataConverter()` calls.
+
+### Deferred wiring / call-site contract
+
+Phase 2.5 defines and generates every message in the boundary inventory and provides
+tested Temporal/Cadence converter factories. It does not claim that current
+interpreter call sites are already migrated.
+
+Phase 4 must point interpreter + UnifiedClient
+start/signal/query/update/activity/continue-as-new paths at those `iwfpb` messages,
+replace remaining `json.Marshal` of control-plane snapshots with proto marshal, and
+remove the superseded Go payload structs. Phase 1c/4/5 must use the factory rather
+than reconstructing converter order independently.
+
+**Deterministic marshaling where bytes are compared.** `proto.Marshal` does not order
+map keys deterministically, and `ContinueAsNewDump` has map fields (`channel_received`,
+`step_executions_to_resume`). Any place that marshals to compare/checksum bytes — in
+particular the CAN dump cross-page `checksum` guard, which an activity retry can
+re-marshal — must use `proto.MarshalOptions{Deterministic: true}`, or the
+checksum-mismatch reset loop can trip spuriously.
 
 ### Checkpoint
 
 ```
-cd server
-go build ./service/common/...
-go build ./gen/iwfpb/...
-# client packages may still fail until interpreter (Phase 4) compiles
+make -C protos proto-server-go
+make -C server idl-code-gen-server
+make -C server converterTests 2>&1 | tee /tmp/test-converters.log
+cd server && go build ./service/common/converter/... ./gen/iwfpb/...
 ```
+
+Add the narrow `converterTests` Make target in this phase. It runs only the converter
+package while the full server remains uncompilable. Client/interpreter package
+compilation and complete wiring are Phase 1c/4 exit gates, not a Phase 2.5 claim.
 
 Stop for review after Phase 2.5 before Phase 3.
 
 ### Tests
 
-- Round-trip of representative control-plane messages through Temporal and Cadence
-  converters is covered by Phase 5 integ (start flow → signal/query/update →
-  activity) on both backends; no dedicated unit suite unless framing edge cases
-  cannot be reached.
+- **Converter unit tests in Phase 2.5:**
+  - Temporal proto payload metadata is `binary/protobuf`; nil, `[]byte`, map/oneof,
+    and JSON-escape values round-trip. Assert a representative non-proto
+    control-plane struct would become `json/plain` so the Phase 5 raw-history test
+    can detect an inventory miss.
+  - Cadence single proto, multiple frames, mixed proto/JSON/raw, single raw
+    `[]byte`, typed nil proto, and map/oneof messages round-trip.
+  - Cadence rejects bad magic/version/kind, truncated header/data, oversized declared
+    length, wrong arity, and trailing bytes without panicking or over-allocating.
+- **Phase 5 integration assertions:** start → signal/query/update → activity on both
+  backends. Inspect raw history for recorded workflow/activity/signal/update
+  boundaries, and inspect raw query values or use a recording converter for query
+  request/results. Temporal application payloads must have `binary/protobuf` metadata
+  (or decode through the configured codec to that metadata); Cadence application
+  payloads must have an `IWFDC` proto frame. The test must fail if a control-plane
+  outer payload used JSON.
+- Cover workflow memo write/read on both backends and Temporal memo encryption,
+  including StartFlow RequestId idempotency and `DescribeWorkflowExecution`.
+- Exercise reset/history decoding with the configured converter rather than a
+  default-converter fallback.
 - Phase 6 replay re-capture is required after binary encoding (old JSON histories
   are invalid regardless).
 
@@ -637,6 +744,21 @@ Primary files:
 [`outputCollector.go`](../../../server/service/interpreter/outputCollector.go),
 `timers/`, `config/workflowConfiger.go`, `interfaces/` (+ regenerate
 `interfaces_mock.go`).
+
+**Control-plane serialization migration (Phase 2.5 contract):**
+
+- Retype every start/signal/query/update/activity/continue-as-new call identified by
+  the boundary inventory to a single top-level `*iwfpb.Message` argument/result.
+  Delete the superseded Go payload structs, including serialized activity/update
+  results outside `service/interfaces.go`; retain in-process helpers such as
+  `BasicInfo`.
+- Constructor-inject the Phase 2.5 converter into each interpreter worker and assign
+  it to `worker.Options.DataConverter`. Reset/history decode paths receive that same
+  converter configuration. No interpreter path calls either SDK's default converter.
+- Keep search-attribute mapping backend-native. It does not pass through the
+  control-plane converter.
+- After migration, inspect every Cadence `ExecuteActivity`/`ExecuteLocalActivity`
+  call: no iWF activity may retain variadic `backendType, request, ...` arguments.
 
 Behavioral cleanups:
 
@@ -877,11 +999,13 @@ determinism-sensitive and must have their own captured histories.
 10. **SDK scope** — SDK implementations and generated stubs are intentionally
     excluded and remain incompatible until a follow-up rewrite.
 11. **Control-plane / history encoding** — all interpreter control-plane payloads
-    (workflow/activity I/O, signals, queries, sync updates, enums formerly in
-    `service/interfaces.go`) live in `iwf.proto`. Temporal and Cadence both use
-    binary protobuf DataConverters (Temporal: Proto binary before ProtoJSON;
-    Cadence: custom proto-aware converter). API client and interpreter worker share
-    the same converter instance policy.
+    selected by the serialization-boundary inventory (workflow/activity I/O, signals,
+    queries, sync updates, continue-as-new) live in `iwf.proto`; in-process helpers do
+    not become proto merely because they share a file with payload structs. Temporal
+    and Cadence both use binary protobuf DataConverters. Temporal has no old-history
+    ProtoJSON compatibility path; Cadence uses the versioned `IWFDC` framing. API
+    client and interpreter worker use the same converter configuration and codec
+    chain.
 
 ---
 
@@ -895,16 +1019,19 @@ determinism-sensitive and must have their own captured histories.
   Stop COMPLETE; gRPC error details, metadata, connection lifecycle and message
   limits; `AttributeWrite(null)` persistence/index deletion; `LoadBlobs`.
   Success: `make -C server temporalIntegTests` and `cadenceIntegTests` green on the
-  full suite (tee logs). Binary DataConverter coverage is implicit: every Temporal
-  and Cadence integ path exercises start/signal/query/activity encoding.
+  full suite (tee logs). Binary DataConverter coverage is explicit: inspect raw
+  Temporal/Cadence history and reject any interpreter control-plane outer payload
+  encoded through the JSON escape hatch.
 - **Replay (required):** After deleting old JSON, recapture a full baseline from real
   Temporal; `make -C server replayTests` green. Coverage =
   previously-represented scenarios + multi-value channel + both synchronous Update
   handlers and CAN interaction. New baseline uses binary protobuf payloads.
-- **Unit:** N/A unless an edge cannot be reached via integ. Candidate: the atomic
-  multi-consume boundary math (`at_most` capping; ZeroToAll empty+`COMPLETED`),
-  `Value`/`IndexConfig` encoding, and Cadence multi-arg length-prefix framing —
-  add unit tests only if integ cannot hit them.
+- **Unit:** Phase 2.5 converter tests are required because malformed Cadence framing,
+  typed nils, exact arity, and raw encoding metadata are isolated converter contracts
+  that integration paths cannot cover reliably. Other candidates remain the atomic
+  multi-consume boundary math (`at_most` capping; ZeroToAll empty+`COMPLETED`) and
+  `Value`/`IndexConfig` encoding; add those only when the edge cannot be reached via
+  integration.
 
 ## Documentation
 
@@ -913,7 +1040,7 @@ determinism-sensitive and must have their own captured histories.
   proto generation target, connection lifecycle, and graceful shutdown; note
   WaitForStepCompletion / WaitForAttribute are Temporal-only and SDK compatibility
   is intentionally deferred; document binary protobuf DataConverter on Temporal and
-  Cadence (client + worker must match).
+  Cadence (client + worker configuration/codec chain must match).
 - [`server/replayTests/README.md`](../../../server/replayTests/README.md): reset
   baseline + Temporal CLI capture; fresh version scheme; note binary payload
   encoding.
