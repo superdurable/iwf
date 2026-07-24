@@ -21,29 +21,48 @@
 package interpreter
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/superdurable/iwf/config"
 	"github.com/superdurable/iwf/service/common/workerclient"
 )
 
-// NewWorkerClients builds the WorkerService pool and InternalService client from config.
-func NewWorkerClients(cfg config.Config) (*workerclient.Pool, *workerclient.Internal) {
-	actCfg := cfg.Interpreter.InterpreterActivityConfig
+// NewWorkerClients builds activity clients.
+func NewWorkerClients(
+	apiCfg *config.ApiConfig,
+	activityCfg *config.InterpreterActivityConfig,
+) (*workerclient.Pool, *workerclient.Internal) {
+	if apiCfg == nil || activityCfg == nil {
+		panic("NewWorkerClients requires non-nil config sections")
+	}
 	poolCfg := workerclient.Config{
-		IdleTimeout:     actCfg.EffectiveWorkerConnectionIdleTimeout(),
-		MaxConnections:  actCfg.EffectiveMaxWorkerConnections(),
-		MaxMessageBytes: cfg.Api.EffectiveGrpcMaxMessageBytes(),
-		DefaultHeaders:  actCfg.DefaultHeaders,
+		IdleTimeout:     activityCfg.EffectiveWorkerConnectionIdleTimeout(),
+		MaxConnections:  activityCfg.EffectiveMaxWorkerConnections(),
+		MaxMessageBytes: apiCfg.EffectiveGrpcMaxMessageBytes(),
+		DefaultHeaders:  activityCfg.DefaultHeaders,
 	}
 	pool, err := workerclient.NewPool(poolCfg, nil)
 	if err != nil {
-		log.Fatalln("Unable to create worker client pool", err)
+		panic(fmt.Sprintf("create worker client pool: %v", err))
 	}
-	internal, err := workerclient.NewInternal(cfg.GetInternalServiceTargetWithDefault(), poolCfg, nil)
+	internal, err := workerclient.NewInternal(internalServiceTarget(apiCfg, activityCfg), poolCfg, nil)
 	if err != nil {
 		pool.Close()
-		log.Fatalln("Unable to create internal service client", err)
+		panic(fmt.Sprintf("create internal service client: %v", err))
 	}
 	return pool, internal
+}
+
+func internalServiceTarget(
+	apiCfg *config.ApiConfig,
+	activityCfg *config.InterpreterActivityConfig,
+) string {
+	if activityCfg.InternalServiceTarget != "" {
+		return activityCfg.InternalServiceTarget
+	}
+	port := apiCfg.Port
+	if port == 0 {
+		port = config.DefaultApiPort
+	}
+	return fmt.Sprintf("localhost:%d", port)
 }

@@ -21,16 +21,12 @@
 package interpreter
 
 import (
-	"context"
 	"errors"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service/common/ptr"
-	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -49,9 +45,7 @@ func TestInvalidAnyConditionCombination(t *testing.T) {
 
 	err := validateWaitingCondition(waiting)
 	require.Error(t, err)
-	require.Equal(t,
-		"ANY_COMBINATION_COMPLETED condition ids must exist on timer/channel conditions",
-		err.Error())
+	require.ErrorContains(t, err, `references undeclared condition_id "invalid"`)
 }
 
 func TestValidAnyConditionCombination(t *testing.T) {
@@ -79,6 +73,121 @@ func TestValidateWaitingConditionChannelBounds(t *testing.T) {
 	require.Error(t, validateWaitingCondition(waiting))
 }
 
+func TestValidateWaitingConditionRejections(t *testing.T) {
+	duplicateID := newValidWaitingCondition()
+	duplicateID.TimerConditions = []*iwfpb.TimerCondition{{ConditionId: "condition"}}
+
+	negativeTimer := newValidWaitingCondition()
+	negativeTimer.TimerConditions = []*iwfpb.TimerCondition{{
+		ConditionId:     "timer",
+		DurationSeconds: -1,
+	}}
+
+	absoluteTimer := newValidWaitingCondition()
+	absoluteTimer.TimerConditions = []*iwfpb.TimerCondition{{
+		ConditionId:                "timer",
+		FiringUnixTimestampSeconds: 10,
+	}}
+
+	combinationsOnAll := newValidWaitingCondition()
+	combinationsOnAll.WaitingConditionType =
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED
+	combinationsOnAll.ConditionCombinations = []*iwfpb.ConditionCombination{{
+		ConditionIds: []string{"condition"},
+	}}
+
+	missingCombination := newValidWaitingCondition()
+	missingCombination.WaitingConditionType =
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED
+
+	unknownType := newValidWaitingCondition()
+	unknownType.WaitingConditionType =
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_UNSPECIFIED
+
+	emptyConditionID := waitingConditionWithChannel(newChannelCondition("", "channel", nil, nil))
+	emptyConditionID.WaitingConditionType =
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED
+	emptyConditionID.ConditionCombinations = []*iwfpb.ConditionCombination{{
+		ConditionIds: []string{"condition"},
+	}}
+
+	testCases := []struct {
+		name             string
+		waitingCondition *iwfpb.WaitingCondition
+		errorContains    string
+	}{
+		{"nil_timer_entry", waitingConditionWithTimer(nil), "timer condition at index 0 is nil"},
+		{"nil_channel_entry", waitingConditionWithChannel(nil), "channel condition at index 0 is nil"},
+		{"empty_condition_id_for_combination", emptyConditionID, "empty condition_id"},
+		{"duplicate_condition_id", duplicateID, `duplicate condition_id "condition"`},
+		{"empty_channel_name", waitingConditionWithChannel(newChannelCondition("condition", "", nil, nil)), "empty channel_name"},
+		{
+			"negative_at_least",
+			waitingConditionWithChannel(newChannelCondition("condition", "channel", ptr.Any(int32(-1)), nil)),
+			"negative at_least",
+		},
+		{
+			"negative_at_most",
+			waitingConditionWithChannel(newChannelCondition("condition", "channel", nil, ptr.Any(int32(-1)))),
+			"negative at_most",
+		},
+		{
+			"at_most_less_than_at_least",
+			waitingConditionWithChannel(
+				newChannelCondition("condition", "channel", ptr.Any(int32(3)), ptr.Any(int32(2))),
+			),
+			"at_most 2 < at_least 3",
+		},
+		{"negative_timer_duration", negativeTimer, "negative duration_seconds"},
+		{"worker_sets_absolute_timer", absoluteTimer, "server-owned firing_unix_timestamp_seconds"},
+		{"combinations_on_all", combinationsOnAll, "only valid for ANY_COMBINATION_COMPLETED"},
+		{"any_combination_requires_combination", missingCombination, "requires at least one condition_combination"},
+		{
+			"empty_combination",
+			&iwfpb.WaitingCondition{
+				WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED,
+				ChannelConditions:    []*iwfpb.ChannelCondition{newChannelCondition("condition", "channel", nil, nil)},
+				ConditionCombinations: []*iwfpb.ConditionCombination{
+					{},
+				},
+			},
+			"condition_combination at index 0 is empty",
+		},
+		{
+			"combination_references_undeclared_id",
+			&iwfpb.WaitingCondition{
+				WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED,
+				ChannelConditions:    []*iwfpb.ChannelCondition{newChannelCondition("condition", "channel", nil, nil)},
+				ConditionCombinations: []*iwfpb.ConditionCombination{
+					{ConditionIds: []string{"undeclared"}},
+				},
+			},
+			`references undeclared condition_id "undeclared"`,
+		},
+		{
+			"combination_duplicate_id",
+			&iwfpb.WaitingCondition{
+				WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED,
+				ChannelConditions:    []*iwfpb.ChannelCondition{newChannelCondition("condition", "channel", nil, nil)},
+				ConditionCombinations: []*iwfpb.ConditionCombination{
+					{ConditionIds: []string{"condition", "condition"}},
+				},
+			},
+			`duplicate condition_id "condition"`,
+		},
+		{"unknown_type", unknownType, "unknown waiting_condition_type"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			err := validateWaitingCondition(testCase.waitingCondition)
+			require.Error(t, err)
+			require.ErrorContains(t, err, testCase.errorContains)
+		})
+	}
+	require.NoError(t, validateWaitingCondition(nil))
+}
+
 func TestValidateStepDecisionEmpty(t *testing.T) {
 	require.Error(t, validateStepDecision(nil))
 	require.Error(t, validateStepDecision(&iwfpb.StepDecision{}))
@@ -98,83 +207,80 @@ func createConditions() ([]*iwfpb.TimerCondition, []*iwfpb.ChannelCondition) {
 	return timers, channels
 }
 
-func TestComposeGRPCError_LocalActivity_LongMessage(t *testing.T) {
-	longMsg := strings.Repeat("a", 1000)
-	provider := &recordingActivityProvider{ret: errors.New("app-err")}
-
-	err := composeGRPCError(true, provider, errors.New(longMsg), "test-error-type")
-	require.Equal(t, provider.ret, err)
-	require.Equal(t, "1st-attempt-failure", provider.errType)
-	require.Equal(t, longMsg[:50]+"...", provider.details)
+func newValidWaitingCondition() *iwfpb.WaitingCondition {
+	return waitingConditionWithChannel(newChannelCondition("condition", "channel", nil, nil))
 }
 
-func TestComposeGRPCError_RegularActivity_LongMessage(t *testing.T) {
-	longMsg := strings.Repeat("a", 1000)
-	provider := &recordingActivityProvider{ret: errors.New("app-err")}
-
-	err := composeGRPCError(false, provider, errors.New(longMsg), "test-error-type")
-	require.Equal(t, provider.ret, err)
-	require.Equal(t, "test-error-type", provider.errType)
-	require.Equal(t, longMsg[:500]+"...", provider.details)
+func waitingConditionWithTimer(timerCondition *iwfpb.TimerCondition) *iwfpb.WaitingCondition {
+	return &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED,
+		TimerConditions:      []*iwfpb.TimerCondition{timerCondition},
+	}
 }
 
-func TestComposeGRPCError_LocalActivity_ShortMessage(t *testing.T) {
-	shortMsg := strings.Repeat("a", 40)
-	provider := &recordingActivityProvider{ret: errors.New("app-err")}
-
-	err := composeGRPCError(true, provider, errors.New(shortMsg), "test-error-type")
-	require.Equal(t, provider.ret, err)
-	require.Equal(t, "1st-attempt-failure", provider.errType)
-	require.Equal(t, shortMsg, provider.details)
+func TestValidateWaitingConditionAllowsEmptyIDsForAllAndAny(t *testing.T) {
+	waitingConditionTypes := []iwfpb.WaitingConditionType{
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED,
+	}
+	for _, waitingConditionType := range waitingConditionTypes {
+		waitingCondition := &iwfpb.WaitingCondition{
+			WaitingConditionType: waitingConditionType,
+			TimerConditions: []*iwfpb.TimerCondition{
+				{DurationSeconds: 1},
+				{DurationSeconds: 2},
+			},
+			ChannelConditions: []*iwfpb.ChannelCondition{
+				newChannelCondition("", "first", nil, nil),
+				newChannelCondition("", "second", nil, nil),
+			},
+		}
+		require.NoError(t, validateWaitingCondition(waitingCondition))
+	}
 }
 
-func TestComposeGRPCError_RegularActivity_ShortMessage(t *testing.T) {
-	shortMsg := strings.Repeat("a", 40)
-	provider := &recordingActivityProvider{ret: errors.New("app-err")}
-
-	err := composeGRPCError(false, provider, errors.New(shortMsg), "test-error-type")
-	require.Equal(t, provider.ret, err)
-	require.Equal(t, "test-error-type", provider.errType)
-	require.Equal(t, shortMsg, provider.details)
+func waitingConditionWithChannel(channelCondition *iwfpb.ChannelCondition) *iwfpb.WaitingCondition {
+	return &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED,
+		ChannelConditions:    []*iwfpb.ChannelCondition{channelCondition},
+	}
 }
 
-func TestComposeGRPCError_LocalActivity_StatusError(t *testing.T) {
-	provider := &recordingActivityProvider{ret: errors.New("app-err")}
-	stErr := status.Error(codes.Unavailable, "worker down")
-
-	err := composeGRPCError(true, provider, stErr, "test-error-type")
-	require.Equal(t, provider.ret, err)
-	require.Equal(t, "1st-attempt-failure", provider.errType)
-	require.Equal(t, "code: Unavailable, msg: worker down", provider.details)
+func newChannelCondition(
+	conditionID string,
+	channelName string,
+	atLeast *int32,
+	atMost *int32,
+) *iwfpb.ChannelCondition {
+	return &iwfpb.ChannelCondition{
+		ConditionId: conditionID,
+		ChannelName: channelName,
+		AtLeast:     atLeast,
+		AtMost:      atMost,
+	}
 }
 
-func TestComposeGRPCError_RegularActivity_StatusErrorLong(t *testing.T) {
-	provider := &recordingActivityProvider{ret: errors.New("app-err")}
-	longDetail := strings.Repeat("b", 600)
-	stErr := status.Error(codes.Internal, longDetail)
-
-	err := composeGRPCError(false, provider, stErr, "test-error-type")
-	require.Equal(t, provider.ret, err)
-	require.Equal(t, "test-error-type", provider.errType)
-	expected := fmt.Sprintf("code: Internal, msg: %s", longDetail)
-	require.Equal(t, expected[:500]+"...", provider.details)
+func TestIsTransientWorkerError(t *testing.T) {
+	require.False(t, isTransientWorkerError(nil))
+	require.True(t, isTransientWorkerError(errors.New("dial failed")))
+	require.True(t, isTransientWorkerError(status.Error(codes.Unavailable, "worker down")))
+	require.False(t, isTransientWorkerError(status.Error(codes.InvalidArgument, "bad input")))
 }
 
-type recordingActivityProvider struct {
-	errType string
-	details interface{}
-	ret     error
-}
+func TestWorkerErrorDetailIsExpectedFailure(t *testing.T) {
+	grpcStatus, err := status.New(codes.Internal, "worker failure").WithDetails(
+		&iwfpb.WorkerErrorResponse{
+			Detail:    "worker detail",
+			ErrorType: "worker type",
+		},
+	)
+	require.NoError(t, err)
 
-func (r *recordingActivityProvider) GetLogger(context.Context) interfaces.UnifiedLogger {
-	panic("unexpected")
+	workerError := grpcStatus.Err()
+	require.False(t, isTransientWorkerError(workerError))
+
+	interpreterError := interpreterErrorFromWorker(workerError)
+	require.Equal(t, int32(codes.Internal), interpreterError.GetGrpcCode())
+	require.Equal(t, "worker detail", interpreterError.GetError().GetOriginalWorkerErrorDetail())
+	require.Equal(t, "worker type", interpreterError.GetError().GetOriginalWorkerErrorType())
 }
-func (r *recordingActivityProvider) NewApplicationError(errType string, details interface{}) error {
-	r.errType = errType
-	r.details = details
-	return r.ret
-}
-func (r *recordingActivityProvider) GetActivityInfo(context.Context) interfaces.ActivityInfo {
-	panic("unexpected")
-}
-func (r *recordingActivityProvider) RecordHeartbeat(context.Context, ...interface{}) {}

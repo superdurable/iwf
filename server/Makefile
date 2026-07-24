@@ -202,6 +202,19 @@ integTestsNoSearch:
 unitTests:
 	@GOWORK=off go test -v $$(GOWORK=off go list ./service/... | grep -v ./service/common/blobstore)
 
+phase4MatchingTests: ## Run the pure interpreter channel/config unit tests during the Phase 4 stacked rewrite
+	$Q go test -v ./service/interpreter/channel/... ./service/interpreter/config/...
+	$Q cd service/interpreter && go test channelStore.go channelStore_test.go
+
+phase4S2Tests: ## Compile and run the isolated Phase 4 leaf-store tests
+	$Q cd service/interpreter && go test -v persistence.go queryHandler.go stepRequest.go stepRequestQueue.go outputCollector.go stepExecutionCounter.go persistence_test.go queryHandler_test.go stepRequestQueue_test.go outputCollector_test.go stepExecutionCounter_test.go
+
+phase4S3Tests: ## Compile isolated providers and run Phase 4 timer tests
+	$Q cd service/interpreter && go test activityImpl.go workerClients.go activityImpl_test.go
+	$Q cd service/interpreter/temporal && go test workflowProvider.go
+	$Q cd service/interpreter/cadence && go test workflowProvider.go loggerImpl.go
+	$Q go test -v ./service/interpreter/timers/...
+
 help:
 	@# print help first, so it's visible
 	@printf "\033[36m%-20s\033[0m %s\n" 'help' 'Prints a help message showing any specially-commented targets'

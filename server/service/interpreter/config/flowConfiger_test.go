@@ -38,57 +38,55 @@ func TestNewFlowConfiger_PanicsOnInvalid(t *testing.T) {
 	require.Panics(t, func() { NewFlowConfiger(&iwfpb.FlowConfig{ContinueAsNewThreshold: -1}) })
 }
 
-func TestFlowConfiger_GetReturnsRetainedConfig(t *testing.T) {
-	in := &iwfpb.FlowConfig{ContinueAsNewThreshold: 5}
-	fc := NewFlowConfiger(in)
-	assert.Equal(t, int32(5), fc.Get().GetContinueAsNewThreshold())
-	assert.Equal(t, int32(5), fc.EffectiveContinueAsNewThreshold())
+func TestFlowConfiger_RetainsOwnershipTransferredInput(t *testing.T) {
+	input := &iwfpb.FlowConfig{ContinueAsNewThreshold: 5}
+	flowConfiger := NewFlowConfiger(input)
+
+	assert.Same(t, input, flowConfiger.Get())
 }
 
 func TestFlowConfiger_ZeroDefaults(t *testing.T) {
-	fc := NewFlowConfiger(&iwfpb.FlowConfig{})
+	flowConfiger := NewFlowConfiger(&iwfpb.FlowConfig{})
 
-	assert.Equal(t, int32(0), fc.EffectiveContinueAsNewThreshold()) // 0 disables automatic CAN
-	assert.Equal(t, int32(service.DefaultContinueAsNewPageSizeInBytes), fc.EffectiveContinueAsNewPageSizeInBytes())
+	assert.Equal(t, int32(0), flowConfiger.EffectiveContinueAsNewThreshold())
+	assert.Equal(t, int32(service.DefaultContinueAsNewPageSizeInBytes), flowConfiger.EffectiveContinueAsNewPageSizeInBytes())
 	assert.Equal(t,
 		iwfpb.ActiveStepSearchMode_ACTIVE_STEP_SEARCH_MODE_ENABLED_FOR_STEPS_WITH_WAIT_FOR,
-		fc.EffectiveActiveStepSearchMode())
-	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, fc.ResolveWaitForDurability(nil))
-	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, fc.ResolveExecuteDurability(nil))
+		flowConfiger.EffectiveActiveStepSearchMode())
+	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, flowConfiger.ResolveWaitForDurability(nil))
+	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, flowConfiger.ResolveExecuteDurability(nil))
 }
 
 func TestFlowConfiger_DurabilityPrecedence(t *testing.T) {
-	fc := NewFlowConfiger(&iwfpb.FlowConfig{StepDurability: iwfpb.StepDurability_STEP_DURABILITY_ASYNC})
+	flowConfiger := NewFlowConfiger(&iwfpb.FlowConfig{StepDurability: iwfpb.StepDurability_STEP_DURABILITY_ASYNC})
 
-	// no StepOptions override -> flow-level durability.
-	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_ASYNC, fc.ResolveWaitForDurability(&iwfpb.StepOptions{}))
-	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_ASYNC, fc.ResolveExecuteDurability(&iwfpb.StepOptions{}))
+	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_ASYNC, flowConfiger.ResolveWaitForDurability(&iwfpb.StepOptions{}))
+	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_ASYNC, flowConfiger.ResolveExecuteDurability(&iwfpb.StepOptions{}))
 
-	// StepOptions override wins over the flow-level durability, independently per phase.
 	waitOverride := &iwfpb.StepOptions{WaitForDurabilityOverride: iwfpb.StepDurability_STEP_DURABILITY_SYNC}
-	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, fc.ResolveWaitForDurability(waitOverride))
-	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_ASYNC, fc.ResolveExecuteDurability(waitOverride))
+	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, flowConfiger.ResolveWaitForDurability(waitOverride))
+	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_ASYNC, flowConfiger.ResolveExecuteDurability(waitOverride))
 }
 
 func TestFlowConfiger_UpdateByAPIFullReplacement(t *testing.T) {
-	fc := NewFlowConfiger(&iwfpb.FlowConfig{
+	flowConfiger := NewFlowConfiger(&iwfpb.FlowConfig{
 		ContinueAsNewThreshold: 5,
 		StepDurability:         iwfpb.StepDurability_STEP_DURABILITY_ASYNC,
 	})
+	update := &iwfpb.FlowConfig{ContinueAsNewThreshold: 9}
 
-	require.NoError(t, fc.UpdateByAPI(&iwfpb.FlowConfig{ContinueAsNewThreshold: 9}))
+	require.NoError(t, flowConfiger.UpdateByAPI(update))
 
-	// Full replacement, not a field patch: the omitted durability resets to
-	// UNSPECIFIED and therefore resolves to SYNC, not the previous ASYNC.
-	assert.Equal(t, int32(9), fc.EffectiveContinueAsNewThreshold())
-	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, fc.ResolveExecuteDurability(nil))
+	assert.Same(t, update, flowConfiger.Get())
+	assert.Equal(t, int32(9), flowConfiger.EffectiveContinueAsNewThreshold())
+	assert.Equal(t, iwfpb.StepDurability_STEP_DURABILITY_SYNC, flowConfiger.ResolveExecuteDurability(nil))
 }
 
 func TestFlowConfiger_UpdateByAPIRejectsInvalidAndKeepsState(t *testing.T) {
-	fc := NewFlowConfiger(&iwfpb.FlowConfig{ContinueAsNewThreshold: 7})
-	assert.Error(t, fc.UpdateByAPI(&iwfpb.FlowConfig{ContinueAsNewThreshold: -5}))
-	assert.Error(t, fc.UpdateByAPI(nil))
-	assert.Equal(t, int32(7), fc.EffectiveContinueAsNewThreshold())
+	flowConfiger := NewFlowConfiger(&iwfpb.FlowConfig{ContinueAsNewThreshold: 7})
+	assert.Error(t, flowConfiger.UpdateByAPI(&iwfpb.FlowConfig{ContinueAsNewThreshold: -5}))
+	assert.Error(t, flowConfiger.UpdateByAPI(nil))
+	assert.Equal(t, int32(7), flowConfiger.EffectiveContinueAsNewThreshold())
 }
 
 func TestValidateFlowConfig(t *testing.T) {

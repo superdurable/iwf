@@ -24,9 +24,7 @@ import (
 	"github.com/superdurable/iwf/gen/iwfpb"
 )
 
-// BasicInfo is the small, backend-agnostic identity the interpreter threads
-// through activities and events. All history/query/signal payloads are proto
-// messages in iwfpb; this struct is not serialized into history.
+// BasicInfo contains non-serialized flow identity.
 type BasicInfo struct {
 	FlowType     string
 	WorkerTarget string
@@ -41,27 +39,30 @@ const WaitingConditionsStepExecutionStatus StepExecutionStatus = "WaitingConditi
 const CompletedStepExecutionStatus StepExecutionStatus = "Completed"
 const ExecuteApiFailedAndProceed StepExecutionStatus = "ExecuteApiFailedAndProceed"
 
-// ValidateTimerSkipRequest validates a skip-timer request against a step's timer
-// infos. Prefer timerConditionId when non-empty; otherwise use timerIdx.
+// ValidateTimerSkipRequest resolves a pending timer by condition ID or index.
 func ValidateTimerSkipRequest(
-	stepExeTimerInfos map[string][]*iwfpb.TimerInfo, stepExeId, timerConditionId string, timerIdx int,
+	timerInfosByStepExecutionID map[string][]*iwfpb.TimerInfo,
+	stepExecutionID string,
+	timerConditionID string,
+	timerConditionIndex int,
 ) (*iwfpb.TimerInfo, bool) {
-	timerInfos := stepExeTimerInfos[stepExeId]
+	timerInfos := timerInfosByStepExecutionID[stepExecutionID]
 	if len(timerInfos) == 0 {
 		return nil, false
 	}
-	if timerConditionId != "" {
-		for _, t := range timerInfos {
-			if t.GetConditionId() == timerConditionId {
-				return t, true
+	if timerConditionID != "" {
+		for _, timerInfo := range timerInfos {
+			if timerInfo.GetConditionId() == timerConditionID &&
+				timerInfo.GetStatus() == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING {
+				return timerInfo, true
 			}
 		}
 		return nil, false
 	}
-	if timerIdx >= 0 && timerIdx < len(timerInfos) {
-		t := timerInfos[timerIdx]
-		if t.GetStatus() == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING {
-			return t, true
+	if timerConditionIndex >= 0 && timerConditionIndex < len(timerInfos) {
+		timerInfo := timerInfos[timerConditionIndex]
+		if timerInfo.GetStatus() == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING {
+			return timerInfo, true
 		}
 	}
 	return nil, false

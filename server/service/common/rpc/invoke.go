@@ -44,19 +44,22 @@ func InvokeWorkerRpc(
 	apiMaxSeconds int64,
 	blobStore blobstore.BlobStore,
 	externalStorageConfig config.ExternalStorageConfig,
-) (*iwfpb.InvokeWorkerRPCResponse, *errors.ErrorAndStatus) {
+) (*iwfpb.InvokeWorkerRPCResponse, *errors.ErrorAndStatus, error) {
 	if pool == nil {
-		return nil, errors.Internal("worker client pool is nil")
+		return nil, nil, fmt.Errorf("worker client pool is nil")
 	}
 	if rpcPrep == nil || req == nil {
-		return nil, errors.InvalidArgument(iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_UNCATEGORIZED, "rpc prep and request are required")
+		return nil, errors.InvalidArgument(
+			iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_UNCATEGORIZED,
+			"rpc prep and request are required",
+		), nil
 	}
 
 	if err := blobstore.HydrateKVs(ctx, rpcPrep.GetAttributes(), blobStore); err != nil {
-		return nil, handleWorkerRpcError(err)
+		return nil, nil, err
 	}
 	if err := blobstore.HydrateValue(ctx, req.GetInput(), blobStore); err != nil {
-		return nil, handleWorkerRpcError(err)
+		return nil, nil, err
 	}
 
 	timeoutSeconds := req.GetTimeoutSeconds()
@@ -69,7 +72,7 @@ func InvokeWorkerRpc(
 
 	client, callCtx, release, err := pool.Acquire(rpcCtx, rpcPrep.GetWorkerTarget())
 	if err != nil {
-		return nil, handleWorkerRpcError(err)
+		return nil, nil, err
 	}
 	defer release()
 
@@ -93,27 +96,27 @@ func InvokeWorkerRpc(
 
 	resp, err := client.InvokeWorkerRPC(callCtx, workerReq)
 	if err != nil {
-		return nil, handleWorkerRpcError(err)
+		return nil, nil, err
 	}
 
 	if err := validateWorkerRpcResponse(resp); err != nil {
-		return nil, handleWorkerRpcError(err)
+		return nil, handleWorkerRpcError(err), nil
 	}
 
 	if err := blobstore.OffloadLargeAttributeWrites(
 		ctx, resp.GetUpsertAttributes(), req.GetFlowId(),
 		externalStorageConfig.ThresholdInBytes, blobStore, externalStorageConfig.Enabled,
 	); err != nil {
-		return nil, handleWorkerRpcError(err)
+		return nil, nil, err
 	}
 	if err := blobstore.OffloadLargeValue(
 		ctx, resp.GetOutput(), req.GetFlowId(),
 		externalStorageConfig.ThresholdInBytes, blobStore, externalStorageConfig.Enabled,
 	); err != nil {
-		return nil, handleWorkerRpcError(err)
+		return nil, nil, err
 	}
 
-	return resp, nil
+	return resp, nil, nil
 }
 
 func validateWorkerRpcResponse(resp *iwfpb.InvokeWorkerRPCResponse) error {
@@ -148,18 +151,26 @@ func handleWorkerRpcError(err error) *errors.ErrorAndStatus {
 	if err == nil {
 		return nil
 	}
-	st, ok := status.FromError(err)
+	grpcStatus, ok := status.FromError(err)
 	detail := err.Error()
 	var workerDetail, workerType string
 	var workerStatus int32
 	if ok {
-		workerStatus = int32(st.Code())
-		detail = fmt.Sprintf("worker API error, code:%v, msg:%v", st.Code(), st.Message())
-		for _, d := range st.Details() {
-			if we, ok := d.(*iwfpb.WorkerErrorResponse); ok {
-				workerDetail = we.GetDetail()
-				workerType = we.GetErrorType()
-				detail = fmt.Sprintf("worker API error, code:%v, errorType:%v", st.Code(), workerType)
+		workerStatus = int32(grpcStatus.Code())
+		detail = fmt.Sprintf(
+			"worker API error, code:%v, msg:%v",
+			grpcStatus.Code(),
+			grpcStatus.Message(),
+		)
+		for _, detailEntry := range grpcStatus.Details() {
+			if workerError, ok := detailEntry.(*iwfpb.WorkerErrorResponse); ok {
+				workerDetail = workerError.GetDetail()
+				workerType = workerError.GetErrorType()
+				detail = fmt.Sprintf(
+					"worker API error, code:%v, errorType:%v",
+					grpcStatus.Code(),
+					workerType,
+				)
 			}
 		}
 	}

@@ -40,7 +40,7 @@ func TestTemporalProtoPayloadIsBinaryProtobuf(t *testing.T) {
 		FlowType:     "order",
 		WorkerTarget: "127.0.0.1:9000",
 		StepInput:    &iwfpb.Value{Kind: &iwfpb.Value_StringValue{StringValue: "hi"}},
-		InitAttributes: []*iwfpb.AttributeWrite{
+		InitAttributes: []*iwfpb.KV{
 			{Key: "k", Value: &iwfpb.Value{Kind: &iwfpb.Value_IntValue{IntValue: 7}}},
 		},
 	}

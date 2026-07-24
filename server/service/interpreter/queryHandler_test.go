@@ -21,36 +21,52 @@
 package interpreter
 
 import (
-	"fmt"
+	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
-type queryHandlerRegistrar interface {
-	SetQueryHandler(ctx interfaces.UnifiedContext, queryType string, handler interface{}) error
+type s2QueryRegistrar struct {
+	queryType string
+	handler   interface{}
 }
 
-func SetGetAttributesQueryHandler(
-	ctx interfaces.UnifiedContext,
-	provider queryHandlerRegistrar,
-	persistenceManager *PersistenceManager,
+func (r *s2QueryRegistrar) SetQueryHandler(
+	_ interfaces.UnifiedContext,
+	queryType string,
+	handler interface{},
 ) error {
-	if provider == nil {
-		panic("GetAttributes query requires a provider")
-	}
-	if persistenceManager == nil {
-		panic("GetAttributes query requires a PersistenceManager")
-	}
-	return provider.SetQueryHandler(
-		ctx,
-		service.GetAttributesWorkflowQueryType,
-		func(request *iwfpb.GetAttributesQueryRequest) (*iwfpb.GetAttributesQueryResponse, error) {
-			if request == nil {
-				return nil, fmt.Errorf("GetAttributes query requires a request")
-			}
-			return persistenceManager.GetAttributes(request), nil
-		},
-	)
+	r.queryType = queryType
+	r.handler = handler
+	return nil
+}
+
+func TestSetGetAttributesQueryHandler(t *testing.T) {
+	provider := &s2WorkflowProvider{}
+	manager, err := NewPersistenceManager(provider, []*iwfpb.KV{
+		stringKV("b", "two"),
+		stringKV("a", "one"),
+	})
+	require.NoError(t, err)
+
+	registrar := &s2QueryRegistrar{}
+	require.NoError(t, SetGetAttributesQueryHandler(nil, registrar, manager))
+	require.Equal(t, service.GetAttributesWorkflowQueryType, registrar.queryType)
+
+	handler, ok := registrar.handler.(func(
+		*iwfpb.GetAttributesQueryRequest,
+	) (*iwfpb.GetAttributesQueryResponse, error))
+	require.True(t, ok)
+	response, err := handler(&iwfpb.GetAttributesQueryRequest{AllKeys: true})
+	require.NoError(t, err)
+	require.Equal(t, []string{"a", "b"}, []string{
+		response.GetAttributes()[0].GetKey(),
+		response.GetAttributes()[1].GetKey(),
+	})
+	response, err = handler(nil)
+	require.ErrorContains(t, err, "requires a request")
+	require.Nil(t, response)
 }

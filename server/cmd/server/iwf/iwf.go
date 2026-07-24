@@ -24,7 +24,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/superdurable/iwf/service/common/blobstore"
 	rawLog "log"
 	"strings"
 	"sync"
@@ -34,21 +33,20 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/superdurable/iwf/config"
-	cadenceapi "github.com/superdurable/iwf/service/client/cadence"
-	temporalapi "github.com/superdurable/iwf/service/client/temporal"
-	ggrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-
 	isvc "github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/api"
 	uclient "github.com/superdurable/iwf/service/client"
+	cadenceapi "github.com/superdurable/iwf/service/client/cadence"
+	temporalapi "github.com/superdurable/iwf/service/client/temporal"
+	"github.com/superdurable/iwf/service/common/blobstore"
+	iwfconverter "github.com/superdurable/iwf/service/common/converter"
 	"github.com/superdurable/iwf/service/common/log"
 	"github.com/superdurable/iwf/service/common/log/loggerimpl"
 	"github.com/superdurable/iwf/service/common/log/tag"
 	"github.com/superdurable/iwf/service/interpreter/cadence"
 	"github.com/superdurable/iwf/service/interpreter/temporal"
-	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/uber-go/tally/v4"
 	"github.com/uber-go/tally/v4/prometheus"
 	apiv1 "github.com/uber/cadence-idl/go/proto/api/v1"
@@ -62,6 +60,8 @@ import (
 	"go.uber.org/cadence/encoded"
 	"go.uber.org/yarpc"
 	"go.uber.org/yarpc/transport/grpc"
+	ggrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 const serviceAPI = "api"
@@ -160,15 +160,23 @@ func start(c *cli.Context) {
 			}
 		}
 
+		dataConverter := iwfconverter.NewTemporalDataConverter()
+		clientOptions.DataConverter = dataConverter
 		temporalClient, err := client.Dial(clientOptions)
 
 		if err != nil {
 			rawLog.Fatalf("Unable to connect to Temporal because of error %v", err)
 		}
-		unifiedClient = temporalapi.NewTemporalClient(temporalClient, temporalConfig.Namespace, converter.GetDefaultDataConverter(), false, &config.Api.QueryWorkflowFailedRetryPolicy)
+		unifiedClient = temporalapi.NewTemporalClient(
+			temporalClient,
+			temporalConfig.Namespace,
+			dataConverter,
+			false,
+			&config.Api.QueryWorkflowFailedRetryPolicy,
+		)
 
 		for _, svcName := range services {
-			go launchTemporalService(svcName, *config, unifiedClient, temporalClient, logger, metrics)
+			go launchTemporalService(svcName, *config, unifiedClient, temporalClient, dataConverter, logger, metrics)
 		}
 	} else if config.Interpreter.Cadence != nil {
 		hostPort := DefaultCadenceHostPort
@@ -183,15 +191,32 @@ func start(c *cli.Context) {
 		if err != nil {
 			rawLog.Fatalf("Unable to connect to Cadence because of error %v", err)
 		}
-		cadenceClient, err := BuildCadenceClient(serviceClient, domain)
+		dataConverter := iwfconverter.NewCadenceDataConverter()
+		cadenceClient, err := BuildCadenceClient(serviceClient, domain, dataConverter)
 		if err != nil {
 			rawLog.Fatalf("Unable to connect to Cadence because of error %v", err)
 		}
 
-		unifiedClient = cadenceapi.NewCadenceClient(domain, cadenceClient, serviceClient, encoded.GetDefaultDataConverter(), closeFunc, &config.Api.QueryWorkflowFailedRetryPolicy)
+		unifiedClient = cadenceapi.NewCadenceClient(
+			domain,
+			cadenceClient,
+			serviceClient,
+			dataConverter,
+			closeFunc,
+			&config.Api.QueryWorkflowFailedRetryPolicy,
+		)
 
 		for _, svcName := range services {
-			go launchCadenceService(svcName, *config, unifiedClient, serviceClient, domain, closeFunc, logger)
+			go launchCadenceService(
+				svcName,
+				*config,
+				unifiedClient,
+				serviceClient,
+				domain,
+				closeFunc,
+				dataConverter,
+				logger,
+			)
 		}
 	} else {
 		panic("must provide either Cadence or Temporal config")
@@ -205,7 +230,7 @@ func start(c *cli.Context) {
 
 func launchTemporalService(
 	svcName string, config config.Config, unifiedClient uclient.UnifiedClient, temporalClient client.Client,
-	logger log.Logger, metrics client.MetricsHandler,
+	dataConverter converter.DataConverter, logger log.Logger, metrics client.MetricsHandler,
 ) {
 	s3Client := CreateS3Client(config, context.Background())
 	blobStore := blobstore.NewBlobStore(
@@ -229,7 +254,17 @@ func launchTemporalService(
 		)
 		rawLog.Fatal(svc.Run())
 	case serviceInterpreter:
-		interpreter := temporal.NewInterpreterWorker(config, temporalClient, isvc.TaskQueue, false, nil, unifiedClient, blobStore)
+		interpreter := temporal.NewInterpreterWorker(
+			&config.Api,
+			&config.ExternalStorage,
+			&config.Interpreter,
+			config.Interpreter.Temporal,
+			temporalClient,
+			isvc.TaskQueue,
+			dataConverter,
+			unifiedClient,
+			blobStore,
+		)
 		interpreter.Start()
 	default:
 		rawLog.Fatalf("Invalid service: %v", svcName)
@@ -243,6 +278,7 @@ func launchCadenceService(
 	service workflowserviceclient.Interface,
 	domain string,
 	closeFunc func(),
+	dataConverter encoded.DataConverter,
 	logger log.Logger,
 ) {
 	s3Client := CreateS3Client(config, context.Background())
@@ -267,7 +303,19 @@ func launchCadenceService(
 		)
 		rawLog.Fatal(svc.Run())
 	case serviceInterpreter:
-		interpreter := cadence.NewInterpreterWorker(config, service, domain, isvc.TaskQueue, closeFunc, unifiedClient, blobStore)
+		interpreter := cadence.NewInterpreterWorker(
+			&config.Api,
+			&config.ExternalStorage,
+			&config.Interpreter,
+			config.Interpreter.Cadence,
+			service,
+			domain,
+			isvc.TaskQueue,
+			closeFunc,
+			dataConverter,
+			unifiedClient,
+			blobStore,
+		)
 		interpreter.Start()
 	default:
 		rawLog.Fatalf("Invalid service: %v", svcName)
@@ -294,11 +342,16 @@ func getServices(c *cli.Context) []string {
 const _cadenceFrontendService = "cadence-frontend"
 const _cadenceClientName = "cadence-client"
 
-func BuildCadenceClient(service workflowserviceclient.Interface, domain string) (cclient.Client, error) {
+func BuildCadenceClient(
+	service workflowserviceclient.Interface,
+	domain string,
+	dataConverter encoded.DataConverter,
+) (cclient.Client, error) {
 	return cclient.NewClient(
 		service,
 		domain,
 		&cclient.Options{
+			DataConverter: dataConverter,
 			FeatureFlags: cclient.FeatureFlags{
 				WorkflowExecutionAlreadyCompletedErrorEnabled: true,
 			},

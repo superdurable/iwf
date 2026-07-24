@@ -22,21 +22,12 @@ package cadence
 
 import (
 	"context"
-	"github.com/superdurable/iwf/service"
+
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
-	"go.uber.org/cadence"
 	"go.uber.org/cadence/activity"
 )
 
 type activityProvider struct{}
-
-func init() {
-	interfaces.RegisterActivityProvider(service.BackendTypeCadence, &activityProvider{})
-}
-
-func (a *activityProvider) NewApplicationError(errType string, details interface{}) error {
-	return cadence.NewCustomError(errType, details)
-}
 
 func (a *activityProvider) GetLogger(ctx context.Context) interfaces.UnifiedLogger {
 	zLogger := activity.GetLogger(ctx)

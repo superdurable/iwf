@@ -18,39 +18,53 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package interpreter
+package timers
 
 import (
-	"fmt"
-
 	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
-type queryHandlerRegistrar interface {
-	SetQueryHandler(ctx interfaces.UnifiedContext, queryType string, handler interface{}) error
-}
-
-func SetGetAttributesQueryHandler(
+func SetQueryHandlers(
 	ctx interfaces.UnifiedContext,
-	provider queryHandlerRegistrar,
-	persistenceManager *PersistenceManager,
+	provider interfaces.WorkflowProvider,
+	timerProcessor interfaces.TimerProcessor,
 ) error {
-	if provider == nil {
-		panic("GetAttributes query requires a provider")
+	if provider == nil || timerProcessor == nil {
+		panic("timer query handlers require provider and processor")
 	}
-	if persistenceManager == nil {
-		panic("GetAttributes query requires a PersistenceManager")
+	if err := provider.SetQueryHandler(
+		ctx,
+		service.GetCurrentTimerInfosQueryType,
+		func() (*iwfpb.GetCurrentTimerInfosQueryResponse, error) {
+			return currentTimerInfosResponse(timerProcessor), nil
+		},
+	); err != nil {
+		return err
 	}
 	return provider.SetQueryHandler(
 		ctx,
-		service.GetAttributesWorkflowQueryType,
-		func(request *iwfpb.GetAttributesQueryRequest) (*iwfpb.GetAttributesQueryResponse, error) {
-			if request == nil {
-				return nil, fmt.Errorf("GetAttributes query requires a request")
-			}
-			return persistenceManager.GetAttributes(request), nil
+		service.GetScheduledGreedyTimerTimesQueryType,
+		func() (*iwfpb.GetScheduledGreedyTimerTimesQueryResponse, error) {
+			return &iwfpb.GetScheduledGreedyTimerTimesQueryResponse{
+				PendingScheduled: timerProcessor.GetPendingScheduledTimers(),
+			}, nil
 		},
 	)
+}
+
+func currentTimerInfosResponse(
+	timerProcessor interfaces.TimerProcessor,
+) *iwfpb.GetCurrentTimerInfosQueryResponse {
+	timerInfoLists := make(
+		map[string]*iwfpb.TimerInfoList,
+		len(timerProcessor.GetTimerInfos()),
+	)
+	for stepExecutionID, timerInfos := range timerProcessor.GetTimerInfos() {
+		timerInfoLists[stepExecutionID] = &iwfpb.TimerInfoList{Timers: timerInfos}
+	}
+	return &iwfpb.GetCurrentTimerInfosQueryResponse{
+		StepExecutionCurrentTimerInfos: timerInfoLists,
+	}
 }

@@ -21,31 +21,32 @@
 package timers
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/superdurable/iwf/gen/iwfidl"
-	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/gen/iwfpb"
 )
 
-func removeElement(s []service.StaleSkipTimerSignal, i int) []service.StaleSkipTimerSignal {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
-}
-
-// FixTimerCommandFromActivityOutput converts the durationSeconds to firingUnixTimestampSeconds
-// doing it right after the activity output so that we don't need to worry about the time drift after continueAsNew
-func FixTimerCommandFromActivityOutput(now time.Time, request iwfidl.CommandRequest) iwfidl.CommandRequest {
-	var timerCommands []iwfidl.TimerCommand
-	for _, cmd := range request.GetTimerCommands() {
-		if cmd.HasDurationSeconds() {
-			timerCommands = append(timerCommands, iwfidl.TimerCommand{
-				CommandId:                  cmd.CommandId,
-				FiringUnixTimestampSeconds: iwfidl.PtrInt64(now.Unix() + int64(cmd.GetDurationSeconds())),
-			})
-		} else {
-			timerCommands = append(timerCommands, cmd)
-		}
+func NormalizeTimerConditionsFromActivityOutput(
+	now time.Time,
+	waitingCondition *iwfpb.WaitingCondition,
+) error {
+	if waitingCondition == nil {
+		return nil
 	}
-	request.TimerCommands = timerCommands
-	return request
+	for index, timerCondition := range waitingCondition.GetTimerConditions() {
+		if timerCondition == nil {
+			return fmt.Errorf("nil timer condition at index %d", index)
+		}
+		if timerCondition.GetDurationSeconds() < 0 {
+			return fmt.Errorf("negative timer duration at index %d", index)
+		}
+		if timerCondition.GetFiringUnixTimestampSeconds() != 0 {
+			return fmt.Errorf("timer condition at index %d is already normalized", index)
+		}
+		timerCondition.FiringUnixTimestampSeconds =
+			now.Unix() + timerCondition.GetDurationSeconds()
+		timerCondition.DurationSeconds = 0
+	}
+	return nil
 }

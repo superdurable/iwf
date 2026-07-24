@@ -25,13 +25,11 @@ import (
 	"fmt"
 	"time"
 
-	uclient "github.com/superdurable/iwf/service/client"
 	"github.com/superdurable/iwf/service/common/event"
 	"github.com/superdurable/iwf/service/common/ptr"
 	"github.com/superdurable/iwf/service/common/utils"
 	"github.com/superdurable/iwf/service/interpreter/config"
 	"github.com/superdurable/iwf/service/interpreter/cont"
-	"github.com/superdurable/iwf/service/interpreter/env"
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"github.com/superdurable/iwf/service/interpreter/timers"
 
@@ -65,7 +63,7 @@ func InterpreterImpl(
 					SearchAttributes:   sas,
 				})
 			} else if provider.IsApplicationError(retErr) {
-				errType, errDetails := env.GetUnifiedClient().GetApplicationErrorTypeAndDetails(retErr)
+				errType, errDetails := provider.GetApplicationErrorTypeAndDetails(retErr)
 
 				event.Handle(iwfidl.IwfEvent{
 					EventType:          iwfidl.WORKFLOW_FAIL_EVENT,
@@ -138,7 +136,11 @@ func InterpreterImpl(
 
 		internalChannel = RebuildInternalChannel(previous.InterStateChannelReceived)
 		stateRequestQueue = NewStateRequestQueueWithResumeRequests(previous.StatesToStartFromBeginning, previous.StateExecutionsToResume)
-		persistenceManager = RebuildPersistenceManager(provider, previous.DataObjects, previous.SearchAttributes, input.UseMemoForDataAttributes)
+		persistenceManager, err = NewPersistenceManager(provider, previous.GetAttributes())
+		if err != nil {
+			retErr = fmt.Errorf("restore persistence manager: %w", err)
+			return
+		}
 		continueAsNewCounter = cont.NewContinueAsCounter(workflowConfiger, ctx, provider)
 		if input.Config.GetOptimizeTimer() {
 			timerProcessor = timers.NewGreedyTimerProcessor(ctx, provider, continueAsNewCounter, previous.StaleSkipTimerSignals)
@@ -155,7 +157,11 @@ func InterpreterImpl(
 	} else {
 		internalChannel = NewInternalChannel()
 		stateRequestQueue = NewStateRequestQueue()
-		persistenceManager = NewPersistenceManager(provider, input.InitDataAttributes, input.InitSearchAttributes, input.UseMemoForDataAttributes)
+		persistenceManager, err = NewPersistenceManager(provider, input.GetInitAttributes())
+		if err != nil {
+			retErr = fmt.Errorf("initialize persistence manager: %w", err)
+			return
+		}
 		continueAsNewCounter = cont.NewContinueAsCounter(workflowConfiger, ctx, provider)
 		if input.Config.GetOptimizeTimer() {
 			timerProcessor = timers.NewGreedyTimerProcessor(ctx, provider, continueAsNewCounter, nil)
@@ -168,7 +174,7 @@ func InterpreterImpl(
 		continueAsNewer = NewContinueAsNewer(provider, internalChannel, signalReceiver, stateExecutionCounter, persistenceManager, stateRequestQueue, outputCollector, timerProcessor)
 	}
 
-	_, err = NewWorkflowUpdater(ctx, provider, persistenceManager, stateRequestQueue, continueAsNewer, continueAsNewCounter, workflowConfiger, internalChannel, signalReceiver, basicInfo, globalVersioner)
+	_, err = NewWorkflowUpdater(ctx, provider, persistenceManager, stateRequestQueue, continueAsNewer, continueAsNewCounter, internalChannel, signalReceiver, basicInfo, globalVersioner)
 	if err != nil {
 		retErr = err
 		return
@@ -666,7 +672,7 @@ func processStateExecution(
 					SearchAttributes:   persistenceManager.GetAllSearchAttributes(),
 				})
 			} else {
-				errType, errDetails := env.GetUnifiedClient().GetApplicationErrorTypeAndDetails(errWaitUntilApi)
+				errType, errDetails := provider.GetApplicationErrorTypeAndDetails(errWaitUntilApi)
 
 				event.Handle(iwfidl.IwfEvent{
 					EventType:          iwfidl.STATE_WAIT_UNTIL_EE_FAIL_EVENT,
@@ -695,10 +701,7 @@ func processStateExecution(
 		if err != nil {
 			return nil, service.FailureStateExecutionStatus, err
 		}
-		err = persistenceManager.ProcessUpsertDataAttribute(ctx, startResponse.GetUpsertDataObjects())
-		if err != nil {
-			return nil, service.FailureStateExecutionStatus, err
-		}
+		persistenceManager.ProcessUpsertDataAttribute(startResponse.GetUpsertDataObjects())
 		interStateChannel.ProcessPublishing(startResponse.GetPublishToInterStateChannel())
 
 		commandReq = timers.FixTimerCommandFromActivityOutput(provider.Now(ctx), startResponse.GetCommandRequest())
@@ -992,7 +995,7 @@ func invokeStateExecute(
 				SearchAttributes:   persistenceManager.GetAllSearchAttributes(),
 			})
 		} else {
-			errType, errDetails := env.GetUnifiedClient().GetApplicationErrorTypeAndDetails(err)
+			errType, errDetails := provider.GetApplicationErrorTypeAndDetails(err)
 
 			event.Handle(iwfidl.IwfEvent{
 				EventType:          iwfidl.STATE_EXECUTE_EE_FAIL_EVENT,
@@ -1013,11 +1016,6 @@ func invokeStateExecute(
 	}
 
 	persistenceManager.UnlockPersistence(saLoadingPolicy, doLoadingPolicy)
-	if err == nil && shouldSendSignalOnCompletion && !provider.IsReplaying(ctx) {
-		// WaitForStepCompletion now uses Temporal Synchronous Update on the main
-		// interpreter (Phase 4). The legacy WaitForStateCompletion system workflow
-		// and waitForKey / migration config are removed.
-	}
 
 	if err != nil {
 		if shouldProceedOnExecuteApiError(state) {
@@ -1030,10 +1028,7 @@ func invokeStateExecute(
 	if err != nil {
 		return nil, service.FailureStateExecutionStatus, err
 	}
-	err = persistenceManager.ProcessUpsertDataAttribute(ctx, decideResponse.GetUpsertDataObjects())
-	if err != nil {
-		return nil, service.FailureStateExecutionStatus, err
-	}
+	persistenceManager.ProcessUpsertDataAttribute(decideResponse.GetUpsertDataObjects())
 	interStateChannel.ProcessPublishing(decideResponse.GetPublishToInterStateChannel())
 
 	continueAsNewer.RemoveStateExecutionToResume(stateExeId)
@@ -1081,18 +1076,6 @@ func createUserWorkflowError(provider interfaces.WorkflowProvider, message strin
 		string(iwfidl.INVALID_USER_WORKFLOW_CODE_ERROR_TYPE),
 		message,
 	)
-}
-
-func WaitForStateCompletionWorkflowImpl(
-	ctx interfaces.UnifiedContext, provider interfaces.WorkflowProvider,
-) (*service.WaitForStateCompletionWorkflowOutput, error) {
-	signalReceiveChannel := provider.GetSignalChannel(ctx, service.StateCompletionSignalChannelName)
-	var signalValue iwfidl.StateCompletionOutput
-	signalReceiveChannel.ReceiveBlocking(ctx, &signalValue)
-
-	return &service.WaitForStateCompletionWorkflowOutput{
-		StateCompletionOutput: signalValue,
-	}, nil
 }
 
 func BlobStoreCleanup(

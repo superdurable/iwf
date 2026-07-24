@@ -22,24 +22,15 @@ package temporal
 
 import (
 	"context"
-	"github.com/superdurable/iwf/service"
+
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"go.temporal.io/sdk/activity"
-	"go.temporal.io/sdk/temporal"
 )
 
 type activityProvider struct{}
 
-func init() {
-	interfaces.RegisterActivityProvider(service.BackendTypeTemporal, &activityProvider{})
-}
-
 func (a *activityProvider) GetLogger(ctx context.Context) interfaces.UnifiedLogger {
 	return activity.GetLogger(ctx)
-}
-
-func (a *activityProvider) NewApplicationError(errType string, details interface{}) error {
-	return temporal.NewApplicationError("", errType, details)
 }
 
 func (a *activityProvider) GetActivityInfo(ctx context.Context) interfaces.ActivityInfo {

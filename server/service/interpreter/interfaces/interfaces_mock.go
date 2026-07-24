@@ -85,20 +85,6 @@ func (mr *MockActivityProviderMockRecorder) GetLogger(ctx interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogger", reflect.TypeOf((*MockActivityProvider)(nil).GetLogger), ctx)
 }
 
-// NewApplicationError mocks base method.
-func (m *MockActivityProvider) NewApplicationError(errType string, details interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewApplicationError", errType, details)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// NewApplicationError indicates an expected call of NewApplicationError.
-func (mr *MockActivityProviderMockRecorder) NewApplicationError(errType, details interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewApplicationError", reflect.TypeOf((*MockActivityProvider)(nil).NewApplicationError), errType, details)
-}
-
 // RecordHeartbeat mocks base method.
 func (m *MockActivityProvider) RecordHeartbeat(ctx context.Context, details ...interface{}) {
 	m.ctrl.T.Helper()
@@ -268,15 +254,15 @@ func (m *MockTimerProcessor) EXPECT() *MockTimerProcessorMockRecorder {
 }
 
 // AddTimers mocks base method.
-func (m *MockTimerProcessor) AddTimers(stepExeId string, timerConditions []*iwfpb.TimerCondition, completed map[int32]iwfpb.InternalTimerStatus) {
+func (m *MockTimerProcessor) AddTimers(stepExeId string, timerConditions []*iwfpb.TimerCondition, completedTimerConditions map[int32]iwfpb.InternalTimerStatus) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddTimers", stepExeId, timerConditions, completed)
+	m.ctrl.Call(m, "AddTimers", stepExeId, timerConditions, completedTimerConditions)
 }
 
 // AddTimers indicates an expected call of AddTimers.
-func (mr *MockTimerProcessorMockRecorder) AddTimers(stepExeId, timerConditions, completed interface{}) *gomock.Call {
+func (mr *MockTimerProcessorMockRecorder) AddTimers(stepExeId, timerConditions, completedTimerConditions interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTimers", reflect.TypeOf((*MockTimerProcessor)(nil).AddTimers), stepExeId, timerConditions, completed)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTimers", reflect.TypeOf((*MockTimerProcessor)(nil).AddTimers), stepExeId, timerConditions, completedTimerConditions)
 }
 
 // Dump mocks base method.
@@ -291,6 +277,20 @@ func (m *MockTimerProcessor) Dump() []*iwfpb.StaleSkipTimer {
 func (mr *MockTimerProcessorMockRecorder) Dump() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dump", reflect.TypeOf((*MockTimerProcessor)(nil).Dump))
+}
+
+// GetPendingScheduledTimers mocks base method.
+func (m *MockTimerProcessor) GetPendingScheduledTimers() []*iwfpb.TimerInfo {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingScheduledTimers")
+	ret0, _ := ret[0].([]*iwfpb.TimerInfo)
+	return ret0
+}
+
+// GetPendingScheduledTimers indicates an expected call of GetPendingScheduledTimers.
+func (mr *MockTimerProcessorMockRecorder) GetPendingScheduledTimers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingScheduledTimers", reflect.TypeOf((*MockTimerProcessor)(nil).GetPendingScheduledTimers))
 }
 
 // GetTimerInfos mocks base method.
@@ -362,11 +362,12 @@ func (mr *MockTimerProcessorMockRecorder) SkipTimer(stepExeId, timerConditionId,
 }
 
 // WaitForTimerFiredOrSkipped mocks base method.
-func (m *MockTimerProcessor) WaitForTimerFiredOrSkipped(ctx UnifiedContext, stepExeId string, timerIdx int, cancelWaiting *bool) iwfpb.InternalTimerStatus {
+func (m *MockTimerProcessor) WaitForTimerFiredOrSkipped(ctx UnifiedContext, stepExeId string, timerIdx int, cancelWaiting *bool) (iwfpb.InternalTimerStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WaitForTimerFiredOrSkipped", ctx, stepExeId, timerIdx, cancelWaiting)
 	ret0, _ := ret[0].(iwfpb.InternalTimerStatus)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WaitForTimerFiredOrSkipped indicates an expected call of WaitForTimerFiredOrSkipped.
@@ -431,6 +432,25 @@ func (mr *MockWorkflowProviderMockRecorder) ExecuteActivity(valuePtr, durability
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteActivity", reflect.TypeOf((*MockWorkflowProvider)(nil).ExecuteActivity), varargs...)
 }
 
+// ExecuteLocalActivity mocks base method.
+func (m *MockWorkflowProvider) ExecuteLocalActivity(valuePtr interface{}, ctx UnifiedContext, activity interface{}, args ...interface{}) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{valuePtr, ctx, activity}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ExecuteLocalActivity", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExecuteLocalActivity indicates an expected call of ExecuteLocalActivity.
+func (mr *MockWorkflowProviderMockRecorder) ExecuteLocalActivity(valuePtr, ctx, activity interface{}, args ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{valuePtr, ctx, activity}, args...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteLocalActivity", reflect.TypeOf((*MockWorkflowProvider)(nil).ExecuteLocalActivity), varargs...)
+}
+
 // ExtendContextWithValue mocks base method.
 func (m *MockWorkflowProvider) ExtendContextWithValue(parent UnifiedContext, key string, val interface{}) UnifiedContext {
 	m.ctrl.T.Helper()
@@ -457,6 +477,26 @@ func (m *MockWorkflowProvider) GetBackendType() service.BackendType {
 func (mr *MockWorkflowProviderMockRecorder) GetBackendType() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBackendType", reflect.TypeOf((*MockWorkflowProvider)(nil).GetBackendType))
+}
+
+// GetApplicationErrorTypeAndDetails mocks base method.
+func (m *MockWorkflowProvider) GetApplicationErrorTypeAndDetails(err error) (string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationErrorTypeAndDetails", err)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
+}
+
+// GetApplicationErrorTypeAndDetails indicates an expected call of GetApplicationErrorTypeAndDetails.
+func (mr *MockWorkflowProviderMockRecorder) GetApplicationErrorTypeAndDetails(err interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(
+		mr.mock,
+		"GetApplicationErrorTypeAndDetails",
+		reflect.TypeOf((*MockWorkflowProvider)(nil).GetApplicationErrorTypeAndDetails),
+		err,
+	)
 }
 
 // GetContextValue mocks base method.
@@ -721,21 +761,6 @@ func (m *MockWorkflowProvider) WithActivityOptions(ctx UnifiedContext, options A
 func (mr *MockWorkflowProviderMockRecorder) WithActivityOptions(ctx, options interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithActivityOptions", reflect.TypeOf((*MockWorkflowProvider)(nil).WithActivityOptions), ctx, options)
-}
-
-// WithCancel mocks base method.
-func (m *MockWorkflowProvider) WithCancel(ctx UnifiedContext) (UnifiedContext, func()) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithCancel", ctx)
-	ret0, _ := ret[0].(UnifiedContext)
-	ret1, _ := ret[1].(func())
-	return ret0, ret1
-}
-
-// WithCancel indicates an expected call of WithCancel.
-func (mr *MockWorkflowProviderMockRecorder) WithCancel(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithCancel", reflect.TypeOf((*MockWorkflowProvider)(nil).WithCancel), ctx)
 }
 
 // MockUpdateProvider is a mock of UpdateProvider interface.

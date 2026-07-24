@@ -22,6 +22,8 @@ package interfaces
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/superdurable/iwf/gen/iwfpb"
@@ -31,7 +33,6 @@ import (
 
 type ActivityProvider interface {
 	GetLogger(ctx context.Context) UnifiedLogger
-	NewApplicationError(errType string, details interface{}) error
 	GetActivityInfo(ctx context.Context) ActivityInfo
 	RecordHeartbeat(ctx context.Context, details ...interface{})
 }
@@ -93,19 +94,28 @@ type TimerProcessor interface {
 	Dump() []*iwfpb.StaleSkipTimer
 	SkipTimer(stepExeId string, timerConditionId string, timerIdx int) bool
 	RetryStaleSkipTimer() bool
-	WaitForTimerFiredOrSkipped(ctx UnifiedContext, stepExeId string, timerIdx int, cancelWaiting *bool) iwfpb.InternalTimerStatus
+	WaitForTimerFiredOrSkipped(
+		ctx UnifiedContext,
+		stepExeId string,
+		timerIdx int,
+		cancelWaiting *bool,
+	) (iwfpb.InternalTimerStatus, error)
 	RemovePendingTimersOfStep(stepExeId string)
-	AddTimers(stepExeId string, timerConditions []*iwfpb.TimerCondition, completed map[int32]iwfpb.InternalTimerStatus)
+	AddTimers(
+		stepExeId string,
+		timerConditions []*iwfpb.TimerCondition,
+		completedTimerConditions map[int32]iwfpb.InternalTimerStatus,
+	)
 	GetTimerInfos() map[string][]*iwfpb.TimerInfo
+	GetPendingScheduledTimers() []*iwfpb.TimerInfo
 	GetTimerStartedUnixTimestamps() []int64
 }
 
-// WorkflowProvider is the backend-agnostic surface both Temporal and Cadence
-// interpreters implement. Update handlers are not here: sync updates are Temporal
-// only and live on UpdateProvider.
+// WorkflowProvider contains shared Temporal and Cadence workflow operations.
 type WorkflowProvider interface {
 	NewApplicationError(errType string, details interface{}) error
 	IsApplicationError(err error) bool
+	GetApplicationErrorTypeAndDetails(err error) (errType string, details string)
 	GetWorkflowInfo(ctx UnifiedContext) WorkflowInfo
 	UpsertSearchAttributes(ctx UnifiedContext, attributes map[string]interface{}) error
 	SetQueryHandler(ctx UnifiedContext, queryType string, handler interface{}) error
@@ -114,15 +124,14 @@ type WorkflowProvider interface {
 	GetThreadCount() int
 	GetPendingThreadNames() map[string]int
 	Await(ctx UnifiedContext, condition func() bool) error
-	// WithCancel returns a child context and a cancel function for per-step
-	// lifecycle control, using the backend's deterministic workflow cancellation.
-	WithCancel(ctx UnifiedContext) (UnifiedContext, func())
 	WithActivityOptions(ctx UnifiedContext, options ActivityOptions) UnifiedContext
-	// ExecuteActivity dispatches on durability: SYNC runs a regular activity, ASYNC
-	// runs a local activity. UNSPECIFIED is rejected at this boundary.
+	// ExecuteActivity dispatches using resolved durability.
 	ExecuteActivity(
 		valuePtr interface{}, durability iwfpb.StepDurability, ctx UnifiedContext, activity interface{},
 		args ...interface{},
+	) (err error)
+	ExecuteLocalActivity(
+		valuePtr interface{}, ctx UnifiedContext, activity interface{}, args ...interface{},
 	) (err error)
 	Now(ctx UnifiedContext) time.Time
 	IsReplaying(ctx UnifiedContext) bool
@@ -137,16 +146,12 @@ type WorkflowProvider interface {
 	NewInterpreterContinueAsNewError(ctx UnifiedContext, input *iwfpb.InterpreterWorkflowInput) error
 }
 
-// UpdateProvider is the Temporal-only synchronous-update capability. Cadence does
-// not implement it; the interpreter registers update handlers only when the
-// provider satisfies this interface, and the API rejects update-only RPCs on
-// Cadence before dialing.
+// UpdateProvider contains Temporal-only synchronous update operations.
 type UpdateProvider interface {
 	SetInvokeRPCUpdateHandler(ctx UnifiedContext, validator InvokeRPCUpdateValidator, handler InvokeRPCUpdateHandler) error
 	SetWaitForStepCompletionUpdateHandler(ctx UnifiedContext, validator WaitForStepCompletionUpdateValidator, handler WaitForStepCompletionUpdateHandler) error
 	SetWaitForAttributeUpdateHandler(ctx UnifiedContext, validator WaitForAttributeUpdateValidator, handler WaitForAttributeUpdateHandler) error
-	// AwaitWithTimeout waits until cond is true or the timeout elapses, canceling
-	// the deadline timer when the predicate wins. matched reports which happened.
+	// AwaitWithTimeout reports whether the predicate matched before timeout.
 	AwaitWithTimeout(ctx UnifiedContext, timeout time.Duration, cond func() bool) (matched bool, err error)
 }
 
@@ -169,4 +174,15 @@ type ReceiveChannel interface {
 type Future interface {
 	Get(ctx UnifiedContext, valuePtr interface{}) error
 	IsReady() bool
+}
+
+func FormatApplicationErrorDetails(details interface{}) string {
+	if detailsString, ok := details.(string); ok {
+		return detailsString
+	}
+	jsonBytes, err := json.Marshal(details)
+	if err != nil {
+		return fmt.Sprintf("marshal application error details: %v", err)
+	}
+	return string(jsonBytes)
 }

@@ -31,10 +31,6 @@ func Interpreter(ctx workflow.Context, input service.InterpreterWorkflowInput) (
 	return interpreter.InterpreterImpl(interfaces.NewUnifiedContext(ctx), newCadenceWorkflowProvider(), input)
 }
 
-func WaitforStateCompletionWorkflow(ctx workflow.Context) (*service.WaitForStateCompletionWorkflowOutput, error) {
-	return interpreter.WaitForStateCompletionWorkflowImpl(interfaces.NewUnifiedContext(ctx), newCadenceWorkflowProvider())
-}
-
 func BlobStoreCleanup(ctx workflow.Context, storeId string) (int, error) {
 	return interpreter.BlobStoreCleanup(interfaces.NewUnifiedContext(ctx), newCadenceWorkflowProvider(), storeId)
 }

@@ -24,13 +24,14 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"github.com/superdurable/iwf/gen/iwfidl"
-	"github.com/superdurable/iwf/service"
-	"github.com/superdurable/iwf/service/interpreter/env"
-	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"math"
 	"strings"
 	"time"
+
+	"github.com/superdurable/iwf/config"
+	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/service"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
 type ContinueAsNewer struct {
@@ -70,17 +71,23 @@ func NewContinueAsNewer(
 }
 
 func LoadInternalsFromPreviousRun(
-	ctx interfaces.UnifiedContext, provider interfaces.WorkflowProvider, previousRunId string, continueAsNewPageSizeInBytes int32,
+	ctx interfaces.UnifiedContext,
+	provider interfaces.WorkflowProvider,
+	activityCfg *config.InterpreterActivityConfig,
+	previousRunId string,
+	continueAsNewPageSizeInBytes int32,
 ) (*service.ContinueAsNewDumpResponse, error) {
+	if activityCfg == nil {
+		panic("LoadInternalsFromPreviousRun requires activity config")
+	}
 	activityOptions := interfaces.ActivityOptions{
 		StartToCloseTimeout: 5 * time.Second,
 		RetryPolicy: &iwfidl.RetryPolicy{
 			MaximumIntervalSeconds: iwfidl.PtrInt32(5),
 		},
 	}
-	config := env.GetSharedConfig()
-	if config.Interpreter.InterpreterActivityConfig.DumpWorkflowInternalActivityConfig != nil {
-		activityConfig := config.Interpreter.InterpreterActivityConfig.DumpWorkflowInternalActivityConfig
+	if activityCfg.DumpWorkflowInternalActivityConfig != nil {
+		activityConfig := activityCfg.DumpWorkflowInternalActivityConfig
 		activityOptions.StartToCloseTimeout = activityConfig.StartToCloseTimeout
 		if activityConfig.RetryPolicy != nil {
 			activityOptions.RetryPolicy = activityConfig.RetryPolicy

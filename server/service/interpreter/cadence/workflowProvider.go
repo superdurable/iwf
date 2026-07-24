@@ -21,14 +21,14 @@
 package cadence
 
 import (
+	"errors"
 	"fmt"
-	"github.com/superdurable/iwf/service/common/mapper"
-	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"time"
 
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/common/retry"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"go.uber.org/cadence"
 	"go.uber.org/cadence/workflow"
 )
@@ -37,6 +37,8 @@ type workflowProvider struct {
 	threadCount        int
 	pendingThreadNames map[string]int
 }
+
+var _ interfaces.WorkflowProvider = (*workflowProvider)(nil)
 
 func newCadenceWorkflowProvider() interfaces.WorkflowProvider {
 	return &workflowProvider{
@@ -53,18 +55,34 @@ func (w *workflowProvider) NewApplicationError(errType string, details interface
 }
 
 func (w *workflowProvider) IsApplicationError(err error) bool {
-	_, ok := err.(*cadence.CustomError)
-	return ok
+	var applicationError *cadence.CustomError
+	return errors.As(err, &applicationError)
+}
+
+func (w *workflowProvider) GetApplicationErrorTypeAndDetails(err error) (string, string) {
+	var applicationError *cadence.CustomError
+	if !errors.As(err, &applicationError) {
+		return "", "not a Cadence application error"
+	}
+	if !applicationError.HasDetails() {
+		return applicationError.Reason(), "Cadence application error has no details"
+	}
+
+	var details interface{}
+	if detailsErr := applicationError.Details(&details); detailsErr != nil {
+		return applicationError.Reason(), fmt.Sprintf("decode Cadence application error details: %v", detailsErr)
+	}
+	return applicationError.Reason(), interfaces.FormatApplicationErrorDetails(details)
 }
 
 func (w *workflowProvider) NewInterpreterContinueAsNewError(
-	ctx interfaces.UnifiedContext, input service.InterpreterWorkflowInput,
+	ctx interfaces.UnifiedContext, input *iwfpb.InterpreterWorkflowInput,
 ) error {
 	wfCtx, ok := ctx.GetContext().(workflow.Context)
 	if !ok {
 		panic("cannot convert to cadence workflow context")
 	}
-	return workflow.NewContinueAsNewError(wfCtx, Interpreter, input)
+	return workflow.NewContinueAsNewError(wfCtx, service.InterpreterWorkflowName, input)
 }
 
 func (w *workflowProvider) UpsertSearchAttributes(
@@ -75,10 +93,6 @@ func (w *workflowProvider) UpsertSearchAttributes(
 		panic("cannot convert to cadence workflow context")
 	}
 	return workflow.UpsertSearchAttributes(wfCtx, attributes)
-}
-
-func (w *workflowProvider) UpsertMemo(ctx interfaces.UnifiedContext, memo map[string]iwfidl.EncodedObject) error {
-	return fmt.Errorf("upsert memo is not supported in Cadence")
 }
 
 func (w *workflowProvider) NewTimer(ctx interfaces.UnifiedContext, d time.Duration) interfaces.Future {
@@ -110,18 +124,6 @@ func (w *workflowProvider) GetWorkflowInfo(ctx interfaces.UnifiedContext) interf
 	}
 }
 
-func (w *workflowProvider) GetSearchAttributes(
-	ctx interfaces.UnifiedContext, requestedSearchAttributes []iwfidl.SearchAttributeKeyAndType,
-) (map[string]iwfidl.SearchAttribute, error) {
-	wfCtx, ok := ctx.GetContext().(workflow.Context)
-	if !ok {
-		panic("cannot convert to cadence workflow context")
-	}
-	sas := workflow.GetInfo(wfCtx).SearchAttributes
-
-	return mapper.MapCadenceToIwfSearchAttributes(sas, requestedSearchAttributes)
-}
-
 func (w *workflowProvider) SetQueryHandler(
 	ctx interfaces.UnifiedContext, queryType string, handler interface{},
 ) error {
@@ -130,14 +132,6 @@ func (w *workflowProvider) SetQueryHandler(
 		panic("cannot convert to cadence workflow context")
 	}
 	return workflow.SetQueryHandler(wfCtx, queryType, handler)
-}
-
-func (w *workflowProvider) SetRpcUpdateHandler(
-	ctx interfaces.UnifiedContext, updateType string, validator interfaces.UnifiedRpcValidator,
-	handler interfaces.UnifiedRpcHandler,
-) error {
-	// NOTE: this feature is not available in Cadence
-	return nil
 }
 
 func (w *workflowProvider) ExtendContextWithValue(
@@ -236,37 +230,35 @@ func (t *futureImpl) Get(ctx interfaces.UnifiedContext, valuePtr interface{}) er
 }
 
 func (w *workflowProvider) ExecuteActivity(
-	valuePtr interface{}, optimizeByLocalActivity bool,
+	valuePtr interface{}, durability iwfpb.StepDurability,
 	ctx interfaces.UnifiedContext, activity interface{}, args ...interface{},
 ) (err error) {
 	wfCtx, ok := ctx.GetContext().(workflow.Context)
 	if !ok {
 		panic("cannot convert to cadence workflow context")
 	}
-	if optimizeByLocalActivity {
-		f := workflow.ExecuteLocalActivity(wfCtx, activity, args...)
-		err = f.Get(wfCtx, valuePtr)
-		if err != nil {
-			f = workflow.ExecuteActivity(wfCtx, activity, args...)
-			return f.Get(wfCtx, valuePtr)
+	switch durability {
+	case iwfpb.StepDurability_STEP_DURABILITY_SYNC:
+		return workflow.ExecuteActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
+	case iwfpb.StepDurability_STEP_DURABILITY_ASYNC:
+		err = workflow.ExecuteLocalActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
+		if err == nil {
+			return nil
 		}
-		return err
+		return workflow.ExecuteActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
+	default:
+		return fmt.Errorf("unsupported step durability %s", durability)
 	}
-
-	f := workflow.ExecuteActivity(wfCtx, activity, args...)
-	return f.Get(wfCtx, valuePtr)
 }
 
 func (w *workflowProvider) ExecuteLocalActivity(
 	valuePtr interface{}, ctx interfaces.UnifiedContext, activity interface{}, args ...interface{},
-) (err error) {
+) error {
 	wfCtx, ok := ctx.GetContext().(workflow.Context)
 	if !ok {
 		panic("cannot convert to cadence workflow context")
 	}
-
-	f := workflow.ExecuteLocalActivity(wfCtx, activity, args...)
-	return f.Get(wfCtx, valuePtr)
+	return workflow.ExecuteLocalActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
 }
 
 func (w *workflowProvider) Now(ctx interfaces.UnifiedContext) time.Time {

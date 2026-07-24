@@ -22,6 +22,7 @@ package integ
 
 import (
 	"github.com/superdurable/iwf/config"
+	"github.com/superdurable/iwf/service"
 )
 
 const testWorkflowServerPort = "9714"
@@ -43,6 +44,12 @@ func createTestConfig(testCfg IwfServiceTestConfig) config.Config {
 				DefaultHeaders: testCfg.DefaultHeaders,
 			},
 		},
+	}
+	switch testCfg.BackendType {
+	case service.BackendTypeTemporal:
+		cfg.Interpreter.Temporal = &config.TemporalConfig{}
+	case service.BackendTypeCadence:
+		cfg.Interpreter.Cadence = &config.CadenceConfig{}
 	}
 	if testCfg.S3TestThreshold > 0 {
 		externalStorage := config.ExternalStorageConfig{

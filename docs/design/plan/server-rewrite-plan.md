@@ -207,8 +207,8 @@ serialized twice. Replace with proto:
   - `repeated StepCompletionOutput step_outputs` (the whitelisted retained
     completion markers used by WaitForStepCompletion)
   - `repeated StaleSkipTimer stale_skip_timers`
-  - `repeated AttributeWrite attributes` (unified value + retained `IndexConfig`;
-    deleted/null attributes are absent)
+  - `repeated KV attributes` (stored values only; deleted/null attributes are absent;
+    index metadata remains in backend search attributes)
   - sub-messages `StepExecutionResumeInfo` (step_execution_id, `StepMovement`,
     completed conditions, `WaitingCondition`, step_exe_locals),
     `StepExecutionCounterInfo`, `StaleSkipTimer`.
@@ -375,6 +375,9 @@ always-on, no version gate:
   incompatibility check. External-storage large-input offload stays but writes blob
   ids onto `Value` (Phase 2 value model), not
   `EncodedObject.ExtStoreId/ExtPath`.
+  Process each public `AttributeWrite.IndexConfig` into the backend workflow-start
+  search attributes, then discard it. Pass only non-null `KV` values through
+  `InterpreterWorkflowInput.init_attributes`.
 
 **`StopFlow(COMPLETE)`:**
 - Send a new `CompleteFlowSignalChannelName` system signal to the interpreter on
@@ -420,10 +423,13 @@ always-on, no version gate:
   a positive value is capped by `Api.MaxWaitSeconds`.
 - Else `SynchronousUpdateWorkflow(..., service.WaitForAttributeUpdateType,
   {condition, deadline})`. The handler awaits until `WaitForAttributeEqual` matches
-  (typed `Value` compare, hydrating blob arms) or the deadline timer fires.
-  Missing and `null_value` are equivalent. Compare `obj_value` by exact
-  `encoding` + serialized `payload` bytes; the server does not deserialize objects
-  for semantic equality. Match → `Empty`; timeout → `DeadlineExceeded`.
+  an inline typed `Value` or the deadline timer fires. Missing and `null_value` are
+  equivalent. Compare `obj_value` by exact `encoding` + serialized `payload` bytes;
+  the server does not deserialize objects for semantic equality. A stored internal
+  blob-id arm returns `FailedPrecondition`; the first implementation does not hydrate
+  during this update. Match → `Empty`; timeout → `DeadlineExceeded`.
+- TODO: design deterministic blob hydration without introducing a lost-update
+  window around the activity yield.
 - The client waits on the caller context (`handle.Get(ctx, ...)`), never
   `context.Background()`. Caller cancellation returns `Canceled`; Temporal does not
   cancel an accepted workflow update, so the read-only handler remains bounded by
@@ -438,10 +444,10 @@ short-circuit these two RPCs — and any `InvokeRPC` with non-empty
 `TryLockKeys(sortedUniqueKeys)`; when empty, run the non-locking path. The validator
 returns `RPC_ACQUIRE_LOCK_FAILURE` / `Aborted` when any requested key is locked; the
 handler acquires all keys before its first yield and releases them with `defer` on
-every path. It never waits while partially holding keys. A locking worker response
-may write only keys in its normalized lock set; queue any non-owner step/signal
-result touching those keys and apply its whole side-effect batch after unlock. This
-replaces the old
+failure paths. On success, it unlocks and commits the validated whole result without
+a workflow yield. It never waits while partially holding keys. A locking worker
+response may write only keys in its normalized lock set; queue any step/signal result
+touching those keys and apply its whole side-effect batch after unlock. This replaces the old
 `PersistenceLoadingPolicy.LockingKeys` surface; partial-loading types are gone (we
 always load all attributes).
 
@@ -492,9 +498,10 @@ always load all attributes).
   `Value` arm; hydration replaces the blob-id arm with the concrete arm.
   `EncodedObject` is now strictly `encoding + payload bytes`. An
   `AttributeWrite` with `null_value` deletes the key from the persistence map
-  instead of storing a null entry, removes its indexed value when applicable, and
-  ignores the write's `IndexConfig`; existing stored index metadata drives cleanup.
-  Consequently, missing and null are the same observable attribute state.
+  instead of storing a null entry. If that write's current `IndexConfig` is enabled,
+  send nil for its current backend `index_key`; otherwise indexed state is untouched.
+  The store and CAN snapshot retain only `KV`, never index metadata. Consequently,
+  missing and null are the same observable attribute state.
   A missing `AttributeWrite.value` is invalid and is not deletion.
 - **Blob-id trust boundary:** only the server mints
   `internal_blob_id_for_*`. Reject those arms on external FlowService inputs and
@@ -558,6 +565,8 @@ Proto schema rules for this section:
 
 - All call sites pass generated messages by pointer so they implement
   `proto.Message`.
+- `InterpreterWorkflowInput.init_attributes` and `ContinueAsNewDump.attributes` use
+  `KV`; `AttributeWrite.IndexConfig` never crosses either serialization boundary.
 - Every new enum reserves `*_UNSPECIFIED = 0`; decode paths reject unspecified
   values where absence is invalid.
 - Proto maps cannot directly contain repeated values. Represent
@@ -838,15 +847,12 @@ payloads route into the unified channel store.
   (surfaced from `outputCollector.go`, indexed and retained per the API contract).
   Step-type lookup binds to the first-started monotonic execution id. Returns the
   `StepCompletionOutput` or a timeout marker.
-- **WaitForAttribute handler:** add a monotonic `attributeRevision` to
-  `PersistenceManager`, incremented by every SetAttributes, Wait/Execute response,
-  InvokeRPC upsert, and deletion. Compute the absolute workflow deadline once.
-  Outside the Await predicate, read the current value and hydrate blob arms through
-  a deterministic activity; compare it, then `AwaitWithTimeout` for either
-  `attributeRevision` to change or the remaining deadline. Repeat without resetting
-  the deadline. The Await predicate performs no I/O. A null condition matches a
-  missing key; object equality compares exact `encoding` and serialized `payload`
-  bytes.
+- **WaitForAttribute handler:** compute the absolute workflow deadline once. Check
+  the current value, then use a pure `AwaitWithTimeout` predicate that directly
+  compares the current inline store value and observes terminal/CAN state. A null
+  condition matches a missing key; object equality compares exact `encoding` and
+  serialized `payload` bytes. A stored internal blob-id arm returns
+  `FailedPrecondition`; blob hydration remains the explicit follow-up TODO above.
 - Both increment/decrement the CAN inflight counter, but a long wait also includes
   `IsThresholdMet()` in its predicate. If CAN wins, return a private
   `IWF_CAN_PREEMPTED` application error, decrement inflight, and let the API retry
@@ -938,7 +944,7 @@ aliases. Preserve/move comments per project rules.
     client cancellation, closed/not-found flow, and completion/CAN interaction.
     Temporal-only; Cadence `Unimplemented`.
   - `wait_for_attribute_test.go` — immediate match, timeout/zero timeout, every
-    scalar arm, blob hydration, null/missing equivalence, serialized object
+    scalar arm, stored-blob rejection, null/missing equivalence, serialized object
     equality, deletion wake-up, concurrent waiters, client cancellation,
     closed/not-found flow, and CAN interaction. Temporal-only; Cadence
     `Unimplemented`.
@@ -997,7 +1003,7 @@ Temporal/Cadence state could leak across tests.
    against a **real Temporal** server (the flows old histories covered — persistence,
    basic, any-timer-signal, command-thread-completion/CAN×N — plus the new
    multi-value channel path incl. CAN resume, WaitForStepCompletion success/timeout,
-   WaitForAttribute success/timeout/blob hydration, and a wait/CAN interaction).
+   WaitForAttribute success/timeout/stored-blob rejection, and a wait/CAN interaction).
    Drive via ported integ tests or a checked-in capture helper with reproducible
    inputs and unique flow ids.
 3. **Export** each completed workflow's history:
@@ -1067,7 +1073,7 @@ determinism-sensitive and must have their own captured histories.
   scenario, Temporal + Cadence) to gRPC `FlowServiceClient` + new proto, worker mocks
   as `WorkerServiceServer`. New coverage: multi-consume presence/validation/FIFO/
   shared-channel atomicity/CAN; wait-for-step identity/retention/cancellation/CAN;
-  wait-for-attribute timeout/blob/null/object/cancellation/CAN; RPC key locking;
+  wait-for-attribute timeout/stored-blob rejection/null/object/cancellation/CAN; RPC key locking;
   Stop COMPLETE; gRPC error details, metadata, connection lifecycle and message
   limits; `AttributeWrite(null)` persistence/index deletion; `LoadBlobs`.
   Delete memo-as-attribute-storage variants from persistence/loading-policy/RPC/S3

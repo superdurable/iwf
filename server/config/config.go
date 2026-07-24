@@ -133,8 +133,6 @@ type (
 		InterpreterActivityConfig InterpreterActivityConfig `yaml:"interpreterActivityConfig"`
 		// VerboseDebug enables extra interpreter debug logs. Default false.
 		VerboseDebug bool `yaml:"verboseDebug"`
-		// LogLocalActivityThresholdBytes logs local-activity I/O at warn when serialized size >= this. Zero disables. Default 0.
-		LogLocalActivityThresholdBytes int `yaml:"logLocalActivityThresholdBytes"`
 	}
 
 	TemporalConfig struct {
@@ -170,6 +168,8 @@ type (
 		WorkerConnectionIdleTimeout time.Duration `yaml:"workerConnectionIdleTimeout"`
 		// MaxWorkerConnections caps the WorkerService connection pool. Zero uses DefaultMaxWorkerConnections (1000). Must be positive after defaults.
 		MaxWorkerConnections int `yaml:"maxWorkerConnections"`
+		// LogLocalActivityThresholdBytes logs local-activity I/O at warn when serialized size >= this. Zero disables. Default 0.
+		LogLocalActivityThresholdBytes int `yaml:"logLocalActivityThresholdBytes"`
 	}
 
 	DumpWorkflowInternalActivityConfig struct {

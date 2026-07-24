@@ -24,41 +24,95 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"slices"
-	"time"
 
+	"github.com/superdurable/iwf/config"
 	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
+	uclient "github.com/superdurable/iwf/service/client"
 	"github.com/superdurable/iwf/service/common/blobstore"
 	"github.com/superdurable/iwf/service/common/event"
 	"github.com/superdurable/iwf/service/common/log"
 	"github.com/superdurable/iwf/service/common/rpc"
 	"github.com/superdurable/iwf/service/common/workerclient"
-	"github.com/superdurable/iwf/service/interpreter/env"
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
-	errTypeWorkerAPIFail  = "WorkerAPIFailure"
-	errTypeServerInternal = "ServerInternalError"
+	InvokeWaitForMethodActivityName      = "InvokeWaitForMethod"
+	InvokeExecuteMethodActivityName      = "InvokeExecuteMethod"
+	DumpFlowForContinueAsNewActivityName = "DumpFlowForContinueAsNew"
+	InvokeWorkerRPCActivityName          = "InvokeWorkerRpcActivity"
+	CleanupBlobStoreActivityName         = "CleanupBlobStore"
 )
 
+type Activities struct {
+	activityProvider interfaces.ActivityProvider
+	backendType      service.BackendType
+	workerPool       *workerclient.Pool
+	internalClient   *workerclient.Internal
+	unifiedClient    uclient.UnifiedClient
+	blobStore        blobstore.BlobStore
+	eventHandler     event.HandleEventFunc
+	apiCfg           *config.ApiConfig
+	externalCfg      *config.ExternalStorageConfig
+	activityCfg      *config.InterpreterActivityConfig
+}
+
+func NewActivities(
+	activityProvider interfaces.ActivityProvider,
+	backendType service.BackendType,
+	workerPool *workerclient.Pool,
+	internalClient *workerclient.Internal,
+	unifiedClient uclient.UnifiedClient,
+	blobStore blobstore.BlobStore,
+	eventHandler event.HandleEventFunc,
+	apiCfg *config.ApiConfig,
+	externalCfg *config.ExternalStorageConfig,
+	activityCfg *config.InterpreterActivityConfig,
+) *Activities {
+	if activityProvider == nil || workerPool == nil || internalClient == nil ||
+		unifiedClient == nil || eventHandler == nil {
+		panic("Activities requires non-nil runtime dependencies")
+	}
+	if apiCfg == nil || externalCfg == nil || activityCfg == nil {
+		panic("Activities requires non-nil config sections")
+	}
+	if externalCfg.Enabled && blobStore == nil {
+		panic("Activities requires blob storage when external storage is enabled")
+	}
+	return &Activities{
+		activityProvider: activityProvider,
+		backendType:      backendType,
+		workerPool:       workerPool,
+		internalClient:   internalClient,
+		unifiedClient:    unifiedClient,
+		blobStore:        blobStore,
+		eventHandler:     eventHandler,
+		apiCfg:           apiCfg,
+		externalCfg:      externalCfg,
+		activityCfg:      activityCfg,
+	}
+}
+
 // InvokeWaitForMethod calls WorkerService.InvokeWaitForMethod.
-func InvokeWaitForMethod(
+func (a *Activities) InvokeWaitForMethod(
 	ctx context.Context, input *iwfpb.InvokeWaitForMethodActivityInput,
 ) (*iwfpb.InvokeWaitForMethodActivityOutput, error) {
-	startMs := time.Now().UnixMilli()
-	backendType := backendTypeFromProto(input.GetBackendType())
-	provider := interfaces.GetActivityProviderByType(backendType)
+	if err := a.validateBackend(input.GetBackendType()); err != nil {
+		return nil, err
+	}
+	provider := a.activityProvider
 	logger := provider.GetLogger(ctx)
 	logger.Info("InvokeWaitForMethodActivity", "input", log.ToJsonAndTruncateForLogging(input))
 
 	activityInfo := provider.GetActivityInfo(ctx)
 	req := input.GetRequest()
 	if req == nil {
-		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, "nil InvokeWaitForMethodRequest")
+		return &iwfpb.InvokeWaitForMethodActivityOutput{
+			Error: newInterpreterError(codes.InvalidArgument, "nil InvokeWaitForMethodRequest"),
+		}, nil
 	}
 	if req.Context == nil {
 		req.Context = &iwfpb.Context{}
@@ -66,59 +120,67 @@ func InvokeWaitForMethod(
 	req.Context.Attempt = activityInfo.Attempt
 	req.Context.FirstAttemptTimestamp = activityInfo.ScheduledTime.Unix()
 
-	if err := hydrateWorkerRequestValues(ctx, req.GetStepInput(), req.GetAttributes()); err != nil {
-		logLocalActivityWarn(logger, activityInfo, "InvokeWaitForMethod", req.GetContext().GetStepExecutionId(), err)
+	if err := a.hydrateWorkerRequestValues(ctx, req.GetStepInput(), req.GetAttributes()); err != nil {
+		a.logLocalActivityWarn(logger, activityInfo, "InvokeWaitForMethod", req.GetContext().GetStepExecutionId(), err)
 		return nil, err
 	}
 
-	client, callCtx, release, err := env.GetWorkerPool().Acquire(ctx, input.GetWorkerTarget())
+	client, callCtx, release, err := a.workerPool.Acquire(ctx, input.GetWorkerTarget())
 	if err != nil {
-		return nil, composeWorkerDialError(provider, activityInfo.IsLocalActivity, err)
+		return nil, err
 	}
 	defer release()
 
 	resp, err := client.InvokeWaitForMethod(callCtx, req)
 	printDebugMsg(logger, err, input.GetWorkerTarget())
 	if err != nil {
-		appErr := composeGRPCError(activityInfo.IsLocalActivity, provider, err, errTypeWorkerAPIFail)
-		emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_FAIL", startMs, appErr)
-		logLocalActivityWarn(logger, activityInfo, "InvokeWaitForMethod", req.GetContext().GetStepExecutionId(), appErr)
-		return nil, appErr
+		a.emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_FAIL")
+		a.logLocalActivityWarn(logger, activityInfo, "InvokeWaitForMethod", req.GetContext().GetStepExecutionId(), err)
+		if isTransientWorkerError(err) {
+			return nil, err
+		}
+		return &iwfpb.InvokeWaitForMethodActivityOutput{Error: interpreterErrorFromWorker(err)}, nil
 	}
 	if err := validateWaitingCondition(resp.GetWaitingCondition()); err != nil {
-		appErr := provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
-		emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_FAIL", startMs, appErr)
-		return nil, appErr
+		a.emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_FAIL")
+		return &iwfpb.InvokeWaitForMethodActivityOutput{
+			Error: newInterpreterError(codes.InvalidArgument, err.Error()),
+		}, nil
 	}
 	if err := validateWorkerWaitForResponse(resp); err != nil {
-		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
+		return &iwfpb.InvokeWaitForMethodActivityOutput{
+			Error: newInterpreterError(codes.InvalidArgument, err.Error()),
+		}, nil
 	}
 
 	if activityInfo.IsLocalActivity {
 		resp.LocalActivityInput = composeInputForDebug(req.GetContext().GetStepExecutionId())
 	}
-	if err := offloadWorkerAttributeWrites(ctx, resp.GetUpsertAttributes(), activityInfo.WorkflowExecution.ID); err != nil {
+	if err := a.offloadWorkerAttributeWrites(ctx, resp.GetUpsertAttributes(), activityInfo.WorkflowExecution.ID); err != nil {
 		return nil, err
 	}
 
-	emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_SUCC", startMs, nil)
+	a.emitStepEvent(req, activityInfo, "WAIT_FOR_ATTEMPT_SUCC")
 	return &iwfpb.InvokeWaitForMethodActivityOutput{Response: resp}, nil
 }
 
 // InvokeExecuteMethod calls WorkerService.InvokeExecuteMethod.
-func InvokeExecuteMethod(
+func (a *Activities) InvokeExecuteMethod(
 	ctx context.Context, input *iwfpb.InvokeExecuteMethodActivityInput,
 ) (*iwfpb.InvokeExecuteMethodActivityOutput, error) {
-	startMs := time.Now().UnixMilli()
-	backendType := backendTypeFromProto(input.GetBackendType())
-	provider := interfaces.GetActivityProviderByType(backendType)
+	if err := a.validateBackend(input.GetBackendType()); err != nil {
+		return nil, err
+	}
+	provider := a.activityProvider
 	logger := provider.GetLogger(ctx)
 	logger.Info("InvokeExecuteMethodActivity", "input", log.ToJsonAndTruncateForLogging(input))
 
 	activityInfo := provider.GetActivityInfo(ctx)
 	req := input.GetRequest()
 	if req == nil {
-		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, "nil InvokeExecuteMethodRequest")
+		return &iwfpb.InvokeExecuteMethodActivityOutput{
+			Error: newInterpreterError(codes.InvalidArgument, "nil InvokeExecuteMethodRequest"),
+		}, nil
 	}
 	if req.Context == nil {
 		req.Context = &iwfpb.Context{}
@@ -126,106 +188,124 @@ func InvokeExecuteMethod(
 	req.Context.Attempt = activityInfo.Attempt
 	req.Context.FirstAttemptTimestamp = activityInfo.ScheduledTime.Unix()
 
-	stepInputCopy := cloneValue(req.GetStepInput())
-	if err := hydrateWorkerRequestValues(ctx, req.GetStepInput(), req.GetAttributes()); err != nil {
-		logLocalActivityWarn(logger, activityInfo, "InvokeExecuteMethod", req.GetContext().GetStepExecutionId(), err)
+	if err := a.hydrateWorkerRequestValues(ctx, req.GetStepInput(), req.GetAttributes()); err != nil {
+		a.logLocalActivityWarn(logger, activityInfo, "InvokeExecuteMethod", req.GetContext().GetStepExecutionId(), err)
 		return nil, err
 	}
-	if err := blobstore.HydrateKVs(ctx, req.GetStepExeLocals(), env.GetBlobStore()); err != nil {
+	if err := blobstore.HydrateKVs(ctx, req.GetStepExeLocals(), a.blobStore); err != nil {
 		return nil, err
 	}
 
-	client, callCtx, release, err := env.GetWorkerPool().Acquire(ctx, input.GetWorkerTarget())
+	client, callCtx, release, err := a.workerPool.Acquire(ctx, input.GetWorkerTarget())
 	if err != nil {
-		return nil, composeWorkerDialError(provider, activityInfo.IsLocalActivity, err)
+		return nil, err
 	}
 	defer release()
 
 	resp, err := client.InvokeExecuteMethod(callCtx, req)
 	printDebugMsg(logger, err, input.GetWorkerTarget())
 	if err != nil {
-		appErr := composeGRPCError(activityInfo.IsLocalActivity, provider, err, errTypeWorkerAPIFail)
-		emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_FAIL", startMs, appErr)
-		logLocalActivityWarn(logger, activityInfo, "InvokeExecuteMethod", req.GetContext().GetStepExecutionId(), appErr)
-		return nil, appErr
+		a.emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_FAIL")
+		a.logLocalActivityWarn(logger, activityInfo, "InvokeExecuteMethod", req.GetContext().GetStepExecutionId(), err)
+		if isTransientWorkerError(err) {
+			return nil, err
+		}
+		return &iwfpb.InvokeExecuteMethodActivityOutput{Error: interpreterErrorFromWorker(err)}, nil
 	}
 	if err := validateStepDecision(resp.GetStepDecision()); err != nil {
-		appErr := provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
-		emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_FAIL", startMs, appErr)
-		return nil, appErr
+		a.emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_FAIL")
+		return &iwfpb.InvokeExecuteMethodActivityOutput{
+			Error: newInterpreterError(codes.InvalidArgument, err.Error()),
+		}, nil
 	}
 	if err := validateWorkerExecuteResponse(resp); err != nil {
-		return nil, provider.NewApplicationError(errTypeWorkerAPIFail, err.Error())
+		return &iwfpb.InvokeExecuteMethodActivityOutput{
+			Error: newInterpreterError(codes.InvalidArgument, err.Error()),
+		}, nil
 	}
 
 	if activityInfo.IsLocalActivity {
 		resp.LocalActivityInput = composeInputForDebug(req.GetContext().GetStepExecutionId())
 	}
-	if err := offloadNextStepInputs(ctx, resp.GetStepDecision(), stepInputCopy, activityInfo.WorkflowExecution.ID); err != nil {
+	if err := a.offloadNextStepInputs(ctx, resp.GetStepDecision(), activityInfo.WorkflowExecution.ID); err != nil {
 		return nil, err
 	}
-	if err := offloadWorkerAttributeWrites(ctx, resp.GetUpsertAttributes(), activityInfo.WorkflowExecution.ID); err != nil {
+	if err := a.offloadWorkerAttributeWrites(ctx, resp.GetUpsertAttributes(), activityInfo.WorkflowExecution.ID); err != nil {
 		return nil, err
 	}
 
-	emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_SUCC", startMs, nil)
+	a.emitExecuteEvent(req, activityInfo, "EXECUTE_ATTEMPT_SUCC")
 	return &iwfpb.InvokeExecuteMethodActivityOutput{Response: resp}, nil
 }
 
 // DumpFlowForContinueAsNew pages ContinueAsNewDump via InternalService.
-func DumpFlowForContinueAsNew(
+func (a *Activities) DumpFlowForContinueAsNew(
 	ctx context.Context, input *iwfpb.DumpFlowForContinueAsNewActivityInput,
 ) (*iwfpb.DumpFlowForContinueAsNewActivityOutput, error) {
-	backendType := backendTypeFromProto(input.GetBackendType())
-	provider := interfaces.GetActivityProviderByType(backendType)
+	if err := a.validateBackend(input.GetBackendType()); err != nil {
+		return nil, err
+	}
+	provider := a.activityProvider
 	logger := provider.GetLogger(ctx)
 	logger.Info("DumpFlowForContinueAsNewActivity", "input", log.ToJsonAndTruncateForLogging(input))
 
-	internal := env.GetInternalClient()
-	if internal == nil {
-		return nil, provider.NewApplicationError(errTypeServerInternal, "internal client is nil")
-	}
-	client, callCtx, err := internal.Client(ctx)
+	client, callCtx, err := a.internalClient.Client(ctx)
 	if err != nil {
-		return nil, provider.NewApplicationError(errTypeServerInternal, err.Error())
+		return nil, err
 	}
 	resp, err := client.DumpFlowForContinueAsNew(callCtx, input.GetRequest())
 	if err != nil {
-		return nil, composeGRPCError(provider.GetActivityInfo(ctx).IsLocalActivity, provider, err, errTypeServerInternal)
+		if isTransientWorkerError(err) {
+			return nil, err
+		}
+		return &iwfpb.DumpFlowForContinueAsNewActivityOutput{
+			Error: newInterpreterError(status.Code(err), status.Convert(err).Message()),
+		}, nil
 	}
 	return &iwfpb.DumpFlowForContinueAsNewActivityOutput{Response: resp}, nil
 }
 
-// InvokeWorkerRpcActivity wraps rpc.InvokeWorkerRpc for the activity worker.
-func InvokeWorkerRpcActivity(
+// InvokeWorkerRPC wraps rpc.InvokeWorkerRpc for the activity worker.
+func (a *Activities) InvokeWorkerRPC(
 	ctx context.Context, input *iwfpb.InvokeWorkerRPCActivityInput,
 ) (*iwfpb.InvokeWorkerRPCActivityOutput, error) {
-	backendType := backendTypeFromProto(input.GetBackendType())
-	provider := interfaces.GetActivityProviderByType(backendType)
+	if err := a.validateBackend(input.GetBackendType()); err != nil {
+		return nil, err
+	}
+	provider := a.activityProvider
 	logger := provider.GetLogger(ctx)
 	logger.Info("InvokeWorkerRpcActivity", "input", log.ToJsonAndTruncateForLogging(input))
 	activityInfo := provider.GetActivityInfo(ctx)
-	sharedCfg := env.GetSharedConfig()
 
-	resp, statusErr := rpc.InvokeWorkerRpc(
+	resp, statusErr, err := rpc.InvokeWorkerRpc(
 		ctx,
-		env.GetWorkerPool(),
+		a.workerPool,
 		input.GetRpcPrep(),
 		input.GetRequest(),
-		sharedCfg.Api.EffectiveMaxWaitSeconds(),
-		env.GetBlobStore(),
-		sharedCfg.ExternalStorage,
+		a.apiCfg.EffectiveMaxWaitSeconds(),
+		a.blobStore,
+		*a.externalCfg,
 	)
-	out := &iwfpb.InvokeWorkerRPCActivityOutput{Response: resp}
-	if statusErr != nil {
-		out.Error = &iwfpb.InterpreterError{
-			GrpcCode: int32(statusErr.Code),
-			Error:    statusErr.Error,
+	if err != nil {
+		if isTransientWorkerError(err) {
+			return nil, err
 		}
+		return &iwfpb.InvokeWorkerRPCActivityOutput{
+			Error: interpreterErrorFromWorker(err),
+		}, nil
 	}
+	if statusErr != nil {
+		return &iwfpb.InvokeWorkerRPCActivityOutput{
+			Error: &iwfpb.InterpreterError{
+				GrpcCode: int32(statusErr.Code),
+				Error:    statusErr.Error,
+			},
+		}, nil
+	}
+	out := &iwfpb.InvokeWorkerRPCActivityOutput{Response: resp}
 	if activityInfo.IsLocalActivity {
 		payload := log.ToJsonAndTruncateForLogging(out)
-		if threshold := sharedCfg.Interpreter.LogLocalActivityThresholdBytes; threshold > 0 && len(payload) >= threshold {
+		if threshold := a.activityCfg.LogLocalActivityThresholdBytes; threshold > 0 && len(payload) >= threshold {
 			logger.Warn("InvokeWorkerRpc local activity return",
 				"workflowId", activityInfo.WorkflowExecution.ID,
 				"payloadSize", len(payload))
@@ -235,15 +315,17 @@ func InvokeWorkerRpcActivity(
 }
 
 // CleanupBlobStore deletes blob objects for flows that no longer exist in the backend.
-func CleanupBlobStore(
+func (a *Activities) CleanupBlobStore(
 	ctx context.Context, input *iwfpb.CleanupBlobStoreActivityInput,
 ) (*iwfpb.CleanupBlobStoreActivityOutput, error) {
-	store := env.GetBlobStore()
-	backendType := backendTypeFromProto(input.GetBackendType())
-	provider := interfaces.GetActivityProviderByType(backendType)
+	if err := a.validateBackend(input.GetBackendType()); err != nil {
+		return nil, err
+	}
+	store := a.blobStore
+	provider := a.activityProvider
 	logger := provider.GetLogger(ctx)
 	logger.Info("CleanupBlobStore started")
-	client := env.GetUnifiedClient()
+	client := a.unifiedClient
 
 	var continueToken *string
 	var totalDeleted int32
@@ -253,7 +335,7 @@ func CleanupBlobStore(
 			ContinuationToken: continueToken,
 		})
 		if err != nil {
-			return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, err
+			return nil, err
 		}
 		continueToken = listOutput.ContinuationToken
 		for _, workflowPath := range listOutput.WorkflowPaths {
@@ -267,13 +349,13 @@ func CleanupBlobStore(
 			if client.IsNotFoundError(err) {
 				if err := store.DeleteWorkflowObjects(ctx, input.GetStoreId(), workflowPath); err != nil {
 					logger.Error("CleanupBlobStore failed to delete workflow objects", "workflowPath", workflowPath, "error", err)
-					return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, err
+					return nil, err
 				}
 				totalDeleted++
 				logger.Info("CleanupBlobStore deleted workflow objects", "workflowPath", workflowPath)
 			} else if err != nil {
 				logger.Error("CleanupBlobStore failed to describe workflow", "workflowPath", workflowPath, "error", err)
-				return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, err
+				return nil, err
 			}
 			provider.RecordHeartbeat(ctx)
 		}
@@ -285,78 +367,76 @@ func CleanupBlobStore(
 	return &iwfpb.CleanupBlobStoreActivityOutput{TotalDeleted: totalDeleted}, nil
 }
 
-func backendTypeFromProto(t iwfpb.BackendType) service.BackendType {
-	switch t {
-	case iwfpb.BackendType_BACKEND_TYPE_CADENCE:
-		return service.BackendTypeCadence
-	case iwfpb.BackendType_BACKEND_TYPE_TEMPORAL:
-		return service.BackendTypeTemporal
-	default:
-		panic(fmt.Sprintf("unspecified backend type %v", t))
-	}
-}
-
-func hydrateWorkerRequestValues(ctx context.Context, stepInput *iwfpb.Value, attrs []*iwfpb.KV) error {
-	if err := blobstore.HydrateValue(ctx, stepInput, env.GetBlobStore()); err != nil {
+func (a *Activities) validateBackend(protoBackend iwfpb.BackendType) error {
+	backendType, err := backendTypeFromProto(protoBackend)
+	if err != nil {
 		return err
 	}
-	return blobstore.HydrateKVs(ctx, attrs, env.GetBlobStore())
+	if backendType != a.backendType {
+		return fmt.Errorf("activity backend %q does not match worker backend %q", backendType, a.backendType)
+	}
+	return nil
 }
 
-func offloadWorkerAttributeWrites(ctx context.Context, writes []*iwfpb.AttributeWrite, flowId string) error {
-	cfg := env.GetSharedConfig()
-	if !cfg.ExternalStorage.Enabled || env.GetBlobStore() == nil {
+func backendTypeFromProto(protoBackend iwfpb.BackendType) (service.BackendType, error) {
+	switch protoBackend {
+	case iwfpb.BackendType_BACKEND_TYPE_CADENCE:
+		return service.BackendTypeCadence, nil
+	case iwfpb.BackendType_BACKEND_TYPE_TEMPORAL:
+		return service.BackendTypeTemporal, nil
+	default:
+		return "", fmt.Errorf("unsupported backend type %v", protoBackend)
+	}
+}
+
+func (a *Activities) hydrateWorkerRequestValues(
+	ctx context.Context, stepInput *iwfpb.Value, attributes []*iwfpb.KV,
+) error {
+	if err := blobstore.HydrateValue(ctx, stepInput, a.blobStore); err != nil {
+		return err
+	}
+	return blobstore.HydrateKVs(ctx, attributes, a.blobStore)
+}
+
+func (a *Activities) offloadWorkerAttributeWrites(
+	ctx context.Context, writes []*iwfpb.AttributeWrite, flowID string,
+) error {
+	if !a.externalCfg.Enabled || a.blobStore == nil {
 		return nil
 	}
 	return blobstore.OffloadLargeAttributeWrites(
-		ctx, writes, flowId, cfg.ExternalStorage.ThresholdInBytes, env.GetBlobStore(), true,
+		ctx, writes, flowID, a.externalCfg.ThresholdInBytes, a.blobStore, true,
 	)
 }
 
-func offloadNextStepInputs(
-	ctx context.Context, decision *iwfpb.StepDecision, previousInput *iwfpb.Value, flowId string,
+func (a *Activities) offloadNextStepInputs(
+	ctx context.Context, decision *iwfpb.StepDecision, flowID string,
 ) error {
-	cfg := env.GetSharedConfig()
-	if decision == nil || !cfg.ExternalStorage.Enabled || env.GetBlobStore() == nil {
+	if decision == nil || !a.externalCfg.Enabled || a.blobStore == nil {
 		return nil
 	}
 	for _, step := range decision.GetNextSteps() {
 		if step == nil || step.GetStepInput() == nil {
 			continue
 		}
-		if err := maybeReuseOrOffloadStepInput(ctx, step.StepInput, previousInput, flowId); err != nil {
+		if err := a.offloadStepInput(ctx, step.StepInput, flowID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func maybeReuseOrOffloadStepInput(
-	ctx context.Context, next *iwfpb.Value, previous *iwfpb.Value, flowId string,
+func (a *Activities) offloadStepInput(
+	ctx context.Context, stepInput *iwfpb.Value, flowID string,
 ) error {
-	cfg := env.GetSharedConfig()
-	threshold := cfg.ExternalStorage.ThresholdInBytes
-	if next == nil {
-		return nil
-	}
-	// Reuse prior blob id when the concrete payload still matches the hydrated previous value.
-	if previous != nil {
-		switch prev := previous.GetKind().(type) {
-		case *iwfpb.Value_InternalBlobIdForStringValue:
-			if s, ok := next.GetKind().(*iwfpb.Value_StringValue); ok && len(s.StringValue) > threshold {
-				// Cannot reuse without comparing to hydrated bytes; fall through to offload.
-				_ = prev
-			}
-		}
-	}
-	return blobstore.OffloadLargeValue(ctx, next, flowId, threshold, env.GetBlobStore(), true)
-}
-
-func cloneValue(v *iwfpb.Value) *iwfpb.Value {
-	if v == nil {
-		return nil
-	}
-	return proto.Clone(v).(*iwfpb.Value)
+	return blobstore.OffloadLargeValue(
+		ctx,
+		stepInput,
+		flowID,
+		a.externalCfg.ThresholdInBytes,
+		a.blobStore,
+		true,
+	)
 }
 
 func validateWorkerWaitForResponse(resp *iwfpb.InvokeWaitForMethodResponse) error {
@@ -409,79 +489,147 @@ func validateWaitingCondition(waiting *iwfpb.WaitingCondition) error {
 	if waiting == nil {
 		return nil
 	}
-	hasConditions := len(waiting.GetTimerConditions())+len(waiting.GetChannelConditions()) > 0
-	if !hasConditions {
-		return nil
+
+	declaredIDs := map[string]bool{}
+	conditionIDsRequired := waiting.GetWaitingConditionType() ==
+		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED
+	for i, timerCondition := range waiting.GetTimerConditions() {
+		if timerCondition == nil {
+			return fmt.Errorf("timer condition at index %d is nil", i)
+		}
+		if err := registerWaitingConditionID(
+			declaredIDs,
+			timerCondition.GetConditionId(),
+			"timer",
+			conditionIDsRequired,
+		); err != nil {
+			return err
+		}
+		if timerCondition.GetDurationSeconds() < 0 {
+			return fmt.Errorf(
+				"timer condition %q has negative duration_seconds %d",
+				timerCondition.GetConditionId(),
+				timerCondition.GetDurationSeconds(),
+			)
+		}
+		if timerCondition.GetFiringUnixTimestampSeconds() != 0 {
+			return fmt.Errorf(
+				"timer condition %q sets server-owned firing_unix_timestamp_seconds",
+				timerCondition.GetConditionId(),
+			)
+		}
 	}
+
+	for i, channelCondition := range waiting.GetChannelConditions() {
+		if channelCondition == nil {
+			return fmt.Errorf("channel condition at index %d is nil", i)
+		}
+		if err := registerWaitingConditionID(
+			declaredIDs,
+			channelCondition.GetConditionId(),
+			"channel",
+			conditionIDsRequired,
+		); err != nil {
+			return err
+		}
+		if channelCondition.GetChannelName() == "" {
+			return fmt.Errorf(
+				"channel condition %q has an empty channel_name",
+				channelCondition.GetConditionId(),
+			)
+		}
+		if channelCondition.AtLeast != nil && channelCondition.GetAtLeast() < 0 {
+			return fmt.Errorf(
+				"channel condition %q has negative at_least %d",
+				channelCondition.GetConditionId(),
+				channelCondition.GetAtLeast(),
+			)
+		}
+		if channelCondition.AtMost != nil && channelCondition.GetAtMost() < 0 {
+			return fmt.Errorf(
+				"channel condition %q has negative at_most %d",
+				channelCondition.GetConditionId(),
+				channelCondition.GetAtMost(),
+			)
+		}
+		if channelCondition.GetAtMost() > 0 &&
+			channelCondition.GetAtMost() < channelCondition.GetAtLeast() {
+			return fmt.Errorf(
+				"channel condition %q has at_most %d < at_least %d",
+				channelCondition.GetConditionId(),
+				channelCondition.GetAtMost(),
+				channelCondition.GetAtLeast(),
+			)
+		}
+	}
+
 	switch waiting.GetWaitingConditionType() {
 	case iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
 		iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED:
-		// ok
+		if len(waiting.GetConditionCombinations()) > 0 {
+			return fmt.Errorf("condition_combinations are only valid for ANY_COMBINATION_COMPLETED")
+		}
 	case iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED:
-		if len(waiting.GetConditionCombinations()) == 0 {
-			return fmt.Errorf("ANY_COMBINATION_COMPLETED requires non-empty condition_combinations and condition ids")
-		}
-		for _, cmd := range waiting.GetTimerConditions() {
-			if cmd.GetConditionId() == "" {
-				return fmt.Errorf("ANY_COMBINATION_COMPLETED requires condition_id on every timer condition")
-			}
-		}
-		for _, cmd := range waiting.GetChannelConditions() {
-			if cmd.GetConditionId() == "" {
-				return fmt.Errorf("ANY_COMBINATION_COMPLETED requires condition_id on every channel condition")
-			}
-			if err := validateChannelBounds(cmd); err != nil {
-				return err
-			}
-		}
-		if !areAllConditionCombinationIdsValid(waiting) {
-			return fmt.Errorf("ANY_COMBINATION_COMPLETED condition ids must exist on timer/channel conditions")
-		}
-	default:
-		return fmt.Errorf("unsupported waiting_condition_type %v", waiting.GetWaitingConditionType())
-	}
-	for _, cmd := range waiting.GetChannelConditions() {
-		if err := validateChannelBounds(cmd); err != nil {
+		if err := validateWaitingConditionCombinations(waiting, declaredIDs); err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("unknown waiting_condition_type %d", waiting.GetWaitingConditionType())
 	}
 	return nil
 }
 
-func validateChannelBounds(cmd *iwfpb.ChannelCondition) error {
-	if cmd == nil {
+func registerWaitingConditionID(
+	declaredIDs map[string]bool,
+	conditionID string,
+	kind string,
+	required bool,
+) error {
+	if conditionID == "" {
+		if required {
+			return fmt.Errorf("%s condition has an empty condition_id", kind)
+		}
 		return nil
 	}
-	if cmd.AtLeast != nil && cmd.GetAtLeast() < 0 {
-		return fmt.Errorf("channel condition at_least must be >= 0")
+	if declaredIDs[conditionID] {
+		return fmt.Errorf("duplicate condition_id %q", conditionID)
 	}
-	if cmd.AtMost != nil && cmd.AtLeast != nil && cmd.GetAtMost() > 0 && cmd.GetAtMost() < cmd.GetAtLeast() {
-		return fmt.Errorf("channel condition at_most must be >= at_least when set")
-	}
+	declaredIDs[conditionID] = true
 	return nil
 }
 
-func areAllConditionCombinationIdsValid(waiting *iwfpb.WaitingCondition) bool {
-	ids := listConditionIds(waiting)
-	for _, combo := range waiting.GetConditionCombinations() {
-		for _, id := range combo.GetConditionIds() {
-			if !slices.Contains(ids, id) {
-				return false
+func validateWaitingConditionCombinations(
+	waiting *iwfpb.WaitingCondition,
+	declaredIDs map[string]bool,
+) error {
+	combinations := waiting.GetConditionCombinations()
+	if len(combinations) == 0 {
+		return fmt.Errorf("ANY_COMBINATION_COMPLETED requires at least one condition_combination")
+	}
+	for i, combination := range combinations {
+		if combination == nil || len(combination.GetConditionIds()) == 0 {
+			return fmt.Errorf("condition_combination at index %d is empty", i)
+		}
+		seen := map[string]bool{}
+		for _, conditionID := range combination.GetConditionIds() {
+			if !declaredIDs[conditionID] {
+				return fmt.Errorf(
+					"condition_combination at index %d references undeclared condition_id %q",
+					i,
+					conditionID,
+				)
 			}
+			if seen[conditionID] {
+				return fmt.Errorf(
+					"condition_combination at index %d has duplicate condition_id %q",
+					i,
+					conditionID,
+				)
+			}
+			seen[conditionID] = true
 		}
 	}
-	return true
-}
-
-func listConditionIds(waiting *iwfpb.WaitingCondition) []string {
-	var ids []string
-	for _, cmd := range waiting.GetTimerConditions() {
-		ids = append(ids, cmd.GetConditionId())
-	}
-	for _, cmd := range waiting.GetChannelConditions() {
-		ids = append(ids, cmd.GetConditionId())
-	}
-	return ids
+	return nil
 }
 
 func composeInputForDebug(stepExeId string) string {
@@ -494,50 +642,81 @@ func printDebugMsg(logger interfaces.UnifiedLogger, err error, target string) {
 	}
 }
 
-func composeWorkerDialError(provider interfaces.ActivityProvider, isLocal bool, err error) error {
-	return composeGRPCError(isLocal, provider, err, errTypeWorkerAPIFail)
+func isTransientWorkerError(err error) bool {
+	if err == nil {
+		return false
+	}
+	grpcStatus, ok := status.FromError(err)
+	if !ok {
+		return true
+	}
+	for _, detail := range grpcStatus.Details() {
+		if _, ok := detail.(*iwfpb.WorkerErrorResponse); ok {
+			return false
+		}
+	}
+	switch grpcStatus.Code() {
+	case codes.Canceled,
+		codes.Unknown,
+		codes.DeadlineExceeded,
+		codes.ResourceExhausted,
+		codes.Aborted,
+		codes.Internal,
+		codes.Unavailable:
+		return true
+	default:
+		return false
+	}
 }
 
-func composeGRPCError(isLocalActivity bool, provider interfaces.ActivityProvider, err error, errType string) error {
-	msg := err.Error()
-	if st, ok := status.FromError(err); ok {
-		msg = fmt.Sprintf("code: %v, msg: %v", st.Code(), st.Message())
+func interpreterErrorFromWorker(err error) *iwfpb.InterpreterError {
+	grpcStatus := status.Convert(err)
+	errorResponse := &iwfpb.ErrorResponse{
+		Detail:                    grpcStatus.Message(),
+		SubStatus:                 iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_WORKER_API_ERROR,
+		OriginalWorkerErrorStatus: int32(grpcStatus.Code()),
 	}
-	if isLocalActivity {
-		errType = "1st-attempt-failure"
-		msg = trimText(msg, 50)
-	} else {
-		msg = trimText(msg, 500)
+	for _, detail := range grpcStatus.Details() {
+		workerError, ok := detail.(*iwfpb.WorkerErrorResponse)
+		if !ok {
+			continue
+		}
+		errorResponse.OriginalWorkerErrorDetail = workerError.GetDetail()
+		errorResponse.OriginalWorkerErrorType = workerError.GetErrorType()
 	}
-	return provider.NewApplicationError(errType, msg)
+	return &iwfpb.InterpreterError{
+		GrpcCode: int32(grpcStatus.Code()),
+		Error:    errorResponse,
+	}
 }
 
-func trimText(msg string, maxLength int) string {
-	if len(msg) > maxLength {
-		return msg[:maxLength] + "..."
+func newInterpreterError(grpcCode codes.Code, detail string) *iwfpb.InterpreterError {
+	return &iwfpb.InterpreterError{
+		GrpcCode: int32(grpcCode),
+		Error: &iwfpb.ErrorResponse{
+			Detail:    detail,
+			SubStatus: iwfpb.ErrorSubStatus_ERROR_SUB_STATUS_WORKER_API_ERROR,
+		},
 	}
-	return msg
 }
 
-func logLocalActivityWarn(
+func (a *Activities) logLocalActivityWarn(
 	logger interfaces.UnifiedLogger,
 	activityInfo interfaces.ActivityInfo, name, stepExeId string, err error,
 ) {
-	_ = err
-	cfg := env.GetSharedConfig()
-	if !activityInfo.IsLocalActivity || cfg.Interpreter.LogLocalActivityThresholdBytes <= 0 {
+	if !activityInfo.IsLocalActivity || a.activityCfg.LogLocalActivityThresholdBytes <= 0 {
 		return
 	}
 	logger.Warn(name+" local activity return on error",
 		"workflowId", activityInfo.WorkflowExecution.ID,
-		"stepExecutionId", stepExeId)
+		"stepExecutionId", stepExeId,
+		"error", err)
 }
 
-func emitStepEvent(
-	req *iwfpb.InvokeWaitForMethodRequest, activityInfo interfaces.ActivityInfo, eventType string, startMs int64, appErr error,
+func (a *Activities) emitStepEvent(
+	req *iwfpb.InvokeWaitForMethodRequest, activityInfo interfaces.ActivityInfo, eventType string,
 ) {
-	_ = appErr
-	event.Handle(event.Event{
+	a.eventHandler(event.Event{
 		FlowId:          activityInfo.WorkflowExecution.ID,
 		RunId:           activityInfo.WorkflowExecution.RunID,
 		FlowType:        req.GetFlowType(),
@@ -545,15 +724,12 @@ func emitStepEvent(
 		StepExecutionId: req.GetContext().GetStepExecutionId(),
 		EventType:       eventType,
 	})
-	_ = startMs
 }
 
-func emitExecuteEvent(
-	req *iwfpb.InvokeExecuteMethodRequest, activityInfo interfaces.ActivityInfo, eventType string, startMs int64, appErr error,
+func (a *Activities) emitExecuteEvent(
+	req *iwfpb.InvokeExecuteMethodRequest, activityInfo interfaces.ActivityInfo, eventType string,
 ) {
-	_ = appErr
-	_ = startMs
-	event.Handle(event.Event{
+	a.eventHandler(event.Event{
 		FlowId:          activityInfo.WorkflowExecution.ID,
 		RunId:           activityInfo.WorkflowExecution.RunID,
 		FlowType:        req.GetFlowType(),

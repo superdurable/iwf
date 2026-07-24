@@ -27,20 +27,12 @@ import (
 	"github.com/superdurable/iwf/service"
 )
 
-// FlowConfiger holds the effective FlowConfig for one interpreter execution.
-//
-// FlowConfig is a full-replacement value: proto scalar fields carry no presence,
-// so a StartFlow override and an UpdateFlowConfig request each replace the whole
-// config rather than patch individual fields. The retained message is a freshly
-// deserialized workflow input / signal payload that is never mutated in place, so
-// it is stored and returned by reference without defensive copying.
+// FlowConfiger holds one execution's effective configuration.
 type FlowConfiger struct {
 	config *iwfpb.FlowConfig
 }
 
-// NewFlowConfiger validates and retains the given config. The argument must be
-// non-nil: the API layer resolves an absent StartFlow override to the server
-// default before the workflow starts, so the interpreter always receives a value.
+// NewFlowConfiger validates the ownership-transferred configuration.
 func NewFlowConfiger(config *iwfpb.FlowConfig) *FlowConfiger {
 	if config == nil {
 		panic("FlowConfiger requires a non-nil FlowConfig")
@@ -63,8 +55,7 @@ func (fc *FlowConfiger) UpdateByAPI(config *iwfpb.FlowConfig) error {
 	return nil
 }
 
-// Get returns the effective config for continue-as-new carry-over and DebugDump.
-// Callers must not mutate it.
+// Get returns the immutable configuration.
 func (fc *FlowConfiger) Get() *iwfpb.FlowConfig {
 	return fc.config
 }
@@ -101,8 +92,7 @@ func (fc *FlowConfiger) ResolveExecuteDurability(opts *iwfpb.StepOptions) iwfpb.
 	return resolveDurability(opts.GetExecuteDurabilityOverride(), fc.config.GetStepDurability())
 }
 
-// resolveDurability applies the precedence: StepOptions override, then the
-// flow-level durability, then SYNC (the old optimize_activity=false behavior).
+// resolveDurability applies step, flow, then synchronous precedence.
 func resolveDurability(override, flowLevel iwfpb.StepDurability) iwfpb.StepDurability {
 	if override != iwfpb.StepDurability_STEP_DURABILITY_UNSPECIFIED {
 		return override

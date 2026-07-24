@@ -559,11 +559,16 @@ message WaitingCondition {
 }
 
 message TimerCondition {
+  // Optional unless waiting_condition_type is ANY_COMBINATION_COMPLETED.
   string condition_id = 1;
+  // Worker-relative delay; interpreter clears this after converted to firing_unix_timestamp_seconds.
   int64 duration_seconds = 2;
+  // Interpreter-normalized deadline; workers leave this zero.
+  int64 firing_unix_timestamp_seconds = 3;
 }
 
 message ChannelCondition {
+  // Optional unless waiting_condition_type is ANY_COMBINATION_COMPLETED.
   string condition_id = 1;
   string channel_name = 2;
   // Omit vs 0 must be distinguishable (ZeroToAll needs explicit 0).
@@ -618,7 +623,7 @@ message ChannelValues {
 }
 
 message StepExecutionCompletedConditions {
-  map<int32, ConditionStatus> completed_timer_conditions = 1;
+  map<int32, InternalTimerStatus> completed_timer_conditions = 1;
   map<int32, ChannelValues> completed_channel_conditions = 2;
 }
 
@@ -649,7 +654,8 @@ message ContinueAsNewDump {
   StepExecutionCounterInfo counter_info = 4;
   repeated StepCompletionOutput step_outputs = 5;
   repeated StaleSkipTimer stale_skip_timers = 6;
-  repeated AttributeWrite attributes = 7;
+  // Stored values only; index metadata remains in backend search attributes.
+  repeated KV attributes = 7;
 }
 
 // --- Internal serializable types (history / query / activity) ---
@@ -687,7 +693,8 @@ message InterpreterWorkflowInput {
   repeated string wait_for_completion_step_types = 5;
   Value step_input = 6;
   StepOptions step_options = 7;
-  repeated AttributeWrite init_attributes = 8;
+  // IndexConfig is processed before workflow start.
+  repeated KV init_attributes = 8;
   FlowConfig config = 9;
   // When true, ignore start_step_type / step_input / step_options / init_attributes.
   bool is_resume_from_continue_as_new = 10;

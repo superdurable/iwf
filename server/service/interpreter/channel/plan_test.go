@@ -1,0 +1,293 @@
+// Copyright (c) 2022-2026 Super Durable, Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
+package channel
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/superdurable/iwf/gen/iwfpb"
+	"github.com/superdurable/iwf/service/common/ptr"
+)
+
+func chCond(id, name string, atLeast, atMost *int32) *iwfpb.ChannelCondition {
+	return &iwfpb.ChannelCondition{ConditionId: id, ChannelName: name, AtLeast: atLeast, AtMost: atMost}
+}
+
+func timerCond(id string) *iwfpb.TimerCondition {
+	return &iwfpb.TimerCondition{ConditionId: id, DurationSeconds: 1}
+}
+
+func wcAny(channels ...*iwfpb.ChannelCondition) *iwfpb.WaitingCondition {
+	return &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED,
+		ChannelConditions:    channels,
+	}
+}
+
+func wcAll(channels ...*iwfpb.ChannelCondition) *iwfpb.WaitingCondition {
+	return &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
+		ChannelConditions:    channels,
+	}
+}
+
+func consumeByConditionIndex(plan *MatchPlan) map[int]int32 {
+	counts := map[int]int32{}
+	for _, consumption := range plan.Consumes {
+		counts[consumption.ChannelConditionIndex] = consumption.Count
+	}
+	return counts
+}
+
+func TestNormalization(t *testing.T) {
+	cases := []struct {
+		name      string
+		cond      *iwfpb.ChannelCondition
+		avail     int32
+		wantMatch bool
+		wantCount int32
+	}{
+		{"exact1_default_unmet", chCond("c", "ch", nil, nil), 0, false, 0},
+		{"exact1_default_met", chCond("c", "ch", nil, nil), 3, true, 1},
+		{"exactN_atMostOnly_unmet", chCond("c", "ch", nil, ptr.Any(int32(3))), 2, false, 0},
+		{"exactN_atMostOnly_met", chCond("c", "ch", nil, ptr.Any(int32(3))), 5, true, 3},
+		{"oneToAll_atLeast1_unmet", chCond("c", "ch", ptr.Any(int32(1)), nil), 0, false, 0},
+		{"oneToAll_atLeast1_consumesAll", chCond("c", "ch", ptr.Any(int32(1)), nil), 4, true, 4},
+		{"atLeast3ToAll_consumesAll", chCond("c", "ch", ptr.Any(int32(3)), nil), 5, true, 5},
+		{"zeroToAll_explicit0_consumesAllEvenZero", chCond("c", "ch", ptr.Any(int32(0)), nil), 0, true, 0},
+		{"zeroToAll_explicit0_consumesAll", chCond("c", "ch", ptr.Any(int32(0)), nil), 4, true, 4},
+		{"atMost0_treatedAsUnset_exact1", chCond("c", "ch", nil, ptr.Any(int32(0))), 2, true, 1},
+		{"range2to4_met_capped", chCond("c", "ch", ptr.Any(int32(2)), ptr.Any(int32(4))), 10, true, 4},
+		{"range2to4_partial", chCond("c", "ch", ptr.Any(int32(2)), ptr.Any(int32(4))), 3, true, 3},
+		{"range2to4_unmet", chCond("c", "ch", ptr.Any(int32(2)), ptr.Any(int32(4))), 1, false, 0},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			waitingCondition := wcAny(testCase.cond)
+			plan, ok := Plan(waitingCondition, ChannelAvailability{"ch": testCase.avail}, nil)
+			assert.Equal(t, testCase.wantMatch, ok)
+			if testCase.wantMatch {
+				assert.Equal(t, testCase.wantCount, consumeByConditionIndex(plan)[0])
+			}
+		})
+	}
+}
+
+func TestPlan_DoesNotMutateAvailability(t *testing.T) {
+	waitingCondition := wcAny(chCond("c", "ch", ptr.Any(int32(1)), nil))
+	availability := ChannelAvailability{"ch": 3}
+	_, ok := Plan(waitingCondition, availability, nil)
+	require.True(t, ok)
+	assert.Equal(t, int32(3), availability["ch"], "Plan must not consume; commit is a separate step")
+}
+
+func TestPlan_ALL_SharedChannelCompetingMinima(t *testing.T) {
+	// Two Exact-2 conditions on the same channel; ALL needs both minima.
+	waitingCondition := wcAll(
+		chCond("a", "ch", ptr.Any(int32(2)), ptr.Any(int32(2))),
+		chCond("b", "ch", ptr.Any(int32(2)), ptr.Any(int32(2))),
+	)
+
+	_, ok := Plan(waitingCondition, ChannelAvailability{"ch": 3}, nil)
+	assert.False(t, ok, "summed minima 4 > available 3 is infeasible")
+
+	plan, ok := Plan(waitingCondition, ChannelAvailability{"ch": 4}, nil)
+	require.True(t, ok)
+	got := consumeByConditionIndex(plan)
+	assert.Equal(t, int32(2), got[0])
+	assert.Equal(t, int32(2), got[1])
+}
+
+func TestPlan_ALL_ZeroToAllDoesNotStealExactMinimum(t *testing.T) {
+	// Exact-2 must keep its minimum; ZeroToAll takes only leftovers.
+	waitingCondition := wcAll(
+		chCond("exact", "ch", ptr.Any(int32(2)), ptr.Any(int32(2))),
+		chCond("zero", "ch", ptr.Any(int32(0)), nil),
+	)
+	plan, ok := Plan(waitingCondition, ChannelAvailability{"ch": 3}, nil)
+	require.True(t, ok)
+	got := consumeByConditionIndex(plan)
+	assert.Equal(t, int32(2), got[0])
+	assert.Equal(t, int32(1), got[1], "ZeroToAll consumes only the remaining message")
+}
+
+func TestPlan_ALL_ZeroToAllStealsNothingWhenMinimumTight(t *testing.T) {
+	waitingCondition := wcAll(
+		chCond("exact", "ch", ptr.Any(int32(2)), ptr.Any(int32(2))),
+		chCond("zero", "ch", ptr.Any(int32(0)), nil),
+	)
+	plan, ok := Plan(waitingCondition, ChannelAvailability{"ch": 2}, nil)
+	require.True(t, ok)
+	got := consumeByConditionIndex(plan)
+	assert.Equal(t, int32(2), got[0])
+	assert.Equal(t, int32(0), got[1])
+}
+
+func TestPlan_ANY_FirstFeasibleInDeclarationOrder(t *testing.T) {
+	// c1 needs 5 (unmet), c2 needs 1 (met) -> ANY picks c2.
+	waitingCondition := wcAny(
+		chCond("c1", "chA", ptr.Any(int32(5)), ptr.Any(int32(5))),
+		chCond("c2", "chB", nil, nil),
+	)
+	plan, ok := Plan(waitingCondition, ChannelAvailability{"chA": 1, "chB": 2}, nil)
+	require.True(t, ok)
+	counts := consumeByConditionIndex(plan)
+	assert.Contains(t, counts, 1)
+	assert.NotContains(t, counts, 0)
+}
+
+func TestPlan_ANY_TimerCandidate(t *testing.T) {
+	waitingCondition := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED,
+		TimerConditions:      []*iwfpb.TimerCondition{timerCond("t1")},
+		ChannelConditions:    []*iwfpb.ChannelCondition{chCond("c1", "ch", ptr.Any(int32(5)), ptr.Any(int32(5)))},
+	}
+
+	_, ok := Plan(waitingCondition, ChannelAvailability{"ch": 0}, map[int]bool{})
+	assert.False(t, ok, "timer pending and channel unmet -> no trigger")
+
+	plan, ok := Plan(waitingCondition, ChannelAvailability{"ch": 0}, map[int]bool{0: true})
+	require.True(t, ok, "fired timer satisfies ANY")
+	assert.Empty(t, plan.Consumes)
+}
+
+func TestPlan_ALL_RequiresTimerCompletion(t *testing.T) {
+	waitingCondition := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
+		TimerConditions:      []*iwfpb.TimerCondition{timerCond("t1")},
+		ChannelConditions:    []*iwfpb.ChannelCondition{chCond("c1", "ch", nil, nil)},
+	}
+	_, ok := Plan(waitingCondition, ChannelAvailability{"ch": 3}, map[int]bool{})
+	assert.False(t, ok, "ALL requires the timer to have fired")
+	_, ok = Plan(waitingCondition, ChannelAvailability{"ch": 3}, map[int]bool{0: true})
+	assert.True(t, ok)
+}
+
+func TestPlan_ALL_AllowsMissingConditionIDs(t *testing.T) {
+	waitingCondition := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
+		TimerConditions:      []*iwfpb.TimerCondition{timerCond("")},
+		ChannelConditions: []*iwfpb.ChannelCondition{
+			chCond("", "first", nil, nil),
+			chCond("", "second", nil, nil),
+		},
+	}
+	plan, ok := Plan(
+		waitingCondition,
+		ChannelAvailability{"first": 1, "second": 1},
+		map[int]bool{0: true},
+	)
+	require.True(t, ok)
+	require.Equal(t, map[int]int32{0: 1, 1: 1}, consumeByConditionIndex(plan))
+}
+
+func TestPlan_ANY_AllowsMissingConditionIDs(t *testing.T) {
+	waitingCondition := wcAny(
+		chCond("", "unavailable", nil, nil),
+		chCond("", "available", nil, nil),
+	)
+	plan, ok := Plan(waitingCondition, ChannelAvailability{"available": 1}, nil)
+	require.True(t, ok)
+	require.Equal(t, map[int]int32{1: 1}, consumeByConditionIndex(plan))
+
+	results := BuildConditionResults(
+		waitingCondition,
+		nil,
+		map[int][]*iwfpb.Value{1: nil},
+	)
+	require.Equal(
+		t,
+		iwfpb.ConditionStatus_CONDITION_STATUS_WAITING,
+		results.GetChannelResults()[0].GetConditionStatus(),
+	)
+	require.Equal(
+		t,
+		iwfpb.ConditionStatus_CONDITION_STATUS_COMPLETED,
+		results.GetChannelResults()[1].GetConditionStatus(),
+	)
+}
+
+func TestPlan_AnyCombination(t *testing.T) {
+	// Two combinations; first is infeasible (needs 5 on chA), second feasible.
+	waitingCondition := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMBINATION_COMPLETED,
+		ChannelConditions: []*iwfpb.ChannelCondition{
+			chCond("a", "chA", ptr.Any(int32(5)), ptr.Any(int32(5))),
+			chCond("b", "chB", nil, nil),
+			chCond("c", "chC", nil, nil),
+		},
+		ConditionCombinations: []*iwfpb.ConditionCombination{
+			{ConditionIds: []string{"a", "b"}},
+			{ConditionIds: []string{"b", "c"}},
+		},
+	}
+	plan, ok := Plan(waitingCondition, ChannelAvailability{"chA": 1, "chB": 1, "chC": 1}, nil)
+	require.True(t, ok)
+	counts := consumeByConditionIndex(plan)
+	assert.Contains(t, counts, 1)
+	assert.Contains(t, counts, 2)
+	assert.NotContains(t, counts, 0)
+}
+
+func TestPlan_EmptyWaitingConditionMatches(t *testing.T) {
+	waitingCondition := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ALL_COMPLETED,
+	}
+	plan, ok := Plan(waitingCondition, ChannelAvailability{}, nil)
+	require.True(t, ok)
+	assert.Empty(t, plan.Consumes)
+}
+
+func TestBuildConditionResults(t *testing.T) {
+	waitingCondition := &iwfpb.WaitingCondition{
+		WaitingConditionType: iwfpb.WaitingConditionType_WAITING_CONDITION_TYPE_ANY_COMPLETED,
+		TimerConditions:      []*iwfpb.TimerCondition{timerCond("t1")},
+		ChannelConditions: []*iwfpb.ChannelCondition{
+			chCond("win", "chA", nil, nil),
+			chCond("lose", "chB", nil, nil),
+		},
+	}
+	values := []*iwfpb.Value{{Kind: &iwfpb.Value_StringValue{StringValue: "m1"}}}
+	results := BuildConditionResults(
+		waitingCondition,
+		map[int]bool{0: true},
+		map[int][]*iwfpb.Value{0: values},
+	)
+
+	require.Len(t, results.GetTimerResults(), 1)
+	assert.Equal(
+		t,
+		iwfpb.ConditionStatus_CONDITION_STATUS_COMPLETED,
+		results.GetTimerResults()[0].GetConditionStatus(),
+	)
+
+	byID := map[string]*iwfpb.ChannelResult{}
+	for _, channelResult := range results.GetChannelResults() {
+		byID[channelResult.GetConditionId()] = channelResult
+	}
+	assert.Equal(t, iwfpb.ConditionStatus_CONDITION_STATUS_COMPLETED, byID["win"].GetConditionStatus())
+	assert.Len(t, byID["win"].GetValues(), 1)
+	assert.Equal(t, iwfpb.ConditionStatus_CONDITION_STATUS_WAITING, byID["lose"].GetConditionStatus())
+	assert.Empty(t, byID["lose"].GetValues())
+}

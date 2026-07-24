@@ -23,29 +23,28 @@ package integ
 import (
 	"context"
 	"fmt"
-	"github.com/superdurable/iwf/service/common/blobstore"
 	"log"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/superdurable/iwf/integ/helpers"
-	cadenceapi "github.com/superdurable/iwf/service/client/cadence"
-	temporalapi "github.com/superdurable/iwf/service/client/temporal"
-
 	"github.com/gin-gonic/gin"
 	"github.com/superdurable/iwf/cmd/server/iwf"
 	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/integ/helpers"
 	"github.com/superdurable/iwf/integ/workflow/common"
 	"github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/api"
 	uclient "github.com/superdurable/iwf/service/client"
+	cadenceapi "github.com/superdurable/iwf/service/client/cadence"
+	temporalapi "github.com/superdurable/iwf/service/client/temporal"
+	"github.com/superdurable/iwf/service/common/blobstore"
+	iwfconverter "github.com/superdurable/iwf/service/common/converter"
 	"github.com/superdurable/iwf/service/common/log/loggerimpl"
 	"github.com/superdurable/iwf/service/interpreter/cadence"
 	"github.com/superdurable/iwf/service/interpreter/temporal"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
-	"go.uber.org/cadence/encoded"
 )
 
 const testNamespace = "default"
@@ -95,9 +94,9 @@ func doStartWorkflowWorker(handler common.WorkflowHandler, t *testing.T, router 
 }
 
 type IwfServiceTestConfig struct {
-	BackendType    service.BackendType
-	MemoEncryption bool
-	DefaultHeaders map[string]string
+	BackendType     service.BackendType
+	MemoEncryption  bool
+	DefaultHeaders  map[string]string
 	S3TestThreshold int
 }
 
@@ -134,7 +133,7 @@ var globalBlobStore blobstore.BlobStore
 
 func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.UnifiedClient, closeFunc func()) {
 	if config.BackendType == service.BackendTypeTemporal {
-		dataConverter := converter.GetDefaultDataConverter()
+		dataConverter := iwfconverter.NewTemporalDataConverter()
 		if config.MemoEncryption {
 			dataConverter = encryptionDataConverter
 		}
@@ -165,7 +164,17 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 		}()
 
 		// start iwf interpreter worker
-		interpreter := temporal.NewInterpreterWorker(testCfg, temporalClient, service.TaskQueue, config.MemoEncryption, dataConverter, uclient, globalBlobStore)
+		interpreter := temporal.NewInterpreterWorker(
+			&testCfg.Api,
+			&testCfg.ExternalStorage,
+			&testCfg.Interpreter,
+			testCfg.Interpreter.Temporal,
+			temporalClient,
+			service.TaskQueue,
+			dataConverter,
+			uclient,
+			globalBlobStore,
+		)
 		if *disableStickyCache {
 			interpreter.StartWithStickyCacheDisabledForTest()
 		} else {
@@ -181,7 +190,8 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 			log.Fatalf("cannot connnect to Cadence %v", err)
 		}
 
-		cadenceClient, err := iwf.BuildCadenceClient(serviceClient, iwf.DefaultCadenceDomain)
+		dataConverter := iwfconverter.NewCadenceDataConverter()
+		cadenceClient, err := iwf.BuildCadenceClient(serviceClient, iwf.DefaultCadenceDomain, dataConverter)
 
 		logger, err := loggerimpl.NewDevelopment()
 		if err != nil {
@@ -192,7 +202,14 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 		s3Client := iwf.CreateS3Client(testCfg, context.Background())
 		globalBlobStore = blobstore.NewBlobStore(s3Client, iwf.DefaultCadenceDomain, testCfg.ExternalStorage, logger, client.MetricsNopHandler)
 
-		uclient = cadenceapi.NewCadenceClient(iwf.DefaultCadenceDomain, cadenceClient, serviceClient, encoded.GetDefaultDataConverter(), closeFunc, &testCfg.Api.QueryWorkflowFailedRetryPolicy)
+		uclient = cadenceapi.NewCadenceClient(
+			iwf.DefaultCadenceDomain,
+			cadenceClient,
+			serviceClient,
+			dataConverter,
+			closeFunc,
+			&testCfg.Api.QueryWorkflowFailedRetryPolicy,
+		)
 		iwfGrpc := api.NewServer(
 			&testCfg.Api,
 			&testCfg.ExternalStorage,
@@ -208,7 +225,19 @@ func doStartIwfServiceWithClient(config IwfServiceTestConfig) (uclient uclient.U
 		}()
 
 		// start iwf interpreter worker
-		interpreter := cadence.NewInterpreterWorker(testCfg, serviceClient, iwf.DefaultCadenceDomain, service.TaskQueue, closeFunc, uclient, globalBlobStore)
+		interpreter := cadence.NewInterpreterWorker(
+			&testCfg.Api,
+			&testCfg.ExternalStorage,
+			&testCfg.Interpreter,
+			testCfg.Interpreter.Cadence,
+			serviceClient,
+			iwf.DefaultCadenceDomain,
+			service.TaskQueue,
+			closeFunc,
+			dataConverter,
+			uclient,
+			globalBlobStore,
+		)
 		if *disableStickyCache {
 			interpreter.StartWithStickyCacheDisabledForTest()
 		} else {

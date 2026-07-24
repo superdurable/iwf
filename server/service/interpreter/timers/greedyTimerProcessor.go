@@ -21,166 +21,232 @@
 package timers
 
 import (
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"fmt"
+	"sort"
+
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
-	"github.com/superdurable/iwf/service/interpreter/cont"
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
 )
 
 type GreedyTimerProcessor struct {
-	timerManager                    *timerScheduler
-	stateExecutionCurrentTimerInfos map[string][]*service.TimerInfo
-	staleSkipTimerSignals           []service.StaleSkipTimerSignal
-	provider                        interfaces.WorkflowProvider
-	logger                          interfaces.UnifiedLogger
+	scheduler                   *timerScheduler
+	timerInfosByStepExecutionID map[string][]*iwfpb.TimerInfo
+	staleSkipTimers             []*iwfpb.StaleSkipTimer
+	provider                    interfaces.WorkflowProvider
+	logger                      interfaces.UnifiedLogger
 }
 
 func NewGreedyTimerProcessor(
 	ctx interfaces.UnifiedContext,
 	provider interfaces.WorkflowProvider,
-	continueAsNewCounter *cont.ContinueAsNewCounter,
-	staleSkipTimerSignals []service.StaleSkipTimerSignal,
+	continueAsNewCounter continueAsNewChecker,
+	staleSkipTimers []*iwfpb.StaleSkipTimer,
 ) *GreedyTimerProcessor {
-
-	// start some single thread that manages pendingScheduling
-	scheduler := startGreedyTimerScheduler(ctx, provider, continueAsNewCounter)
-
-	tp := &GreedyTimerProcessor{
-		provider:                        provider,
-		timerManager:                    scheduler,
-		stateExecutionCurrentTimerInfos: map[string][]*service.TimerInfo{},
-		logger:                          provider.GetLogger(ctx),
-		staleSkipTimerSignals:           staleSkipTimerSignals,
+	if provider == nil || continueAsNewCounter == nil {
+		panic("GreedyTimerProcessor requires provider and continue-as-new counter")
 	}
-
-	return tp
-}
-
-func (t *GreedyTimerProcessor) Dump() []service.StaleSkipTimerSignal {
-	return t.staleSkipTimerSignals
-}
-
-func (t *GreedyTimerProcessor) GetTimerInfos() map[string][]*service.TimerInfo {
-	return t.stateExecutionCurrentTimerInfos
-}
-
-func (t *GreedyTimerProcessor) GetTimerStartedUnixTimestamps() []int64 {
-	return t.timerManager.providerScheduledTimerUnixTs
-}
-
-// SkipTimer will attempt to skip a timer, return false if no valid timer found
-func (t *GreedyTimerProcessor) SkipTimer(stateExeId, timerId string, timerIdx int) bool {
-	timer, valid := service.ValidateTimerSkipRequest(t.stateExecutionCurrentTimerInfos, stateExeId, timerId, timerIdx)
-	if !valid {
-		// since we have checked it before sending signals, this should only happen in some vary rare cases for racing condition
-		t.logger.Warn("cannot process timer skip request, maybe state is already closed...putting into a stale skip timer queue", stateExeId, timerId, timerIdx)
-
-		t.staleSkipTimerSignals = append(t.staleSkipTimerSignals, service.StaleSkipTimerSignal{
-			StateExecutionId:  stateExeId,
-			TimerCommandId:    timerId,
-			TimerCommandIndex: timerIdx,
-		})
-		return false
+	return &GreedyTimerProcessor{
+		scheduler:                   startGreedyTimerScheduler(ctx, provider, continueAsNewCounter),
+		timerInfosByStepExecutionID: map[string][]*iwfpb.TimerInfo{},
+		staleSkipTimers:             staleSkipTimers,
+		provider:                    provider,
+		logger:                      provider.GetLogger(ctx),
 	}
-	timer.Status = service.TimerSkipped
-	return true
+}
+
+func (t *GreedyTimerProcessor) SkipTimer(
+	stepExecutionID string,
+	timerConditionID string,
+	timerConditionIndex int,
+) bool {
+	if t.trySkipTimer(stepExecutionID, timerConditionID, timerConditionIndex) {
+		return true
+	}
+	t.logger.Warn(
+		"timer skip did not match a pending timer",
+		"stepExecutionId", stepExecutionID,
+		"timerConditionId", timerConditionID,
+		"timerConditionIndex", timerConditionIndex,
+	)
+	t.staleSkipTimers = append(t.staleSkipTimers, &iwfpb.StaleSkipTimer{
+		StepExecutionId:     stepExecutionID,
+		TimerConditionId:    timerConditionID,
+		TimerConditionIndex: int32(timerConditionIndex),
+	})
+	return false
 }
 
 func (t *GreedyTimerProcessor) RetryStaleSkipTimer() bool {
-	for i, staleSkip := range t.staleSkipTimerSignals {
-		found := t.SkipTimer(staleSkip.StateExecutionId, staleSkip.TimerCommandId, staleSkip.TimerCommandIndex)
-		if found {
-			newList := removeElement(t.staleSkipTimerSignals, i)
-			t.staleSkipTimerSignals = newList
-			return true
+	for index, staleSkip := range t.staleSkipTimers {
+		if !t.trySkipTimer(
+			staleSkip.GetStepExecutionId(),
+			staleSkip.GetTimerConditionId(),
+			int(staleSkip.GetTimerConditionIndex()),
+		) {
+			continue
 		}
+		t.staleSkipTimers = append(t.staleSkipTimers[:index], t.staleSkipTimers[index+1:]...)
+		return true
 	}
 	return false
 }
 
-// WaitForTimerFiredOrSkipped waits for timer completed(fired or skipped),
-// return true when the timer is fired or skipped
-// return false if the waitingCommands is canceled by cancelWaiting bool pointer(when the trigger type is completed, or continueAsNew)
 func (t *GreedyTimerProcessor) WaitForTimerFiredOrSkipped(
-	ctx interfaces.UnifiedContext, stateExeId string, timerIdx int, cancelWaiting *bool,
-) service.InternalTimerStatus {
-	timerInfos := t.stateExecutionCurrentTimerInfos[stateExeId]
-	if len(timerInfos) == 0 {
-		if *cancelWaiting {
-			// The waiting thread is later than the timer execState thread
-			// The execState thread got completed early and call RemovePendingTimersOfState to remove the timerInfos
-			// returning pending here
-			return service.TimerPending
-		} else {
-			panic("bug: this shouldn't happen")
+	ctx interfaces.UnifiedContext,
+	stepExecutionID string,
+	timerIndex int,
+	cancelWaiting *bool,
+) (iwfpb.InternalTimerStatus, error) {
+	timerInfos := t.timerInfosByStepExecutionID[stepExecutionID]
+	if timerIndex < 0 || timerIndex >= len(timerInfos) {
+		if cancelWaiting != nil && *cancelWaiting {
+			return iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING, nil
 		}
+		panic(fmt.Sprintf("missing timer %d for step execution %q", timerIndex, stepExecutionID))
 	}
-	timer := timerInfos[timerIdx]
-	if timer.Status == service.TimerFired || timer.Status == service.TimerSkipped {
-		return timer.Status
+	timerInfo := timerInfos[timerIndex]
+	if timerCompleted(timerInfo.GetStatus()) {
+		return timerInfo.GetStatus(), nil
 	}
-	skippedByStaleSkip := t.RetryStaleSkipTimer()
-	if skippedByStaleSkip {
-		t.logger.Warn("timer skipped by stale skip signal", stateExeId, timerIdx)
-		timer.Status = service.TimerSkipped
-		return service.TimerSkipped
+	if t.RetryStaleSkipTimer() && timerInfo.GetStatus() == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_SKIPPED {
+		return timerInfo.GetStatus(), nil
 	}
-
-	_ = t.provider.Await(ctx, func() bool {
-		// This is trigger when one of the timers scheduled by the timerScheduler fires, scheduling a
-		//   new workflow task that evaluates the workflow's goroutines
-		return timer.Status == service.TimerFired || timer.Status == service.TimerSkipped || timer.FiringUnixTimestampSeconds <= t.provider.Now(ctx).Unix() || *cancelWaiting
+	if cancelWaiting == nil {
+		panic("cancelWaiting is nil")
+	}
+	err := t.provider.Await(ctx, func() bool {
+		return timerCompleted(timerInfo.GetStatus()) ||
+			timerInfo.GetFiringUnixTimestampSeconds() <= t.provider.Now(ctx).Unix() ||
+			*cancelWaiting
 	})
-
-	if timer.Status == service.TimerSkipped {
-		return service.TimerSkipped
+	if err != nil {
+		return iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING, err
 	}
-
-	if timer.FiringUnixTimestampSeconds <= t.provider.Now(ctx).Unix() {
-		timer.Status = service.TimerFired
-		return service.TimerFired
+	if timerInfo.GetStatus() == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_SKIPPED {
+		return timerInfo.GetStatus(), nil
 	}
-
-	// otherwise *cancelWaiting should return false to indicate that this timer isn't completed(fired or skipped)
-	t.timerManager.removeTimer(timer)
-	return service.TimerPending
+	if timerInfo.GetFiringUnixTimestampSeconds() <= t.provider.Now(ctx).Unix() {
+		timerInfo.Status = iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_FIRED
+		t.scheduler.removeTimer(timerInfo)
+		return timerInfo.GetStatus(), nil
+	}
+	t.scheduler.removeTimer(timerInfo)
+	return iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING, nil
 }
 
-// RemovePendingTimersOfState is for when a state is completed, remove all its pending pendingScheduling
-func (t *GreedyTimerProcessor) RemovePendingTimersOfState(stateExeId string) {
-
-	timers := t.stateExecutionCurrentTimerInfos[stateExeId]
-
-	for _, timer := range timers {
-		t.timerManager.removeTimer(timer)
+func (t *GreedyTimerProcessor) RemovePendingTimersOfStep(stepExecutionID string) {
+	for _, timerInfo := range t.timerInfosByStepExecutionID[stepExecutionID] {
+		if timerInfo.GetStatus() == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING {
+			t.scheduler.removeTimer(timerInfo)
+		}
 	}
-
-	delete(t.stateExecutionCurrentTimerInfos, stateExeId)
+	delete(t.timerInfosByStepExecutionID, stepExecutionID)
 }
 
 func (t *GreedyTimerProcessor) AddTimers(
-	stateExeId string, commands []iwfidl.TimerCommand, completedTimerCmds map[int]service.InternalTimerStatus,
+	stepExecutionID string,
+	timerConditions []*iwfpb.TimerCondition,
+	completedTimerConditions map[int32]iwfpb.InternalTimerStatus,
 ) {
-	timers := make([]*service.TimerInfo, len(commands))
-	for idx, cmd := range commands {
-		var timer service.TimerInfo
-		if status, ok := completedTimerCmds[idx]; ok {
-			timer = service.TimerInfo{
-				CommandId:                  cmd.CommandId,
-				FiringUnixTimestampSeconds: cmd.GetFiringUnixTimestampSeconds(),
-				Status:                     status,
-			}
-		} else {
-			timer = service.TimerInfo{
-				CommandId:                  cmd.CommandId,
-				FiringUnixTimestampSeconds: cmd.GetFiringUnixTimestampSeconds(),
-				Status:                     service.TimerPending,
-			}
+	validateCompletedTimerConditions(timerConditions, completedTimerConditions)
+	timerInfos := make([]*iwfpb.TimerInfo, len(timerConditions))
+	conditionIDs := make(map[string]bool, len(timerConditions))
+	for index, timerCondition := range timerConditions {
+		if timerCondition == nil {
+			panic(fmt.Sprintf("nil timer condition at index %d", index))
 		}
-		if timer.Status == service.TimerPending {
-			t.timerManager.addTimer(&timer)
+		conditionID := timerCondition.GetConditionId()
+		if conditionID != "" && conditionIDs[conditionID] {
+			panic(fmt.Sprintf("duplicate timer condition id %q", conditionID))
 		}
-		timers[idx] = &timer
+		if conditionID != "" {
+			conditionIDs[conditionID] = true
+		}
+		if timerCondition.GetDurationSeconds() != 0 {
+			panic(fmt.Sprintf("timer condition at index %d retains relative duration", index))
+		}
+		if timerCondition.GetFiringUnixTimestampSeconds() <= 0 {
+			panic(fmt.Sprintf("timer condition at index %d is not normalized", index))
+		}
+		status := iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING
+		if completedStatus, ok := completedTimerConditions[int32(index)]; ok {
+			status = completedStatus
+		}
+		timerInfo := &iwfpb.TimerInfo{
+			ConditionId:                conditionID,
+			FiringUnixTimestampSeconds: timerCondition.GetFiringUnixTimestampSeconds(),
+			Status:                     status,
+		}
+		switch timerInfo.GetStatus() {
+		case iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING:
+			t.scheduler.addTimer(timerInfo, stepExecutionID, index)
+		case iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_FIRED,
+			iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_SKIPPED:
+		default:
+			panic(fmt.Sprintf("invalid restored timer status %s", timerInfo.GetStatus()))
+		}
+		timerInfos[index] = timerInfo
 	}
-	t.stateExecutionCurrentTimerInfos[stateExeId] = timers
+	t.timerInfosByStepExecutionID[stepExecutionID] = timerInfos
+}
+
+func validateCompletedTimerConditions(
+	timerConditions []*iwfpb.TimerCondition,
+	completedTimerConditions map[int32]iwfpb.InternalTimerStatus,
+) {
+	indexes := make([]int, 0, len(completedTimerConditions))
+	for index := range completedTimerConditions {
+		indexes = append(indexes, int(index))
+	}
+	sort.Ints(indexes)
+	for _, index := range indexes {
+		if index < 0 || index >= len(timerConditions) {
+			panic(fmt.Sprintf("completed timer index %d is out of range", index))
+		}
+		status := completedTimerConditions[int32(index)]
+		if !timerCompleted(status) {
+			panic(fmt.Sprintf("completed timer index %d has invalid status %s", index, status))
+		}
+	}
+}
+
+func (t *GreedyTimerProcessor) trySkipTimer(
+	stepExecutionID string,
+	timerConditionID string,
+	timerConditionIndex int,
+) bool {
+	timerInfo, valid := service.ValidateTimerSkipRequest(
+		t.timerInfosByStepExecutionID,
+		stepExecutionID,
+		timerConditionID,
+		timerConditionIndex,
+	)
+	if !valid {
+		return false
+	}
+	timerInfo.Status = iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_SKIPPED
+	t.scheduler.removeTimer(timerInfo)
+	return true
+}
+
+func (t *GreedyTimerProcessor) Dump() []*iwfpb.StaleSkipTimer {
+	return t.staleSkipTimers
+}
+
+func (t *GreedyTimerProcessor) GetTimerInfos() map[string][]*iwfpb.TimerInfo {
+	return t.timerInfosByStepExecutionID
+}
+
+func (t *GreedyTimerProcessor) GetPendingScheduledTimers() []*iwfpb.TimerInfo {
+	return t.scheduler.pendingTimerInfos()
+}
+
+func (t *GreedyTimerProcessor) GetTimerStartedUnixTimestamps() []int64 {
+	return t.scheduler.providerScheduledTimerUnixTimestamps
+}
+
+func timerCompleted(status iwfpb.InternalTimerStatus) bool {
+	return status == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_FIRED ||
+		status == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_SKIPPED
 }

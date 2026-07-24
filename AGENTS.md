@@ -128,12 +128,13 @@ numerics: `ptr.Any(int64(0))`, `ptr.Any(int32(1))`.
 Do not use `ptr.Any` when the pointer must alias an existing named variable that
 is also read or mutated elsewhere.
 
-### No Unnecessary `proto.Clone` (Go)
+### No Defensive Cloning (Go)
 
-Do not call `proto.Clone` or make other defensive copies unless code actually
-mutates a shared message in place. Workflow inputs, signals, and activity payloads
-are freshly deserialized and single-threaded, so cloning them is wasted work.
-Prefer code that never mutates a shared message over cloning it.
+Do not call `proto.Clone` or copy messages merely to guard against caller
+mutation. Passing a message transfers ownership unless the API says otherwise.
+Workflow inputs, signals, and activity payloads are freshly deserialized and
+single-threaded. Prefer immutable use. Copy only when an algorithm requires a
+distinct value that it will mutate.
 
 ### Update Ignore Files When Producing Binaries
 

@@ -22,14 +22,13 @@ package temporal
 
 import (
 	"errors"
-	"github.com/superdurable/iwf/service/common/mapper"
-	"github.com/superdurable/iwf/service/interpreter/interfaces"
+	"fmt"
 	"time"
 
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/common/retry"
-	"github.com/superdurable/iwf/service/interpreter/env"
+	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -38,6 +37,9 @@ type workflowProvider struct {
 	threadCount        int
 	pendingThreadNames map[string]int
 }
+
+var _ interfaces.WorkflowProvider = (*workflowProvider)(nil)
+var _ interfaces.UpdateProvider = (*workflowProvider)(nil)
 
 func newTemporalWorkflowProvider() interfaces.WorkflowProvider {
 	return &workflowProvider{
@@ -58,14 +60,30 @@ func (w *workflowProvider) IsApplicationError(err error) bool {
 	return errors.As(err, &applicationError)
 }
 
+func (w *workflowProvider) GetApplicationErrorTypeAndDetails(err error) (string, string) {
+	var applicationError *temporal.ApplicationError
+	if !errors.As(err, &applicationError) {
+		return "", "not a Temporal application error"
+	}
+	if !applicationError.HasDetails() {
+		return applicationError.Type(), "Temporal application error has no details"
+	}
+
+	var details interface{}
+	if detailsErr := applicationError.Details(&details); detailsErr != nil {
+		return applicationError.Type(), fmt.Sprintf("decode Temporal application error details: %v", detailsErr)
+	}
+	return applicationError.Type(), interfaces.FormatApplicationErrorDetails(details)
+}
+
 func (w *workflowProvider) NewInterpreterContinueAsNewError(
-	ctx interfaces.UnifiedContext, input service.InterpreterWorkflowInput,
+	ctx interfaces.UnifiedContext, input *iwfpb.InterpreterWorkflowInput,
 ) error {
 	wfCtx, ok := ctx.GetContext().(workflow.Context)
 	if !ok {
 		panic("cannot convert to temporal workflow context")
 	}
-	return workflow.NewContinueAsNewError(wfCtx, Interpreter, input)
+	return workflow.NewContinueAsNewError(wfCtx, service.InterpreterWorkflowName, input)
 }
 
 func (w *workflowProvider) UpsertSearchAttributes(
@@ -76,31 +94,6 @@ func (w *workflowProvider) UpsertSearchAttributes(
 		panic("cannot convert to temporal workflow context")
 	}
 	return workflow.UpsertSearchAttributes(wfCtx, attributes)
-}
-
-func (w *workflowProvider) UpsertMemo(ctx interfaces.UnifiedContext, rawMemo map[string]iwfidl.EncodedObject) error {
-	wfCtx, ok := ctx.GetContext().(workflow.Context)
-	if !ok {
-		panic("cannot convert to temporal workflow context")
-	}
-
-	memo := map[string]interface{}{}
-	dataConverter, shouldEncrypt := env.CheckAndGetTemporalMemoEncryptionDataConverter()
-	if shouldEncrypt {
-		for _, key := range workflow.DeterministicKeys(rawMemo) {
-			pl, err := dataConverter.ToPayload(rawMemo[key])
-			if err != nil {
-				return err
-			}
-			memo[key] = pl
-		}
-	} else {
-		for _, key := range workflow.DeterministicKeys(rawMemo) {
-			memo[key] = rawMemo[key]
-		}
-	}
-
-	return workflow.UpsertMemo(wfCtx, memo)
 }
 
 func (w *workflowProvider) NewTimer(ctx interfaces.UnifiedContext, d time.Duration) interfaces.Future {
@@ -132,18 +125,6 @@ func (w *workflowProvider) GetWorkflowInfo(ctx interfaces.UnifiedContext) interf
 	}
 }
 
-func (w *workflowProvider) GetSearchAttributes(
-	ctx interfaces.UnifiedContext, requestedSearchAttributes []iwfidl.SearchAttributeKeyAndType,
-) (map[string]iwfidl.SearchAttribute, error) {
-	wfCtx, ok := ctx.GetContext().(workflow.Context)
-	if !ok {
-		panic("cannot convert to temporal workflow context")
-	}
-	sas := workflow.GetInfo(wfCtx).SearchAttributes
-
-	return mapper.MapTemporalToIwfSearchAttributes(sas, requestedSearchAttributes)
-}
-
 func (w *workflowProvider) SetQueryHandler(
 	ctx interfaces.UnifiedContext, queryType string, handler interface{},
 ) error {
@@ -154,28 +135,28 @@ func (w *workflowProvider) SetQueryHandler(
 	return workflow.SetQueryHandler(wfCtx, queryType, handler)
 }
 
-func (w *workflowProvider) SetRpcUpdateHandler(
-	ctx interfaces.UnifiedContext, updateType string, validator interfaces.UnifiedRpcValidator,
-	handler interfaces.UnifiedRpcHandler,
+func (w *workflowProvider) SetInvokeRPCUpdateHandler(
+	ctx interfaces.UnifiedContext,
+	validator interfaces.InvokeRPCUpdateValidator,
+	handler interfaces.InvokeRPCUpdateHandler,
 ) error {
-	wfCtx, ok := ctx.GetContext().(workflow.Context)
-	if !ok {
-		panic("cannot convert to temporal workflow context")
-	}
-	v2 := func(ctx workflow.Context, input iwfidl.WorkflowRpcRequest) error {
-		ctx2 := interfaces.NewUnifiedContext(ctx)
-		return validator(ctx2, input)
-	}
-	h2 := func(ctx workflow.Context, input iwfidl.WorkflowRpcRequest) (*interfaces.HandlerOutput, error) {
-		ctx2 := interfaces.NewUnifiedContext(ctx)
-		return handler(ctx2, input)
-	}
-	return workflow.SetUpdateHandlerWithOptions(
-		wfCtx,
-		updateType,
-		h2,
-		workflow.UpdateHandlerOptions{Validator: v2},
-	)
+	return setUpdateHandler(ctx, service.ExecuteOptimisticLockingRpcUpdateType, validator, handler)
+}
+
+func (w *workflowProvider) SetWaitForStepCompletionUpdateHandler(
+	ctx interfaces.UnifiedContext,
+	validator interfaces.WaitForStepCompletionUpdateValidator,
+	handler interfaces.WaitForStepCompletionUpdateHandler,
+) error {
+	return setUpdateHandler(ctx, service.WaitForStepCompletionUpdateType, validator, handler)
+}
+
+func (w *workflowProvider) SetWaitForAttributeUpdateHandler(
+	ctx interfaces.UnifiedContext,
+	validator interfaces.WaitForAttributeUpdateValidator,
+	handler interfaces.WaitForAttributeUpdateHandler,
+) error {
+	return setUpdateHandler(ctx, service.WaitForAttributeUpdateType, validator, handler)
 }
 
 func (w *workflowProvider) ExtendContextWithValue(
@@ -225,6 +206,16 @@ func (w *workflowProvider) Await(ctx interfaces.UnifiedContext, condition func()
 	return workflow.Await(wfCtx, condition)
 }
 
+func (w *workflowProvider) AwaitWithTimeout(
+	ctx interfaces.UnifiedContext, timeout time.Duration, condition func() bool,
+) (bool, error) {
+	wfCtx, ok := ctx.GetContext().(workflow.Context)
+	if !ok {
+		panic("cannot convert to temporal workflow context")
+	}
+	return workflow.AwaitWithTimeout(wfCtx, timeout, condition)
+}
+
 func (w *workflowProvider) WithActivityOptions(
 	ctx interfaces.UnifiedContext, options interfaces.ActivityOptions,
 ) interfaces.UnifiedContext {
@@ -235,8 +226,8 @@ func (w *workflowProvider) WithActivityOptions(
 
 	// in Temporal, scheduled to close timeout is the timeout include all retries
 	scheduledToCloseTimeout := time.Duration(0)
-	if options.RetryPolicy.GetMaximumAttemptsDurationSeconds() > 0 {
-		scheduledToCloseTimeout = time.Second * time.Duration(options.RetryPolicy.GetMaximumAttemptsDurationSeconds())
+	if options.RetryPolicy.GetTotalDurationSeconds() > 0 {
+		scheduledToCloseTimeout = time.Second * time.Duration(options.RetryPolicy.GetTotalDurationSeconds())
 	}
 
 	wfCtx2 := workflow.WithActivityOptions(wfCtx, workflow.ActivityOptions{
@@ -273,36 +264,35 @@ func (t *futureImpl) Get(ctx interfaces.UnifiedContext, valuePtr interface{}) er
 }
 
 func (w *workflowProvider) ExecuteActivity(
-	valuePtr interface{}, optimizeByLocalActivity bool,
+	valuePtr interface{}, durability iwfpb.StepDurability,
 	ctx interfaces.UnifiedContext, activity interface{}, args ...interface{},
 ) (err error) {
 	wfCtx, ok := ctx.GetContext().(workflow.Context)
 	if !ok {
 		panic("cannot convert to temporal workflow context")
 	}
-	if optimizeByLocalActivity {
-		f := workflow.ExecuteLocalActivity(wfCtx, activity, args...)
-		err = f.Get(wfCtx, valuePtr)
-		if err != nil {
-			f = workflow.ExecuteActivity(wfCtx, activity, args...)
-			return f.Get(wfCtx, valuePtr)
+	switch durability {
+	case iwfpb.StepDurability_STEP_DURABILITY_SYNC:
+		return workflow.ExecuteActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
+	case iwfpb.StepDurability_STEP_DURABILITY_ASYNC:
+		err = workflow.ExecuteLocalActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
+		if err == nil {
+			return nil
 		}
-		return err
+		return workflow.ExecuteActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
+	default:
+		return fmt.Errorf("unsupported step durability %s", durability)
 	}
-	f := workflow.ExecuteActivity(wfCtx, activity, args...)
-	return f.Get(wfCtx, valuePtr)
 }
 
 func (w *workflowProvider) ExecuteLocalActivity(
 	valuePtr interface{}, ctx interfaces.UnifiedContext, activity interface{}, args ...interface{},
-) (err error) {
+) error {
 	wfCtx, ok := ctx.GetContext().(workflow.Context)
 	if !ok {
 		panic("cannot convert to temporal workflow context")
 	}
-
-	f := workflow.ExecuteLocalActivity(wfCtx, activity, args...)
-	return f.Get(wfCtx, valuePtr)
+	return workflow.ExecuteLocalActivity(wfCtx, activity, args...).Get(wfCtx, valuePtr)
 }
 
 func (w *workflowProvider) Now(ctx interfaces.UnifiedContext) time.Time {
@@ -393,4 +383,28 @@ func (w *workflowProvider) GetUnhandledSignalNames(ctx interfaces.UnifiedContext
 		panic("cannot convert to temporal workflow context")
 	}
 	return workflow.GetUnhandledSignalNames(wfCtx)
+}
+
+func setUpdateHandler[Request any, Response any](
+	ctx interfaces.UnifiedContext,
+	updateType string,
+	validator func(interfaces.UnifiedContext, *Request) error,
+	handler func(interfaces.UnifiedContext, *Request) (*Response, error),
+) error {
+	wfCtx, ok := ctx.GetContext().(workflow.Context)
+	if !ok {
+		panic("cannot convert to temporal workflow context")
+	}
+	temporalValidator := func(ctx workflow.Context, request *Request) error {
+		return validator(interfaces.NewUnifiedContext(ctx), request)
+	}
+	temporalHandler := func(ctx workflow.Context, request *Request) (*Response, error) {
+		return handler(interfaces.NewUnifiedContext(ctx), request)
+	}
+	return workflow.SetUpdateHandlerWithOptions(
+		wfCtx,
+		updateType,
+		temporalHandler,
+		workflow.UpdateHandlerOptions{Validator: temporalValidator},
+	)
 }

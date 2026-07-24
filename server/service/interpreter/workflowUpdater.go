@@ -25,7 +25,6 @@ import (
 	"github.com/superdurable/iwf/service"
 	"github.com/superdurable/iwf/service/common/event"
 	"github.com/superdurable/iwf/service/common/ptr"
-	"github.com/superdurable/iwf/service/interpreter/config"
 	"github.com/superdurable/iwf/service/interpreter/cont"
 	"github.com/superdurable/iwf/service/interpreter/interfaces"
 	"time"
@@ -39,16 +38,14 @@ type WorkflowUpdater struct {
 	internalChannel      *InternalChannel
 	signalReceiver       *SignalReceiver
 	stateRequestQueue    *StateRequestQueue
-	configer             *config.WorkflowConfiger
 	logger               interfaces.UnifiedLogger
 	basicInfo            service.BasicInfo
-	globalVersioner      *GlobalVersioner
 }
 
 func NewWorkflowUpdater(
 	ctx interfaces.UnifiedContext, provider interfaces.WorkflowProvider, persistenceManager *PersistenceManager,
 	stateRequestQueue *StateRequestQueue,
-	continueAsNewer *ContinueAsNewer, continueAsNewCounter *cont.ContinueAsNewCounter, configer *config.WorkflowConfiger,
+	continueAsNewer *ContinueAsNewer, continueAsNewCounter *cont.ContinueAsNewCounter,
 	internalChannel *InternalChannel, signalReceiver *SignalReceiver, basicInfo service.BasicInfo,
 	globalVersioner *GlobalVersioner,
 ) (*WorkflowUpdater, error) {
@@ -59,11 +56,9 @@ func NewWorkflowUpdater(
 		internalChannel:      internalChannel,
 		signalReceiver:       signalReceiver,
 		stateRequestQueue:    stateRequestQueue,
-		configer:             configer,
 		basicInfo:            basicInfo,
 		provider:             provider,
 		logger:               provider.GetLogger(ctx),
-		globalVersioner:      globalVersioner,
 	}
 	if globalVersioner.IsAfterVersionOfTemporal26SDK() {
 		err := provider.SetRpcUpdateHandler(ctx, service.ExecuteOptimisticLockingRpcUpdateType, updater.validator, updater.handler)
@@ -118,13 +113,14 @@ func (u *WorkflowUpdater) handler(
 	ctx = u.provider.WithActivityOptions(ctx, activityOptions)
 	var activityOutput interfaces.InvokeRpcActivityOutput
 
-	if u.globalVersioner.IsAfterVersionOfSyncUpdateRPCUseLocalActivity() {
-		err = u.provider.ExecuteLocalActivity(&activityOutput, ctx,
-			InvokeWorkerRpc, u.provider.GetBackendType(), &rpcPrep, input)
-	} else {
-		err = u.provider.ExecuteActivity(&activityOutput, u.configer.ShouldOptimizeActivity(), ctx,
-			InvokeWorkerRpc, u.provider.GetBackendType(), &rpcPrep, input)
-	}
+	err = u.provider.ExecuteLocalActivity(
+		&activityOutput,
+		ctx,
+		InvokeWorkerRpc,
+		u.provider.GetBackendType(),
+		&rpcPrep,
+		input,
+	)
 
 	u.persistenceManager.UnlockPersistence(input.SearchAttributesLoadingPolicy, input.DataAttributesLoadingPolicy)
 
@@ -142,7 +138,7 @@ func (u *WorkflowUpdater) handler(
 			Output: rpcOutput.Output,
 		}
 		u.continueAsNewCounter.IncSyncUpdateReceived()
-		_ = u.persistenceManager.ProcessUpsertDataAttribute(ctx, rpcOutput.UpsertDataAttributes)
+		u.persistenceManager.ProcessUpsertDataAttribute(rpcOutput.UpsertDataAttributes)
 		_ = u.persistenceManager.ProcessUpsertSearchAttribute(ctx, rpcOutput.UpsertSearchAttributes)
 		u.internalChannel.ProcessPublishing(rpcOutput.PublishToInterStateChannel)
 		if rpcOutput.StateDecision != nil {

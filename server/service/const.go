@@ -31,11 +31,15 @@ const (
 
 	TaskQueue = "Interpreter_DEFAULT"
 
-	GetAttributesWorkflowQueryType   = "GetAttributes"
-	GetCurrentTimerInfosQueryType    = "GetCurrentTimerInfos"
-	ContinueAsNewDumpByPageQueryType = "ContinueAsNewDumpByPage"
-	DebugDumpQueryType               = "DebugNewDump"
-	PrepareRpcQueryType              = "PrepareRpcQueryType"
+	InterpreterWorkflowName      = "Interpreter"
+	BlobStoreCleanupWorkflowName = "BlobStoreCleanup"
+
+	GetAttributesWorkflowQueryType        = "GetAttributes"
+	GetCurrentTimerInfosQueryType         = "GetCurrentTimerInfos"
+	GetScheduledGreedyTimerTimesQueryType = "GetScheduledGreedyTimerTimes"
+	ContinueAsNewDumpByPageQueryType      = "ContinueAsNewDumpByPage"
+	DebugDumpQueryType                    = "DebugNewDump"
+	PrepareRpcQueryType                   = "PrepareRpcQueryType"
 
 	ExecuteOptimisticLockingRpcUpdateType = "ExecuteOptimisticLockingRpcUpdate"
 	WaitForStepCompletionUpdateType       = "WaitForStepCompletion"
