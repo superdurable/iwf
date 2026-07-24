@@ -24,9 +24,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/superdurable/iwf/gen/iwfidl"
+	"github.com/superdurable/iwf/gen/iwfpb"
 	"github.com/superdurable/iwf/service"
-	"github.com/superdurable/iwf/service/common/errors"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type ActivityProvider interface {
@@ -41,23 +41,6 @@ type ActivityInfo struct {
 	Attempt           int32     // Attempt starts from 1, and increased by 1 for every retry if retry policy is specified.
 	IsLocalActivity   bool      // Whether the activity is at local activity
 	WorkflowExecution WorkflowExecution
-}
-
-var activityProviderRegistry = make(map[service.BackendType]ActivityProvider)
-
-func RegisterActivityProvider(backendType service.BackendType, provider ActivityProvider) {
-	if _, ok := activityProviderRegistry[backendType]; ok {
-		panic("backend type " + backendType + " has been registered")
-	}
-	activityProviderRegistry[backendType] = provider
-}
-
-func GetActivityProviderByType(backendType service.BackendType) ActivityProvider {
-	provider := activityProviderRegistry[backendType]
-	if provider == nil {
-		panic("not supported yet: " + backendType)
-	}
-	return provider
 }
 
 type UnifiedLogger interface {
@@ -85,7 +68,7 @@ type WorkflowInfo struct {
 type ActivityOptions struct {
 	StartToCloseTimeout time.Duration
 	HeartbeatTimeout    time.Duration
-	RetryPolicy         *iwfidl.RetryPolicy
+	RetryPolicy         *iwfpb.RetryPolicy
 }
 
 type UnifiedContext interface {
@@ -107,41 +90,39 @@ func NewUnifiedContext(ctx interface{}) UnifiedContext {
 }
 
 type TimerProcessor interface {
-	Dump() []service.StaleSkipTimerSignal
-	SkipTimer(stateExeId string, timerId string, timerIdx int) bool
+	Dump() []*iwfpb.StaleSkipTimer
+	SkipTimer(stepExeId string, timerConditionId string, timerIdx int) bool
 	RetryStaleSkipTimer() bool
-	WaitForTimerFiredOrSkipped(ctx UnifiedContext, stateExeId string, timerIdx int, cancelWaiting *bool) service.InternalTimerStatus
-	RemovePendingTimersOfState(stateExeId string)
-	AddTimers(stateExeId string, commands []iwfidl.TimerCommand, completedTimerCmds map[int]service.InternalTimerStatus)
-	GetTimerInfos() map[string][]*service.TimerInfo
+	WaitForTimerFiredOrSkipped(ctx UnifiedContext, stepExeId string, timerIdx int, cancelWaiting *bool) iwfpb.InternalTimerStatus
+	RemovePendingTimersOfStep(stepExeId string)
+	AddTimers(stepExeId string, timerConditions []*iwfpb.TimerCondition, completed map[int32]iwfpb.InternalTimerStatus)
+	GetTimerInfos() map[string][]*iwfpb.TimerInfo
 	GetTimerStartedUnixTimestamps() []int64
 }
 
+// WorkflowProvider is the backend-agnostic surface both Temporal and Cadence
+// interpreters implement. Update handlers are not here: sync updates are Temporal
+// only and live on UpdateProvider.
 type WorkflowProvider interface {
 	NewApplicationError(errType string, details interface{}) error
 	IsApplicationError(err error) bool
 	GetWorkflowInfo(ctx UnifiedContext) WorkflowInfo
-	GetSearchAttributes(
-		ctx UnifiedContext, requestedSearchAttributes []iwfidl.SearchAttributeKeyAndType,
-	) (map[string]iwfidl.SearchAttribute, error)
 	UpsertSearchAttributes(ctx UnifiedContext, attributes map[string]interface{}) error
-	UpsertMemo(ctx UnifiedContext, memo map[string]iwfidl.EncodedObject) error
 	SetQueryHandler(ctx UnifiedContext, queryType string, handler interface{}) error
-	SetRpcUpdateHandler(
-		ctx UnifiedContext, updateType string, validator UnifiedRpcValidator, handler UnifiedRpcHandler,
-	) error
 	ExtendContextWithValue(parent UnifiedContext, key string, val interface{}) UnifiedContext
 	GoNamed(ctx UnifiedContext, name string, f func(ctx UnifiedContext))
 	GetThreadCount() int
 	GetPendingThreadNames() map[string]int
 	Await(ctx UnifiedContext, condition func() bool) error
+	// WithCancel returns a child context and a cancel function for per-step
+	// lifecycle control, using the backend's deterministic workflow cancellation.
+	WithCancel(ctx UnifiedContext) (UnifiedContext, func())
 	WithActivityOptions(ctx UnifiedContext, options ActivityOptions) UnifiedContext
+	// ExecuteActivity dispatches on durability: SYNC runs a regular activity, ASYNC
+	// runs a local activity. UNSPECIFIED is rejected at this boundary.
 	ExecuteActivity(
-		valuePtr interface{}, optimizeByLocalActivity bool, ctx UnifiedContext, activity interface{},
+		valuePtr interface{}, durability iwfpb.StepDurability, ctx UnifiedContext, activity interface{},
 		args ...interface{},
-	) (err error)
-	ExecuteLocalActivity(
-		valuePtr interface{}, ctx UnifiedContext, activity interface{}, args ...interface{},
 	) (err error)
 	Now(ctx UnifiedContext) time.Time
 	IsReplaying(ctx UnifiedContext) bool
@@ -153,8 +134,32 @@ type WorkflowProvider interface {
 	GetUnhandledSignalNames(ctx UnifiedContext) []string
 	GetBackendType() service.BackendType
 	GetLogger(ctx UnifiedContext) UnifiedLogger
-	NewInterpreterContinueAsNewError(ctx UnifiedContext, input service.InterpreterWorkflowInput) error
+	NewInterpreterContinueAsNewError(ctx UnifiedContext, input *iwfpb.InterpreterWorkflowInput) error
 }
+
+// UpdateProvider is the Temporal-only synchronous-update capability. Cadence does
+// not implement it; the interpreter registers update handlers only when the
+// provider satisfies this interface, and the API rejects update-only RPCs on
+// Cadence before dialing.
+type UpdateProvider interface {
+	SetInvokeRPCUpdateHandler(ctx UnifiedContext, validator InvokeRPCUpdateValidator, handler InvokeRPCUpdateHandler) error
+	SetWaitForStepCompletionUpdateHandler(ctx UnifiedContext, validator WaitForStepCompletionUpdateValidator, handler WaitForStepCompletionUpdateHandler) error
+	SetWaitForAttributeUpdateHandler(ctx UnifiedContext, validator WaitForAttributeUpdateValidator, handler WaitForAttributeUpdateHandler) error
+	// AwaitWithTimeout waits until cond is true or the timeout elapses, canceling
+	// the deadline timer when the predicate wins. matched reports which happened.
+	AwaitWithTimeout(ctx UnifiedContext, timeout time.Duration, cond func() bool) (matched bool, err error)
+}
+
+type (
+	InvokeRPCUpdateValidator func(ctx UnifiedContext, req *iwfpb.InvokeRPCRequest) error
+	InvokeRPCUpdateHandler   func(ctx UnifiedContext, req *iwfpb.InvokeRPCRequest) (*iwfpb.InvokeRpcUpdateResult, error)
+
+	WaitForStepCompletionUpdateValidator func(ctx UnifiedContext, req *iwfpb.WaitForStepCompletionRequest) error
+	WaitForStepCompletionUpdateHandler   func(ctx UnifiedContext, req *iwfpb.WaitForStepCompletionRequest) (*iwfpb.WaitForStepCompletionResponse, error)
+
+	WaitForAttributeUpdateValidator func(ctx UnifiedContext, req *iwfpb.WaitForAttributeRequest) error
+	WaitForAttributeUpdateHandler   func(ctx UnifiedContext, req *iwfpb.WaitForAttributeRequest) (*emptypb.Empty, error)
+)
 
 type ReceiveChannel interface {
 	ReceiveAsync(valuePtr interface{}) (ok bool)
@@ -165,14 +170,3 @@ type Future interface {
 	Get(ctx UnifiedContext, valuePtr interface{}) error
 	IsReady() bool
 }
-
-type HandlerOutput struct {
-	RpcOutput   *iwfidl.WorkflowRpcResponse
-	StatusError *errors.ErrorAndStatus
-}
-type InvokeRpcActivityOutput struct {
-	RpcOutput   *iwfidl.WorkflowWorkerRpcResponse
-	StatusError *errors.ErrorAndStatus
-}
-type UnifiedRpcHandler func(ctx UnifiedContext, input iwfidl.WorkflowRpcRequest) (*HandlerOutput, error)
-type UnifiedRpcValidator func(ctx UnifiedContext, input iwfidl.WorkflowRpcRequest) error

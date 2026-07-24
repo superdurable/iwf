@@ -30,7 +30,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	iwfidl "github.com/superdurable/iwf/gen/iwfidl"
+	iwfpb "github.com/superdurable/iwf/gen/iwfpb"
 	service "github.com/superdurable/iwf/service"
 )
 
@@ -268,22 +268,22 @@ func (m *MockTimerProcessor) EXPECT() *MockTimerProcessorMockRecorder {
 }
 
 // AddTimers mocks base method.
-func (m *MockTimerProcessor) AddTimers(stateExeId string, commands []iwfidl.TimerCommand, completedTimerCmds map[int]service.InternalTimerStatus) {
+func (m *MockTimerProcessor) AddTimers(stepExeId string, timerConditions []*iwfpb.TimerCondition, completed map[int32]iwfpb.InternalTimerStatus) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddTimers", stateExeId, commands, completedTimerCmds)
+	m.ctrl.Call(m, "AddTimers", stepExeId, timerConditions, completed)
 }
 
 // AddTimers indicates an expected call of AddTimers.
-func (mr *MockTimerProcessorMockRecorder) AddTimers(stateExeId, commands, completedTimerCmds interface{}) *gomock.Call {
+func (mr *MockTimerProcessorMockRecorder) AddTimers(stepExeId, timerConditions, completed interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTimers", reflect.TypeOf((*MockTimerProcessor)(nil).AddTimers), stateExeId, commands, completedTimerCmds)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTimers", reflect.TypeOf((*MockTimerProcessor)(nil).AddTimers), stepExeId, timerConditions, completed)
 }
 
 // Dump mocks base method.
-func (m *MockTimerProcessor) Dump() []service.StaleSkipTimerSignal {
+func (m *MockTimerProcessor) Dump() []*iwfpb.StaleSkipTimer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dump")
-	ret0, _ := ret[0].([]service.StaleSkipTimerSignal)
+	ret0, _ := ret[0].([]*iwfpb.StaleSkipTimer)
 	return ret0
 }
 
@@ -294,10 +294,10 @@ func (mr *MockTimerProcessorMockRecorder) Dump() *gomock.Call {
 }
 
 // GetTimerInfos mocks base method.
-func (m *MockTimerProcessor) GetTimerInfos() map[string][]*service.TimerInfo {
+func (m *MockTimerProcessor) GetTimerInfos() map[string][]*iwfpb.TimerInfo {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTimerInfos")
-	ret0, _ := ret[0].(map[string][]*service.TimerInfo)
+	ret0, _ := ret[0].(map[string][]*iwfpb.TimerInfo)
 	return ret0
 }
 
@@ -321,16 +321,16 @@ func (mr *MockTimerProcessorMockRecorder) GetTimerStartedUnixTimestamps() *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTimerStartedUnixTimestamps", reflect.TypeOf((*MockTimerProcessor)(nil).GetTimerStartedUnixTimestamps))
 }
 
-// RemovePendingTimersOfState mocks base method.
-func (m *MockTimerProcessor) RemovePendingTimersOfState(stateExeId string) {
+// RemovePendingTimersOfStep mocks base method.
+func (m *MockTimerProcessor) RemovePendingTimersOfStep(stepExeId string) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemovePendingTimersOfState", stateExeId)
+	m.ctrl.Call(m, "RemovePendingTimersOfStep", stepExeId)
 }
 
-// RemovePendingTimersOfState indicates an expected call of RemovePendingTimersOfState.
-func (mr *MockTimerProcessorMockRecorder) RemovePendingTimersOfState(stateExeId interface{}) *gomock.Call {
+// RemovePendingTimersOfStep indicates an expected call of RemovePendingTimersOfStep.
+func (mr *MockTimerProcessorMockRecorder) RemovePendingTimersOfStep(stepExeId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingTimersOfState", reflect.TypeOf((*MockTimerProcessor)(nil).RemovePendingTimersOfState), stateExeId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingTimersOfStep", reflect.TypeOf((*MockTimerProcessor)(nil).RemovePendingTimersOfStep), stepExeId)
 }
 
 // RetryStaleSkipTimer mocks base method.
@@ -348,31 +348,31 @@ func (mr *MockTimerProcessorMockRecorder) RetryStaleSkipTimer() *gomock.Call {
 }
 
 // SkipTimer mocks base method.
-func (m *MockTimerProcessor) SkipTimer(stateExeId, timerId string, timerIdx int) bool {
+func (m *MockTimerProcessor) SkipTimer(stepExeId, timerConditionId string, timerIdx int) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SkipTimer", stateExeId, timerId, timerIdx)
+	ret := m.ctrl.Call(m, "SkipTimer", stepExeId, timerConditionId, timerIdx)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // SkipTimer indicates an expected call of SkipTimer.
-func (mr *MockTimerProcessorMockRecorder) SkipTimer(stateExeId, timerId, timerIdx interface{}) *gomock.Call {
+func (mr *MockTimerProcessorMockRecorder) SkipTimer(stepExeId, timerConditionId, timerIdx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SkipTimer", reflect.TypeOf((*MockTimerProcessor)(nil).SkipTimer), stateExeId, timerId, timerIdx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SkipTimer", reflect.TypeOf((*MockTimerProcessor)(nil).SkipTimer), stepExeId, timerConditionId, timerIdx)
 }
 
 // WaitForTimerFiredOrSkipped mocks base method.
-func (m *MockTimerProcessor) WaitForTimerFiredOrSkipped(ctx UnifiedContext, stateExeId string, timerIdx int, cancelWaiting *bool) service.InternalTimerStatus {
+func (m *MockTimerProcessor) WaitForTimerFiredOrSkipped(ctx UnifiedContext, stepExeId string, timerIdx int, cancelWaiting *bool) iwfpb.InternalTimerStatus {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WaitForTimerFiredOrSkipped", ctx, stateExeId, timerIdx, cancelWaiting)
-	ret0, _ := ret[0].(service.InternalTimerStatus)
+	ret := m.ctrl.Call(m, "WaitForTimerFiredOrSkipped", ctx, stepExeId, timerIdx, cancelWaiting)
+	ret0, _ := ret[0].(iwfpb.InternalTimerStatus)
 	return ret0
 }
 
 // WaitForTimerFiredOrSkipped indicates an expected call of WaitForTimerFiredOrSkipped.
-func (mr *MockTimerProcessorMockRecorder) WaitForTimerFiredOrSkipped(ctx, stateExeId, timerIdx, cancelWaiting interface{}) *gomock.Call {
+func (mr *MockTimerProcessorMockRecorder) WaitForTimerFiredOrSkipped(ctx, stepExeId, timerIdx, cancelWaiting interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForTimerFiredOrSkipped", reflect.TypeOf((*MockTimerProcessor)(nil).WaitForTimerFiredOrSkipped), ctx, stateExeId, timerIdx, cancelWaiting)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForTimerFiredOrSkipped", reflect.TypeOf((*MockTimerProcessor)(nil).WaitForTimerFiredOrSkipped), ctx, stepExeId, timerIdx, cancelWaiting)
 }
 
 // MockWorkflowProvider is a mock of WorkflowProvider interface.
@@ -413,9 +413,9 @@ func (mr *MockWorkflowProviderMockRecorder) Await(ctx, condition interface{}) *g
 }
 
 // ExecuteActivity mocks base method.
-func (m *MockWorkflowProvider) ExecuteActivity(valuePtr interface{}, optimizeByLocalActivity bool, ctx UnifiedContext, activity interface{}, args ...interface{}) error {
+func (m *MockWorkflowProvider) ExecuteActivity(valuePtr interface{}, durability iwfpb.StepDurability, ctx UnifiedContext, activity interface{}, args ...interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{valuePtr, optimizeByLocalActivity, ctx, activity}
+	varargs := []interface{}{valuePtr, durability, ctx, activity}
 	for _, a := range args {
 		varargs = append(varargs, a)
 	}
@@ -425,29 +425,10 @@ func (m *MockWorkflowProvider) ExecuteActivity(valuePtr interface{}, optimizeByL
 }
 
 // ExecuteActivity indicates an expected call of ExecuteActivity.
-func (mr *MockWorkflowProviderMockRecorder) ExecuteActivity(valuePtr, optimizeByLocalActivity, ctx, activity interface{}, args ...interface{}) *gomock.Call {
+func (mr *MockWorkflowProviderMockRecorder) ExecuteActivity(valuePtr, durability, ctx, activity interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{valuePtr, optimizeByLocalActivity, ctx, activity}, args...)
+	varargs := append([]interface{}{valuePtr, durability, ctx, activity}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteActivity", reflect.TypeOf((*MockWorkflowProvider)(nil).ExecuteActivity), varargs...)
-}
-
-// ExecuteLocalActivity mocks base method.
-func (m *MockWorkflowProvider) ExecuteLocalActivity(valuePtr interface{}, ctx UnifiedContext, activity interface{}, args ...interface{}) error {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{valuePtr, ctx, activity}
-	for _, a := range args {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ExecuteLocalActivity", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ExecuteLocalActivity indicates an expected call of ExecuteLocalActivity.
-func (mr *MockWorkflowProviderMockRecorder) ExecuteLocalActivity(valuePtr, ctx, activity interface{}, args ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{valuePtr, ctx, activity}, args...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteLocalActivity", reflect.TypeOf((*MockWorkflowProvider)(nil).ExecuteLocalActivity), varargs...)
 }
 
 // ExtendContextWithValue mocks base method.
@@ -518,21 +499,6 @@ func (m *MockWorkflowProvider) GetPendingThreadNames() map[string]int {
 func (mr *MockWorkflowProviderMockRecorder) GetPendingThreadNames() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingThreadNames", reflect.TypeOf((*MockWorkflowProvider)(nil).GetPendingThreadNames))
-}
-
-// GetSearchAttributes mocks base method.
-func (m *MockWorkflowProvider) GetSearchAttributes(ctx UnifiedContext, requestedSearchAttributes []iwfidl.SearchAttributeKeyAndType) (map[string]iwfidl.SearchAttribute, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSearchAttributes", ctx, requestedSearchAttributes)
-	ret0, _ := ret[0].(map[string]iwfidl.SearchAttribute)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSearchAttributes indicates an expected call of GetSearchAttributes.
-func (mr *MockWorkflowProviderMockRecorder) GetSearchAttributes(ctx, requestedSearchAttributes interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSearchAttributes", reflect.TypeOf((*MockWorkflowProvider)(nil).GetSearchAttributes), ctx, requestedSearchAttributes)
 }
 
 // GetSignalChannel mocks base method.
@@ -660,7 +626,7 @@ func (mr *MockWorkflowProviderMockRecorder) NewApplicationError(errType, details
 }
 
 // NewInterpreterContinueAsNewError mocks base method.
-func (m *MockWorkflowProvider) NewInterpreterContinueAsNewError(ctx UnifiedContext, input service.InterpreterWorkflowInput) error {
+func (m *MockWorkflowProvider) NewInterpreterContinueAsNewError(ctx UnifiedContext, input *iwfpb.InterpreterWorkflowInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewInterpreterContinueAsNewError", ctx, input)
 	ret0, _ := ret[0].(error)
@@ -715,20 +681,6 @@ func (mr *MockWorkflowProviderMockRecorder) SetQueryHandler(ctx, queryType, hand
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetQueryHandler", reflect.TypeOf((*MockWorkflowProvider)(nil).SetQueryHandler), ctx, queryType, handler)
 }
 
-// SetRpcUpdateHandler mocks base method.
-func (m *MockWorkflowProvider) SetRpcUpdateHandler(ctx UnifiedContext, updateType string, validator UnifiedRpcValidator, handler UnifiedRpcHandler) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRpcUpdateHandler", ctx, updateType, validator, handler)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetRpcUpdateHandler indicates an expected call of SetRpcUpdateHandler.
-func (mr *MockWorkflowProviderMockRecorder) SetRpcUpdateHandler(ctx, updateType, validator, handler interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRpcUpdateHandler", reflect.TypeOf((*MockWorkflowProvider)(nil).SetRpcUpdateHandler), ctx, updateType, validator, handler)
-}
-
 // Sleep mocks base method.
 func (m *MockWorkflowProvider) Sleep(ctx UnifiedContext, d time.Duration) error {
 	m.ctrl.T.Helper()
@@ -741,20 +693,6 @@ func (m *MockWorkflowProvider) Sleep(ctx UnifiedContext, d time.Duration) error 
 func (mr *MockWorkflowProviderMockRecorder) Sleep(ctx, d interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sleep", reflect.TypeOf((*MockWorkflowProvider)(nil).Sleep), ctx, d)
-}
-
-// UpsertMemo mocks base method.
-func (m *MockWorkflowProvider) UpsertMemo(ctx UnifiedContext, memo map[string]iwfidl.EncodedObject) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertMemo", ctx, memo)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpsertMemo indicates an expected call of UpsertMemo.
-func (mr *MockWorkflowProviderMockRecorder) UpsertMemo(ctx, memo interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertMemo", reflect.TypeOf((*MockWorkflowProvider)(nil).UpsertMemo), ctx, memo)
 }
 
 // UpsertSearchAttributes mocks base method.
@@ -783,6 +721,101 @@ func (m *MockWorkflowProvider) WithActivityOptions(ctx UnifiedContext, options A
 func (mr *MockWorkflowProviderMockRecorder) WithActivityOptions(ctx, options interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithActivityOptions", reflect.TypeOf((*MockWorkflowProvider)(nil).WithActivityOptions), ctx, options)
+}
+
+// WithCancel mocks base method.
+func (m *MockWorkflowProvider) WithCancel(ctx UnifiedContext) (UnifiedContext, func()) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithCancel", ctx)
+	ret0, _ := ret[0].(UnifiedContext)
+	ret1, _ := ret[1].(func())
+	return ret0, ret1
+}
+
+// WithCancel indicates an expected call of WithCancel.
+func (mr *MockWorkflowProviderMockRecorder) WithCancel(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithCancel", reflect.TypeOf((*MockWorkflowProvider)(nil).WithCancel), ctx)
+}
+
+// MockUpdateProvider is a mock of UpdateProvider interface.
+type MockUpdateProvider struct {
+	ctrl     *gomock.Controller
+	recorder *MockUpdateProviderMockRecorder
+}
+
+// MockUpdateProviderMockRecorder is the mock recorder for MockUpdateProvider.
+type MockUpdateProviderMockRecorder struct {
+	mock *MockUpdateProvider
+}
+
+// NewMockUpdateProvider creates a new mock instance.
+func NewMockUpdateProvider(ctrl *gomock.Controller) *MockUpdateProvider {
+	mock := &MockUpdateProvider{ctrl: ctrl}
+	mock.recorder = &MockUpdateProviderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUpdateProvider) EXPECT() *MockUpdateProviderMockRecorder {
+	return m.recorder
+}
+
+// AwaitWithTimeout mocks base method.
+func (m *MockUpdateProvider) AwaitWithTimeout(ctx UnifiedContext, timeout time.Duration, cond func() bool) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AwaitWithTimeout", ctx, timeout, cond)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AwaitWithTimeout indicates an expected call of AwaitWithTimeout.
+func (mr *MockUpdateProviderMockRecorder) AwaitWithTimeout(ctx, timeout, cond interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AwaitWithTimeout", reflect.TypeOf((*MockUpdateProvider)(nil).AwaitWithTimeout), ctx, timeout, cond)
+}
+
+// SetInvokeRPCUpdateHandler mocks base method.
+func (m *MockUpdateProvider) SetInvokeRPCUpdateHandler(ctx UnifiedContext, validator InvokeRPCUpdateValidator, handler InvokeRPCUpdateHandler) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetInvokeRPCUpdateHandler", ctx, validator, handler)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetInvokeRPCUpdateHandler indicates an expected call of SetInvokeRPCUpdateHandler.
+func (mr *MockUpdateProviderMockRecorder) SetInvokeRPCUpdateHandler(ctx, validator, handler interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInvokeRPCUpdateHandler", reflect.TypeOf((*MockUpdateProvider)(nil).SetInvokeRPCUpdateHandler), ctx, validator, handler)
+}
+
+// SetWaitForAttributeUpdateHandler mocks base method.
+func (m *MockUpdateProvider) SetWaitForAttributeUpdateHandler(ctx UnifiedContext, validator WaitForAttributeUpdateValidator, handler WaitForAttributeUpdateHandler) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetWaitForAttributeUpdateHandler", ctx, validator, handler)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetWaitForAttributeUpdateHandler indicates an expected call of SetWaitForAttributeUpdateHandler.
+func (mr *MockUpdateProviderMockRecorder) SetWaitForAttributeUpdateHandler(ctx, validator, handler interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetWaitForAttributeUpdateHandler", reflect.TypeOf((*MockUpdateProvider)(nil).SetWaitForAttributeUpdateHandler), ctx, validator, handler)
+}
+
+// SetWaitForStepCompletionUpdateHandler mocks base method.
+func (m *MockUpdateProvider) SetWaitForStepCompletionUpdateHandler(ctx UnifiedContext, validator WaitForStepCompletionUpdateValidator, handler WaitForStepCompletionUpdateHandler) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetWaitForStepCompletionUpdateHandler", ctx, validator, handler)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetWaitForStepCompletionUpdateHandler indicates an expected call of SetWaitForStepCompletionUpdateHandler.
+func (mr *MockUpdateProviderMockRecorder) SetWaitForStepCompletionUpdateHandler(ctx, validator, handler interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetWaitForStepCompletionUpdateHandler", reflect.TypeOf((*MockUpdateProvider)(nil).SetWaitForStepCompletionUpdateHandler), ctx, validator, handler)
 }
 
 // MockReceiveChannel is a mock of ReceiveChannel interface.

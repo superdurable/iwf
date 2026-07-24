@@ -71,6 +71,10 @@ Leave generated code unchanged and keep tightly coupled subsystem clusters intac
   `github.com/superdurable/iwf/service/common/ptr`.
 - Give numeric literals explicit types, such as `ptr.Any(int64(0))`.
 - Do not use `ptr.Any` when the pointer must alias a named variable used elsewhere.
+- Do not call `proto.Clone` (or make other defensive copies) unless code actually
+  mutates a shared message in place. Workflow inputs, signals, and activity payloads
+  are freshly deserialized and single-threaded; prefer code that never mutates a
+  shared message over cloning it.
 - Use each package's declared name. Alias only for collisions, misleading names,
   or established conventions such as `iwfidl`. Do not invent aliases such as
   `servermetrics` or `mongostore`.

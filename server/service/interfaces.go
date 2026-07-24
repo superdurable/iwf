@@ -24,122 +24,16 @@ import (
 	"github.com/superdurable/iwf/gen/iwfpb"
 )
 
-type (
-	InterpreterWorkflowInput struct {
-		FlowType string `json:"flowType,omitempty"`
+// BasicInfo is the small, backend-agnostic identity the interpreter threads
+// through activities and events. All history/query/signal payloads are proto
+// messages in iwfpb; this struct is not serialized into history.
+type BasicInfo struct {
+	FlowType     string
+	WorkerTarget string
+}
 
-		WorkerTarget string `json:"workerTarget,omitempty"`
-
-		StartStepType string `json:"startStepType,omitempty"`
-
-		WaitForCompletionStepExecutionIds []string `json:"waitForCompletionStepExecutionIds,omitempty"`
-		WaitForCompletionStepTypes        []string `json:"waitForCompletionStepTypes,omitempty"`
-
-		StepInput *iwfpb.Value `json:"stepInput,omitempty"`
-
-		StepOptions *iwfpb.StepOptions `json:"stepOptions,omitempty"`
-
-		InitAttributes []*iwfpb.AttributeWrite `json:"initAttributes,omitempty"`
-
-		Config *iwfpb.FlowConfig `json:"config,omitempty"`
-
-		// IsResumeFromContinueAsNew ignores StartStepType / StepInput / StepOptions / InitAttributes.
-		IsResumeFromContinueAsNew bool `json:"isResumeFromContinueAsNew,omitempty"`
-
-		ContinueAsNewInput *ContinueAsNewInput `json:"continueAsNewInput,omitempty"`
-	}
-
-	ContinueAsNewInput struct {
-		PreviousInternalRunId string `json:"previousInternalRunId"`
-	}
-
-	InterpreterWorkflowOutput struct {
-		StepCompletionOutputs []*iwfpb.StepCompletionOutput `json:"stepCompletionOutputs,omitempty"`
-	}
-
-	BasicInfo struct {
-		FlowType     string `json:"flowType,omitempty"`
-		WorkerTarget string `json:"workerTarget,omitempty"`
-	}
-
-	InvokeWaitForMethodActivityInput struct {
-		WorkerTarget string
-		Request      *iwfpb.InvokeWaitForMethodRequest
-	}
-
-	InvokeExecuteMethodActivityInput struct {
-		WorkerTarget string
-		Request      *iwfpb.InvokeExecuteMethodRequest
-	}
-
-	GetAttributesQueryRequest struct {
-		Keys    []string
-		AllKeys bool
-	}
-
-	GetAttributesQueryResponse struct {
-		Attributes []*iwfpb.KV
-	}
-
-	PrepareRpcQueryRequest struct {
-		LockAttributeKeys []string
-	}
-
-	PrepareRpcQueryResponse struct {
-		Attributes           []*iwfpb.KV
-		RunId                string
-		FlowStartedTimestamp int64
-		FlowType             string
-		WorkerTarget         string
-		ChannelInfos         map[string]*iwfpb.ChannelInfo
-	}
-
-	ExecuteRpcSignalRequest struct {
-		RpcInput         *iwfpb.Value             `json:"rpcInput,omitempty"`
-		RpcOutput        *iwfpb.Value             `json:"rpcOutput,omitempty"`
-		UpsertAttributes []*iwfpb.AttributeWrite  `json:"upsertAttributes,omitempty"`
-		StepDecision     *iwfpb.StepDecision      `json:"stepDecision,omitempty"`
-		RecordEvents     []*iwfpb.KV              `json:"recordEvents,omitempty"`
-		PublishToChannel []*iwfpb.ChannelMessage  `json:"publishToChannel,omitempty"`
-	}
-
-	GetCurrentTimerInfosQueryResponse struct {
-		StepExecutionCurrentTimerInfos map[string][]*TimerInfo // key is stepExecutionId
-	}
-
-	GetScheduledGreedyTimerTimesQueryResponse struct {
-		PendingScheduled []*TimerInfo
-	}
-
-	TimerInfo struct {
-		ConditionId                *string
-		FiringUnixTimestampSeconds int64
-		Status                     InternalTimerStatus
-	}
-
-	SkipTimerSignalRequest struct {
-		StepExecutionId     string
-		TimerConditionId    string
-		TimerConditionIndex int
-	}
-
-	FailFlowSignalRequest struct {
-		Reason string
-	}
-
-	CompleteFlowSignalRequest struct {
-		Reason string
-	}
-
-	InternalTimerStatus string
-
-	DebugDumpResponse struct {
-		Config                     *iwfpb.FlowConfig
-		Snapshot                   *iwfpb.ContinueAsNewDump
-		FiringTimersUnixTimestamps []int64
-	}
-)
-
+// StepExecutionStatus is the interpreter's internal per-step-execution outcome.
+// It is not serialized to history and has no proto equivalent.
 type StepExecutionStatus string
 
 const FailureStepExecutionStatus StepExecutionStatus = "Failure"
@@ -147,29 +41,18 @@ const WaitingConditionsStepExecutionStatus StepExecutionStatus = "WaitingConditi
 const CompletedStepExecutionStatus StepExecutionStatus = "Completed"
 const ExecuteApiFailedAndProceed StepExecutionStatus = "ExecuteApiFailedAndProceed"
 
-// Legacy aliases used until Phase 4 renames all interpreter call sites.
-const FailureStateExecutionStatus = FailureStepExecutionStatus
-const WaitingCommandsStateExecutionStatus = WaitingConditionsStepExecutionStatus
-const CompletedStateExecutionStatus = CompletedStepExecutionStatus
-
-const (
-	TimerPending InternalTimerStatus = "Pending"
-	TimerFired   InternalTimerStatus = "Fired"
-	TimerSkipped InternalTimerStatus = "Skipped"
-)
-
-// ValidateTimerSkipRequest validates if the skip timer request is valid.
-// Prefer timerConditionId when non-empty; otherwise use timerIdx.
+// ValidateTimerSkipRequest validates a skip-timer request against a step's timer
+// infos. Prefer timerConditionId when non-empty; otherwise use timerIdx.
 func ValidateTimerSkipRequest(
-	stepExeTimerInfos map[string][]*TimerInfo, stepExeId, timerConditionId string, timerIdx int,
-) (*TimerInfo, bool) {
+	stepExeTimerInfos map[string][]*iwfpb.TimerInfo, stepExeId, timerConditionId string, timerIdx int,
+) (*iwfpb.TimerInfo, bool) {
 	timerInfos := stepExeTimerInfos[stepExeId]
 	if len(timerInfos) == 0 {
 		return nil, false
 	}
 	if timerConditionId != "" {
 		for _, t := range timerInfos {
-			if t.ConditionId != nil && *t.ConditionId == timerConditionId {
+			if t.GetConditionId() == timerConditionId {
 				return t, true
 			}
 		}
@@ -177,7 +60,7 @@ func ValidateTimerSkipRequest(
 	}
 	if timerIdx >= 0 && timerIdx < len(timerInfos) {
 		t := timerInfos[timerIdx]
-		if t.Status == TimerPending {
+		if t.GetStatus() == iwfpb.InternalTimerStatus_INTERNAL_TIMER_STATUS_PENDING {
 			return t, true
 		}
 	}
